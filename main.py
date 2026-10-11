@@ -1,8 +1,20 @@
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from pydantic import BaseModel 
 
-app=FastAPI()
+app = FastAPI()
+
+class ChatMessage(BaseModel):
+    message: str
+
+@app.get("/")
+def home():
+    return FileResponse("static/index.html")
 
 
-@app.get( "/")
-def home ():
-    return{"name: Cerberus  version: 0.0.1"}
+@app.post("/chat")
+def chat(msg:ChatMessage):
+    return{"reply":f"Cerberus heard:{msg.message}"}
+
+
+

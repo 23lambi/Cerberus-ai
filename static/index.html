@@ -1,0 +1,47 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Cerberus</title>
+</head>
+<body>
+  <h1>Cerberus</h1>
+
+  <div id="messages"></div>
+
+  <form id="chat-form">
+    <input id="input" placeholder="Say something..." autocomplete="off">
+    <button>Send</button>
+  </form>
+
+  <script>
+    const form = document.getElementById("chat-form");
+    const input = document.getElementById("input");
+    const messages = document.getElementById("messages");
+
+    function addMessage(text) {
+      const p = document.createElement("p");
+      p.textContent = text;
+      messages.appendChild(p);
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+
+      addMessage("You: " + text);
+      input.value = "";
+
+      const response = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text }),
+      });
+      const data = await response.json();
+      addMessage("Cerberus: " + data.reply);
+    });
+  </script>
+</body>
+</html>
