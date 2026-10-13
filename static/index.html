@@ -3,96 +3,76 @@
 <head>
   <meta charset="UTF-8">
   <title>Cerberus</title>
+  <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <h1>Cerberus</h1>
+  <aside id="sidebar">
+    <button id="new-chat">New chat</button>
+    <button id="open-memory">Memory</button>
+    <button id="open-documents">Documents</button>
+    <button id="open-settings">Settings</button>
+    <ul id="chat-list"></ul>
+  </aside>
 
-  <label>
-    Model:
-    <select id="model"></select>
-  </label>
+  <main>
+    <header>
+      <h1>Cerberus</h1>
+      <label>
+        Model:
+        <select id="model"></select>
+      </label>
+      <label>
+        <input type="checkbox" id="three-heads"> Deep think
+      </label>
+    </header>
 
-  <div id="messages"></div>
+    <div id="messages"></div>
 
-  <form id="chat-form">
-    <input id="input" placeholder="Say something..." autocomplete="off">
-    <button>Send</button>
-  </form>
+    <form id="chat-form">
+      <input id="input" placeholder="Say something..." autocomplete="off">
+      <button>Send</button>
+    </form>
+  </main>
 
-  <script>
-    const form = document.getElementById("chat-form");
-    const input = document.getElementById("input");
-    const messages = document.getElementById("messages");
-    const modelSelect = document.getElementById("model");
+  <dialog id="settings-dialog">
+    <form id="settings-form">
+      <h2>Settings</h2>
+      <div id="settings-fields"></div>
+      <div class="dialog-buttons">
+        <button type="button" id="settings-reset">Reset to defaults</button>
+        <button type="button" id="settings-cancel">Cancel</button>
+        <button type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
 
-    const history = [];
+  <dialog id="memory-dialog">
+    <h2>Memory</h2>
+    <p class="hint">What Cerberus remembers about you. Everything stays on this computer.</p>
+    <form id="memory-add">
+      <input id="memory-input" placeholder="Add something to remember..." autocomplete="off">
+      <button>Add</button>
+    </form>
+    <ul id="memory-list"></ul>
+    <div class="dialog-buttons">
+      <button type="button" id="memory-close">Close</button>
+    </div>
+  </dialog>
 
-    function addMessage(text) {
-      const p = document.createElement("p");
-      p.textContent = text;
-      messages.appendChild(p);
-      return p;
-    }
+  <dialog id="documents-dialog">
+    <h2>Documents</h2>
+    <p class="hint">Files Cerberus can read and answer questions about. They stay on this computer.</p>
+    <input type="file" id="document-file" multiple accept=".txt,.md,.markdown,.pdf,.csv,.json,.py,.js,.html">
+    <p id="document-status" class="hint"></p>
+    <ul id="document-list"></ul>
+    <div class="dialog-buttons">
+      <button type="button" id="documents-close">Close</button>
+    </div>
+  </dialog>
 
-    async function loadModels() {
-      const response = await fetch("/models");
-      const data = await response.json();
-
-      if (data.models.length === 0) {
-        addMessage("No models found  Install one with: ollama pull llama3.2");
-        return;
-      }
-
-      for (const name of data.models) {
-        const option = document.createElement("option");
-        option.value = name;
-        option.textContent = name;
-        modelSelect.appendChild(option);
-      }
-    }
-
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const text = input.value.trim();
-      if (!text) return;
-
-      const model = modelSelect.value;
-      if (!model) {
-        addMessage("Please pick a model first ");
-        return;
-      }
-
-      addMessage("You: " + text);
-      history.push({ role: "user", content: text });
-      input.value = "";
-
-      const bubble = addMessage("Cerberus (" + model + ") is thinking... ");
-
-      try {
-        const response = await fetch("/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: history, model: model }),
-        });
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let reply = "";
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          reply += decoder.decode(value, { stream: true });
-          bubble.textContent = "Cerberus (" + model + "): " + reply;
-        }
-
-        history.push({ role: "assistant", content: reply });
-      } catch (error) {
-        bubble.textContent = "Cerberus: something went wrong ";
-      }
-    });
-
-    loadModels();
-  </script>
+  <script src="/static/app.js"></script>
+  <script src="/static/settings.js"></script>
+  <script src="/static/memory.js"></script>
+  <script src="/static/documents.js"></script>
 </body>
 </html>
