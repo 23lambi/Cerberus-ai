@@ -7,6 +7,11 @@
 <body>
   <h1>Cerberus</h1>
 
+  <label>
+    Model:
+    <select id="model"></select>
+  </label>
+
   <div id="messages"></div>
 
   <form id="chat-form">
@@ -18,6 +23,7 @@
     const form = document.getElementById("chat-form");
     const input = document.getElementById("input");
     const messages = document.getElementById("messages");
+    const modelSelect = document.getElementById("model");
 
     const history = [];
 
@@ -28,22 +34,45 @@
       return p;
     }
 
+    async function loadModels() {
+      const response = await fetch("/models");
+      const data = await response.json();
+
+      if (data.models.length === 0) {
+        addMessage("No models found  Install one with: ollama pull llama3.2");
+        return;
+      }
+
+      for (const name of data.models) {
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = name;
+        modelSelect.appendChild(option);
+      }
+    }
+
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const text = input.value.trim();
       if (!text) return;
 
+      const model = modelSelect.value;
+      if (!model) {
+        addMessage("Please pick a model first ");
+        return;
+      }
+
       addMessage("You: " + text);
       history.push({ role: "user", content: text });
       input.value = "";
 
-      const bubble = addMessage("Cerberus is thinking... 🐕");
+      const bubble = addMessage("Cerberus (" + model + ") is thinking... ");
 
       try {
         const response = await fetch("/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: history }),
+          body: JSON.stringify({ messages: history, model: model }),
         });
 
         const reader = response.body.getReader();
@@ -54,7 +83,7 @@
           const { done, value } = await reader.read();
           if (done) break;
           reply += decoder.decode(value, { stream: true });
-          bubble.textContent = "Cerberus: " + reply;
+          bubble.textContent = "Cerberus (" + model + "): " + reply;
         }
 
         history.push({ role: "assistant", content: reply });
@@ -62,6 +91,8 @@
         bubble.textContent = "Cerberus: something went wrong ";
       }
     });
+
+    loadModels();
   </script>
 </body>
 </html>
