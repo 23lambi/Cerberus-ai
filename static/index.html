@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -20,10 +19,13 @@
     const input = document.getElementById("input");
     const messages = document.getElementById("messages");
 
+    const history = [];
+
     function addMessage(text) {
       const p = document.createElement("p");
       p.textContent = text;
       messages.appendChild(p);
+      return p;
     }
 
     form.addEventListener("submit", async (event) => {
@@ -32,15 +34,33 @@
       if (!text) return;
 
       addMessage("You: " + text);
+      history.push({ role: "user", content: text });
       input.value = "";
 
-      const response = await fetch("/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
-      });
-      const data = await response.json();
-      addMessage("Cerberus: " + data.reply);
+      const bubble = addMessage("Cerberus is thinking... 🐕");
+
+      try {
+        const response = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: history }),
+        });
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let reply = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          reply += decoder.decode(value, { stream: true });
+          bubble.textContent = "Cerberus: " + reply;
+        }
+
+        history.push({ role: "assistant", content: reply });
+      } catch (error) {
+        bubble.textContent = "Cerberus: something went wrong ";
+      }
     });
   </script>
 </body>
