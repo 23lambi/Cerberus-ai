@@ -5,6 +5,7 @@ const modelSelect = document.getElementById("model");
 const threeHeads = document.getElementById("three-heads");
 const chatList = document.getElementById("chat-list");
 const newChatButton = document.getElementById("new-chat");
+const sendButton = form.querySelector("button"); // NEW
 
 const ERROR_MARK = "[Cerberus error]";
 
@@ -22,6 +23,8 @@ const HEAD_LABELS = {
 
 let history = [];
 let currentChatId = null;
+// NEW: the "remote control" that cancels the running request. null = nothing running.
+let controller = null;
 
 // ---------- Helpers ----------
 
@@ -166,15 +169,24 @@ async function ensureChat() {
 async function sendNormal(model) {
   const bubble = addMessage("The Guard is choosing a head...");
 
-  const response = await fetch("/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      messages: history,
-      model: model,
-      chat_id: currentChatId,
-    }),
-  });
+  // NEW: fetch is wrapped so Stop can cancel it before the answer starts.
+  let response;
+  try {
+    response = await fetch("/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages: history,
+        model: model,
+        chat_id: currentChatId,
+      }),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error.name !== "AbortError") throw error;
+    bubble.textContent = "Cerberus: (stopped)";
+    return null;
+  }
 
   if (!response.ok) {
     bubble.textContent = "Cerberus: the server answered with error " + response.status + ".";
@@ -189,12 +201,23 @@ async function sendNormal(model) {
   const decoder = new TextDecoder();
   let reply = "";
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    reply += decoder.decode(value, { stream: true });
-    bubble.textContent = "Cerberus (" + label + "): " + reply;
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+  // NEW: the reading loop is wrapped so Stop keeps the words that already arrived.
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      reply += decoder.decode(value, { stream: true });
+      bubble.textContent = "Cerberus (" + label + "): " + reply;
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+  } catch (error) {
+    if (error.name !== "AbortError") throw error;
+    if (!reply) {
+      bubble.textContent = "Cerberus: (stopped)";
+      return null;
+    }
+    bubble.textContent = "Cerberus (" + label + "): " + reply + " (stopped)";
+    return reply;
   }
 
   const errorAt = reply.indexOf(ERROR_MARK);
@@ -227,55 +250,64 @@ async function sendCouncil(model) {
   container.appendChild(details);
   messagesEl.appendChild(container);
 
-  const response = await fetch("/council", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      messages: history,
-      model: model,
-      chat_id: currentChatId,
-    }),
-  });
-
-  if (!response.ok) {
-    answer.textContent = "Cerberus: the server answered with error " + response.status + ".";
-    return null;
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
   const texts = { thinker: "", coder: "", critic: "", judge: "" };
-  let buffer = "";
   let failed = false;
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
+  // NEW: Stop works in Deep think too. A stopped Deep think answer isn't kept.
+  try {
+    const response = await fetch("/council", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages: history,
+        model: model,
+        chat_id: currentChatId,
+      }),
+      signal: controller.signal,
+    });
 
-    const lines = buffer.split("\n");
-    buffer = lines.pop();
-
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      const ev = JSON.parse(line);
-
-      if (ev.head === "error") {
-        answer.textContent = "Cerberus: " + ev.text;
-        failed = true;
-        continue;
-      }
-
-      texts[ev.head] += ev.text;
-
-      if (ev.head === "judge") {
-        answer.textContent = "Cerberus: " + texts.judge;
-      } else {
-        boxes[ev.head].textContent = HEAD_LABELS[ev.head] + ": " + texts[ev.head];
-        answer.textContent = HEAD_LABELS[ev.head] + " is working...";
-      }
+    if (!response.ok) {
+      answer.textContent = "Cerberus: the server answered with error " + response.status + ".";
+      return null;
     }
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split("\n");
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const ev = JSON.parse(line);
+
+        if (ev.head === "error") {
+          answer.textContent = "Cerberus: " + ev.text;
+          failed = true;
+          continue;
+        }
+
+        texts[ev.head] += ev.text;
+
+        if (ev.head === "judge") {
+          answer.textContent = "Cerberus: " + texts.judge;
+        } else {
+          boxes[ev.head].textContent = HEAD_LABELS[ev.head] + ": " + texts[ev.head];
+          answer.textContent = HEAD_LABELS[ev.head] + " is working...";
+        }
+      }
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+  } catch (error) {
+    if (error.name !== "AbortError") throw error;
+    answer.textContent = "Cerberus: (stopped)";
+    return null;
   }
 
   return failed ? null : texts.judge;
@@ -283,6 +315,13 @@ async function sendCouncil(model) {
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
+
+  // NEW: one button, two jobs. If an answer is running, a click means Stop.
+  if (controller) {
+    controller.abort();
+    return;
+  }
+
   const text = input.value.trim();
   if (!text) return;
 
@@ -298,6 +337,10 @@ form.addEventListener("submit", async (event) => {
   addMessage("You: " + text);
   history.push({ role: "user", content: text });
 
+  // NEW: create the remote control and turn Send into Stop.
+  controller = new AbortController();
+  sendButton.textContent = "Stop";
+
   try {
     const reply = threeHeads.checked
       ? await sendCouncil(model)
@@ -311,6 +354,10 @@ form.addEventListener("submit", async (event) => {
   } catch (error) {
     history.pop();
     addMessage("Cerberus: could not reach the server. Is it running?");
+  } finally {
+    // NEW: always reset, whether the answer finished, stopped or failed.
+    controller = null;
+    sendButton.textContent = "Send";
   }
 
   loadChats();

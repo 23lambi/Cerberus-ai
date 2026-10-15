@@ -39,17 +39,19 @@ async def chat(req: ChatRequest):
 
     async def generate():
         reply = ""
+        failed= False
+
         try:
             async for piece in stream_chat(req.model, messages):
-                reply += piece
+                reply+= piece
                 yield piece
         except OllamaError as error:
+            failed =True
             yield f"\n{ERROR_MARK} {error}"
-            return
-
-        if req.chat_id:
-            database.save_message(req.chat_id, "user", question)
-            database.save_message(req.chat_id, "assistant", reply)
+        finally:
+            if req.chat_id and reply and not failed:
+                database.save_message(req.chat_id, "user",question)
+                databe.save_message(req.chat_id,"assistant",reply)
 
     return StreamingResponse(
         generate(),
