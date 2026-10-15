@@ -6,6 +6,10 @@ from cerberus.ollama import ERROR_MARK, OllamaError, stream_chat, trim_history
 from cerberus.prompts import HEAD_NOT_READY, KEEPER_RECALL, KEEPER_SAVED
 from cerberus.schemas import ChatRequest
 
+
+from fastapi import HTTPException
+from pydantic import BaseModel
+
 router = APIRouter()
 
 
@@ -51,7 +55,8 @@ async def chat(req: ChatRequest):
         finally:
             if req.chat_id and reply and not failed:
                 database.save_message(req.chat_id, "user",question)
-                databe.save_message(req.chat_id,"assistant",reply)
+                database.save_message(req.chat_id,"assistant",reply)
+
 
     return StreamingResponse(
         generate(),
@@ -63,3 +68,34 @@ async def chat(req: ChatRequest):
             "X-Cerberus-Chats": str(len(found["chats"])),
         },
     )
+
+
+class TitleRequest(BaseModel):
+    model: str
+
+
+@router.post("/chats/{chat_id}/title")
+async def make_title(chat_id: int, req: TitleRequest):
+    chat = database.get_chat(chat_id)
+    if chat is None or len(chat["messages"]) < 2:
+        raise HTTPException(status_code=404, detail="Nothing to title yet")
+
+    question = chat["messages"][0]["content"]
+    answer = chat["messages"][1]["content"][:500]
+    prompt = (
+        "Write a short title, at most 5 words, for a chat that starts like this. "
+        "Reply with only the title, no quotes.\n\n"
+        f"User: {question}\nAssistant: {answer}"
+    )
+
+    title = ""
+    try:
+        async for piece in stream_chat(req.model, [{"role": "user", "content": prompt}]):
+            title += piece
+    except OllamaError:
+        return {"title": chat["title"]}  # keep the placeholder
+
+    title = title.strip().splitlines()[0].strip(' "\'.')[:60] if title.strip() else ""
+    if title:
+        database.set_chat_title(chat_id, title)
+    return {"title": title or chat["title"]}

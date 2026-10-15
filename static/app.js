@@ -5,7 +5,7 @@ const modelSelect = document.getElementById("model");
 const threeHeads = document.getElementById("three-heads");
 const chatList = document.getElementById("chat-list");
 const newChatButton = document.getElementById("new-chat");
-const sendButton = form.querySelector("button"); // NEW
+const sendButton = form.querySelector("button");
 
 const ERROR_MARK = "[Cerberus error]";
 
@@ -23,7 +23,7 @@ const HEAD_LABELS = {
 
 let history = [];
 let currentChatId = null;
-// NEW: the "remote control" that cancels the running request. null = nothing running.
+// The "remote control" that cancels the running request. null = nothing running.
 let controller = null;
 
 // ---------- Helpers ----------
@@ -164,12 +164,24 @@ async function ensureChat() {
   currentChatId = chat.id;
 }
 
+// NEW (titles): asks the server to give this chat a short title.
+async function makeTitle(model) {
+  try {
+    await fetch("/chats/" + currentChatId + "/title", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: model }),
+    });
+  } catch (error) {
+    // A missing title isn't worth an error message.
+  }
+}
+
 // ---------- Sending ----------
 
 async function sendNormal(model) {
   const bubble = addMessage("The Guard is choosing a head...");
 
-  // NEW: fetch is wrapped so Stop can cancel it before the answer starts.
   let response;
   try {
     response = await fetch("/chat", {
@@ -201,7 +213,6 @@ async function sendNormal(model) {
   const decoder = new TextDecoder();
   let reply = "";
 
-  // NEW: the reading loop is wrapped so Stop keeps the words that already arrived.
   try {
     while (true) {
       const { done, value } = await reader.read();
@@ -253,7 +264,6 @@ async function sendCouncil(model) {
   const texts = { thinker: "", coder: "", critic: "", judge: "" };
   let failed = false;
 
-  // NEW: Stop works in Deep think too. A stopped Deep think answer isn't kept.
   try {
     const response = await fetch("/council", {
       method: "POST",
@@ -316,7 +326,7 @@ async function sendCouncil(model) {
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
 
-  // NEW: one button, two jobs. If an answer is running, a click means Stop.
+  // One button, two jobs. If an answer is running, a click means Stop.
   if (controller) {
     controller.abort();
     return;
@@ -337,7 +347,6 @@ form.addEventListener("submit", async (event) => {
   addMessage("You: " + text);
   history.push({ role: "user", content: text });
 
-  // NEW: create the remote control and turn Send into Stop.
   controller = new AbortController();
   sendButton.textContent = "Stop";
 
@@ -350,12 +359,13 @@ form.addEventListener("submit", async (event) => {
       history.pop();
     } else {
       history.push({ role: "assistant", content: reply });
+      // NEW (titles): first question and answer of this chat, so name it.
+      if (history.length === 2) await makeTitle(model);
     }
   } catch (error) {
     history.pop();
     addMessage("Cerberus: could not reach the server. Is it running?");
   } finally {
-    // NEW: always reset, whether the answer finished, stopped or failed.
     controller = null;
     sendButton.textContent = "Send";
   }

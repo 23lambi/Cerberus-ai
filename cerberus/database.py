@@ -106,6 +106,9 @@ def delete_chat(chat_id):
         conn.execute("DELETE FROM messages WHERE chat_id = ?", (chat_id,))
         conn.execute("DELETE FROM chats WHERE id = ?", (chat_id,))
 
+def set_chat_title(chat_id,title):
+    with get_db() as conn:
+        conn.execute("UPDATE chats SET title = ? WHERE id = ?",(title,chat_id))
 
 def save_message(chat_id, role, content):
     with get_db() as conn:
