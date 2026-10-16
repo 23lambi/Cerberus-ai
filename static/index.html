@@ -7,36 +7,88 @@
 </head>
 <body>
   <aside id="sidebar">
-    <button id="new-chat">New chat</button>
-    <button id="open-memory">Memory</button>
-    <button id="open-documents">Documents</button>
-    <button id="open-settings">Settings</button>
+    <div class="brand">Cerberus</div>
+
+    <button class="nav" id="new-chat">+ New chat</button>
+
+    <div class="nav-label" id="projects-label">
+      Projects
+      <button class="mini" id="new-project" title="New project">+</button>
+    </div>
+    <ul id="project-list"></ul>
+
+    <div id="project-bar" hidden>
+      <button class="mini" id="leave-project">&larr; All chats</button>
+      <div class="project-title">
+        <span id="project-name"></span>
+        <button class="mini" id="rename-project" title="Rename project">&#9998;</button>
+      </div>
+    </div>
+
+    <div class="nav-label" id="chats-label">Chats</div>
     <ul id="chat-list"></ul>
+
+    <!-- Features: each button opens its own panel on the right -->
+    <nav id="features">
+      <button class="nav" data-feature="reverse">&#9671; Reverse</button>
+      <button class="nav" data-feature="memory">&#9673; Memory</button>
+    </nav>
+
+    <button class="nav" id="open-settings">&#9881; Settings</button>
   </aside>
 
   <main>
-    <header>
-      <h1>Cerberus</h1>
-      <label>
-        Model:
-        <select id="model"></select>
-      </label>
-      <label>
-        <input type="checkbox" id="three-heads"> Deep think
-      </label>
-    </header>
+    <!-- Chat panel -->
+    <section id="panel-chat" class="panel active">
+      <div id="messages"></div>
 
-    <div id="messages"></div>
+      <div id="composer">
+        <p id="attach-status" class="hint"></p>
+        <form id="chat-form">
+          <input id="input" placeholder="Message Cerberus..." autocomplete="off">
+          <div class="composer-bar">
+            <button type="button" id="attach" title="Add a document">+</button>
+            <select id="model" title="Model"></select>
+            <label class="toggle">
+              <input type="checkbox" id="three-heads"> Deep think
+            </label>
+            <span class="spacer"></span>
+            <button id="send">Send</button>
+          </div>
+        </form>
+      </div>
+    </section>
 
-    <!-- NEW: upload messages from the + button show here -->
-    <p id="attach-status" class="hint"></p>
-    <form id="chat-form">
-      <!-- NEW: type="button" so clicking + doesn't send the message -->
-      <button type="button" id="attach" title="Add a document">+</button>
-      <input id="input" placeholder="Say something..." autocomplete="off">
-      <!-- NEW: id so app.js finds the Send button, not the + -->
-      <button id="send">Send</button>
-    </form>
+    <!-- Reverse panel: filled in at Level 10 -->
+    <section id="panel-reverse" class="panel">
+      <h2>Reverse</h2>
+      <p class="hint">Coming soon: drop a program here and Cerberus takes it apart and explains it, without ever running it.</p>
+    </section>
+
+    <!-- Memory panel: memories and documents in two tabs -->
+    <section id="panel-memory" class="panel">
+      <h2>Memory</h2>
+      <div class="tabs">
+        <button class="tab" data-tab="memories">Memories</button>
+        <button class="tab" data-tab="documents">Documents</button>
+      </div>
+
+      <div id="tab-memories" class="tab-body">
+        <p class="hint">What Cerberus remembers about you. Everything stays on this computer.</p>
+        <form id="memory-add">
+          <input id="memory-input" placeholder="Add something to remember..." autocomplete="off">
+          <button>Add</button>
+        </form>
+        <ul id="memory-list"></ul>
+      </div>
+
+      <div id="tab-documents" class="tab-body">
+        <p class="hint">Files Cerberus can read and answer questions about. They stay on this computer.</p>
+        <input type="file" id="document-file" multiple accept=".txt,.md,.markdown,.pdf,.csv,.json,.py,.js,.html">
+        <p id="document-status" class="hint"></p>
+        <ul id="document-list"></ul>
+      </div>
+    </section>
   </main>
 
   <dialog id="settings-dialog">
@@ -51,34 +103,12 @@
     </form>
   </dialog>
 
-  <dialog id="memory-dialog">
-    <h2>Memory</h2>
-    <p class="hint">What Cerberus remembers about you. Everything stays on this computer.</p>
-    <form id="memory-add">
-      <input id="memory-input" placeholder="Add something to remember..." autocomplete="off">
-      <button>Add</button>
-    </form>
-    <ul id="memory-list"></ul>
-    <div class="dialog-buttons">
-      <button type="button" id="memory-close">Close</button>
-    </div>
-  </dialog>
-
-  <dialog id="documents-dialog">
-    <h2>Documents</h2>
-    <p class="hint">Files Cerberus can read and answer questions about. They stay on this computer.</p>
-    <input type="file" id="document-file" multiple accept=".txt,.md,.markdown,.pdf,.csv,.json,.py,.js,.html">
-    <p id="document-status" class="hint"></p>
-    <ul id="document-list"></ul>
-    <div class="dialog-buttons">
-      <button type="button" id="documents-close">Close</button>
-    </div>
-  </dialog>
-
   <script src="/static/app.js"></script>
   <script src="/static/settings.js"></script>
   <script src="/static/memory.js"></script>
   <script src="/static/documents.js"></script>
+  <script src="/static/features.js"></script>
+  <script src="/static/projects.js"></script>
 </body>
 </html>
 

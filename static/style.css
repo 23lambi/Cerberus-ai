@@ -1,30 +1,87 @@
+/* ---------- Colors and font (change the whole look here) ---------- */
+
+:root {
+  --bg: #1e2027;
+  --side: #16181d;
+  --panel: #23262e;
+  --hover: #22252c;
+  --border: #2e313a;
+  --text: #d8dadf;
+  --muted: #8b909a;
+  --accent: #e8707e;
+  --accent-bg: #2a1f25;
+}
+
+* {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
   display: flex;
   height: 100vh;
-  font-family: sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "JetBrains Mono", ui-monospace, "DejaVu Sans Mono", monospace;
+  font-size: 14px;
+}
+
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
 }
 
 /* ---------- Sidebar ---------- */
 
 #sidebar {
-  width: 240px;
-  border-right: 1px solid #ccc;
-  padding: 12px;
-  overflow-y: auto;
+  width: 250px;
+  background: var(--side);
+  border-right: 1px solid var(--border);
+  padding: 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-#new-chat {
+.brand {
+  color: var(--accent);
+  font-weight: bold;
+  font-size: 16px;
+  padding: 4px 8px 14px;
+}
+
+.nav {
+  display: block;
   width: 100%;
-  padding: 8px;
-  margin-bottom: 12px;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 7px 8px;
+  border-radius: 6px;
   cursor: pointer;
+}
+
+.nav:hover {
+  background: var(--hover);
+}
+
+.nav.active {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.nav-label {
+  color: var(--muted);
+  font-size: 12px;
+  padding: 12px 8px 4px;
 }
 
 #chat-list {
   list-style: none;
-  padding: 0;
   margin: 0;
+  padding: 0;
+  flex: 1;
+  overflow-y: auto;
 }
 
 #chat-list li {
@@ -33,14 +90,18 @@ body {
   padding: 6px 8px;
   border-radius: 6px;
   cursor: pointer;
+  font-size: 13px;
+  color: var(--muted);
 }
 
 #chat-list li:hover {
-  background: #eee;
+  background: var(--hover);
+  color: var(--text);
 }
 
 #chat-list li.active {
-  background: #ddd;
+  background: var(--accent-bg);
+  color: var(--accent);
 }
 
 #chat-list .title {
@@ -53,48 +114,154 @@ body {
 #chat-list .delete {
   border: none;
   background: none;
-  color: #999;
+  color: var(--muted);
   cursor: pointer;
+  visibility: hidden;
 }
 
-/* ---------- Chat area ---------- */
+#chat-list li:hover .delete {
+  visibility: visible;
+}
+
+#features {
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+  padding-top: 8px;
+}
+
+/* ---------- Panels (one per feature) ---------- */
 
 main {
   flex: 1;
   display: flex;
-  flex-direction: column;
-  padding: 0 24px;
+  min-width: 0;
 }
+
+.panel {
+  display: none;
+  flex: 1;
+  flex-direction: column;
+  padding: 20px 32px;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.panel.active {
+  display: flex;
+}
+
+.panel h2 {
+  color: var(--accent);
+  font-size: 16px;
+  margin: 0 0 12px;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0 0 8px;
+}
+
+/* ---------- Chat ---------- */
 
 #messages {
   flex: 1;
   overflow-y: auto;
   white-space: pre-wrap;
+  line-height: 1.55;
+  width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
+}
+
+#messages p {
+  margin: 0 0 14px;
+}
+
+#composer {
+  width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
+}
+
+#attach-status {
+  min-height: 1em;
 }
 
 #chat-form {
-  display: flex;
-  gap: 8px;
-  padding: 12px 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
 }
 
 #input {
-  flex: 1;
-  padding: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  outline: none;
+  padding: 6px 2px 12px;
 }
 
-/* ---------- Three Heads ---------- */
+.composer-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+#attach {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: none;
+  cursor: pointer;
+}
+
+#model {
+  background: var(--side);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 6px;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+#send {
+  background: var(--accent);
+  color: #1b1b1f;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* ---------- Deep think ---------- */
 
 .heads {
-    display: grid;
+  display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 12px;
   margin-top: 8px;
 }
 
 .head {
-  border: 1px solid #ccc;
+  border: 1px solid var(--border);
+  border-radius: 8px;
   padding: 8px;
+  font-size: 12px;
 }
 
 .judge {
@@ -103,25 +270,106 @@ main {
 
 details {
   margin-bottom: 16px;
-  color: #666;
+  color: var(--muted);
 }
 
 summary {
   cursor: pointer;
 }
 
-/* ---------- Settings ---------- */
+/* ---------- Memory panel ---------- */
 
-#open-settings {
-  width: 100%;
-  padding: 8px;
-  margin-bottom: 12px;
+.tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.tab {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 12px;
+  color: var(--muted);
   cursor: pointer;
 }
+
+.tab.active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.tab-body {
+  display: none;
+  max-width: 820px;
+}
+
+.tab-body.active {
+  display: block;
+}
+
+#memory-add {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+#memory-input {
+  flex: 1;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 10px;
+  outline: none;
+}
+
+#panel-memory button:not(.tab),
+dialog button {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+#memory-list,
+#document-list {
+  list-style: none;
+  padding: 0;
+}
+
+#memory-list li,
+#document-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+#memory-list .text,
+#document-list .text {
+  flex: 1;
+}
+
+/* ---------- Settings dialog ---------- */
 
 dialog {
   width: 600px;
   max-width: 90vw;
+  background: var(--side);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+dialog h2 {
+  color: var(--accent);
+  font-size: 16px;
 }
 
 .setting {
@@ -133,9 +381,11 @@ dialog {
 .setting textarea {
   display: block;
   width: 100%;
-  box-sizing: border-box;
-  margin-top: 4px;
-  font-family: inherit;
+  margin-top: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
   font-weight: normal;
 }
 
@@ -145,88 +395,133 @@ dialog {
   gap: 8px;
 }
 
-/* ---------- Memory ---------- */
+/* ---------- File chips ---------- */
 
-#open-memory {
-  width: 100%;
-  padding: 8px;
-  margin-bottom: 12px;
-  cursor: pointer;
-}
-
-.hint {
-  color: #666;
-  margin-top: 0;
-}
-
-#memory-add {
+#attach-chips {
   display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
 }
 
-#memory-input {
-  flex: 1;
-  padding: 6px;
-}
-
-#memory-list {
-  list-style: none;
-  padding: 0;
-  max-height: 50vh;
-  overflow-y: auto;
-}
-
-#memory-list li {
-  display: flex;
+.chip {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 0;
-  border-bottom: 1px solid #eee;
+  gap: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 6px 4px 10px;
+  font-size: 12px;
 }
 
-#memory-list .text {
-  flex: 1;
-}
-
-/* ---------- Documents ---------- */
-
-#open-documents {
-  width: 100%;
-  padding: 8px;
-  margin-bottom: 12px;
+.chip-x {
+  background: none;
+  border: none;
+  color: var(--muted);
   cursor: pointer;
+  font-size: 14px;
+  padding: 0 4px;
 }
 
-#document-list {
-  list-style: none;
-  padding: 0;
-  max-height: 50vh;
-  overflow-y: auto;
+.chip-x:hover {
+  color: var(--accent);
 }
 
-#document-list li {
+/* ---------- Projects ---------- */
+
+[hidden] {
+  display: none !important;
+}
+
+#projects-label {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 8px;
-  padding: 6px 0;
-  border-bottom: 1px solid #eee;
 }
 
-#document-list .text {
-  flex: 1;
-}
-
-/* ---------- + button ---------- NEW */
-
-#attach {
-  width: 36px;
-  font-size: 20px;
+.mini {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 1px 7px;
   cursor: pointer;
 }
 
-#attach-status {
+.mini:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+#project-list {
+  list-style: none;
   margin: 0;
-  min-height: 1em;
-  font-size: 0.9em;
+  padding: 0;
+  max-height: 30vh;
+  overflow-y: auto;
+}
+
+#project-list li {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+#project-list li:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+#project-list .title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#project-list .delete {
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  visibility: hidden;
+}
+
+#project-list li:hover .delete {
+  visibility: visible;
+}
+
+#project-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--accent-bg);
+  border-radius: 8px;
+  padding: 8px;
+  margin-top: 8px;
+}
+
+#leave-project {
+  align-self: flex-start;
+}
+
+.project-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  font-weight: bold;
+}
+
+#project-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

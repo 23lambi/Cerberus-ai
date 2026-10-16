@@ -10,6 +10,7 @@ from cerberus.routes import (
     guard,
     memories,
     pages,
+    projects,
     settings,
 )
 
@@ -21,6 +22,7 @@ app.include_router(pages.router)
 app.include_router(chat.router)
 app.include_router(council.router)
 app.include_router(chats.router)
+app.include_router(projects.router)
 app.include_router(settings.router)
 app.include_router(guard.router)
 app.include_router(memories.router)

@@ -1,5 +1,3 @@
-
-
 from pydantic import BaseModel
 
 
@@ -11,15 +9,17 @@ class Message(BaseModel):
 class ChatRequest(BaseModel):
     messages: list[Message]
     model: str
-    chat_id: int | None=None
+    chat_id: int | None = None
 
 
 class NewChat(BaseModel):
-    title: str ="New chat"
-
-
-
+    title: str = "New chat"
+    project_id: int | None = None
 
 
 class MemoryIn(BaseModel):
     text: str
+
+
+class ProjectIn(BaseModel):
+    name: str

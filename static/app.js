@@ -9,6 +9,11 @@ const sendButton = document.getElementById("send");
 const attachButton = document.getElementById("attach");
 const attachStatus = document.getElementById("attach-status");
 
+// NEW: the row of file chips, created here and placed right above the message box.
+const attachChips = document.createElement("div");
+attachChips.id = "attach-chips";
+form.before(attachChips);
+
 const ERROR_MARK = "[Cerberus error]";
 
 const MODE_NAMES = {
@@ -23,6 +28,7 @@ const STEP_LABELS = {
 
 let history = [];
 let currentChatId = null;
+let currentProject = null;
 // The "remote control" that cancels the running request. null = nothing running.
 let controller = null;
 
@@ -84,7 +90,7 @@ async function loadModels() {
 // ---------- Chat list ----------
 
 async function loadChats() {
-  const response = await fetch("/chats");
+  const response = await fetch(currentProject ? "/chats?project_id=" + currentProject.id : "/chats");
   const data = await response.json();
 
   chatList.innerHTML = "";
@@ -117,6 +123,8 @@ async function loadChats() {
 }
 
 async function openChat(id) {
+  if (id !== currentChatId) recapChat(currentChatId); // NEW (projects step 2)
+
   const response = await fetch("/chats/" + id);
   const chat = await response.json();
 
@@ -124,20 +132,25 @@ async function openChat(id) {
   history = chat.messages;
 
   messagesEl.innerHTML = "";
+  attachChips.innerHTML = ""; // NEW
   for (const message of history) {
     const who = message.role === "user" ? "You: " : "Cerberus: ";
     addMessage(who + message.content);
   }
 
   loadChats();
+  showFeature("chat");
 }
 
 function newChat() {
+  recapChat(currentChatId); // NEW (projects step 2)
   currentChatId = null;
   history = [];
   messagesEl.innerHTML = "";
   attachStatus.textContent = "";
+  attachChips.innerHTML = ""; // NEW: chips go, the documents stay in Memory
   loadChats();
+  showFeature("chat");
   input.focus();
 }
 
@@ -159,7 +172,7 @@ async function ensureChat() {
   const response = await fetch("/chats", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({}),
+    body: JSON.stringify({ project_id: currentProject ? currentProject.id : null }),
   });
   const chat = await response.json();
   currentChatId = chat.id;
@@ -176,6 +189,21 @@ async function makeTitle(model) {
   } catch (error) {
     // A missing title isn't worth an error message.
   }
+}
+
+// NEW (projects step 2): when you leave a chat inside a project, the server
+// writes a short recap of it into the project's notes. We don't wait for it.
+function recapChat(chatId) {
+  if (!currentProject || !chatId || !modelSelect.value) return;
+
+  fetch("/chats/" + chatId + "/recap", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model: modelSelect.value }),
+    keepalive: true, // still sent when the page is closing
+  }).catch(() => {
+    // A missing recap isn't worth an error message.
+  });
 }
 
 // ---------- Sending ----------
@@ -376,6 +404,9 @@ form.addEventListener("submit", async (event) => {
 
 newChatButton.addEventListener("click", newChat);
 
+// NEW (projects step 2): closing or reloading the page also leaves the chat.
+window.addEventListener("pagehide", () => recapChat(currentChatId));
+
 // ---------- + button (documents) ----------
 
 // documents.js owns the file picker and the upload. It also declares
@@ -385,7 +416,7 @@ attachButton.addEventListener("click", () => {
   document.getElementById("document-file").click();
 });
 
-// Copy the upload messages from the Documents window to just above the chat field.
+// Copy the upload messages from the Documents tab to just above the message box.
 new MutationObserver(() => {
   attachStatus.textContent = document.getElementById("document-status").textContent;
 }).observe(document.getElementById("document-status"), {
@@ -394,7 +425,39 @@ new MutationObserver(() => {
   subtree: true,
 });
 
+// NEW: one chip per uploaded file, with an x that removes it from Cerberus.
+function addChip(doc) {
+  const chip = document.createElement("span");
+  chip.className = "chip";
+
+  const name = document.createElement("span");
+  name.textContent = "📄 " + doc.name;
+
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.className = "chip-x";
+  remove.textContent = "×";
+  remove.title = "Remove this document from Cerberus";
+  remove.addEventListener("click", async () => {
+    await fetch("/documents/" + doc.id, { method: "DELETE" });
+    chip.remove();
+    attachStatus.textContent = "";
+  });
+
+  chip.append(name, remove);
+  attachChips.appendChild(chip);
+}
+
+// NEW: documents.js announces each finished upload. Show a chip only when
+// the upload came from the chat, not from the Memory panel.
+document.addEventListener("document-added", (event) => {
+  if (document.getElementById("panel-chat").classList.contains("active")) {
+    addChip(event.detail);
+  }
+});
+
 // ---------- Start ----------
 
 loadModels();
 loadChats();
+

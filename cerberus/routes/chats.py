@@ -8,12 +8,13 @@ router = APIRouter(prefix="/chats")
 
 @router.post("")
 def create_chat(body: NewChat):
-    return database.create_chat(body.title)
+    return database.create_chat(body.title, body.project_id)
 
 
 @router.get("")
-def list_chats():
-    return {"chats": database.list_chats()}
+def list_chats(project_id: int | None = None):
+    # /chats lists normal chats, /chats?project_id=3 lists project 3's chats.
+    return {"chats": database.list_chats(project_id)}
 
 
 @router.get("/{chat_id}")

@@ -1,9 +1,6 @@
-const documentsDialog = document.getElementById("documents-dialog");
 const documentList = document.getElementById("document-list");
 const documentFile = document.getElementById("document-file");
 const documentStatus = document.getElementById("document-status");
-const openDocumentsButton = document.getElementById("open-documents");
-const closeDocumentsButton = document.getElementById("documents-close");
 
 async function loadDocuments() {
   const response = await fetch("/documents");
@@ -52,6 +49,9 @@ async function uploadFile(file) {
   documentStatus.textContent = data.searchable_by_meaning
     ? file.name + ": done, " + data.chunks + " parts."
     : file.name + ": saved, but only searchable by words. Run: ollama pull nomic-embed-text";
+
+  // NEW: tell the rest of the page a document was added (app.js shows the chip).
+  document.dispatchEvent(new CustomEvent("document-added", { detail: data }));
   return true;
 }
 
@@ -70,10 +70,3 @@ async function removeDocument(doc) {
   documentStatus.textContent = "";
   loadDocuments();
 }
-
-openDocumentsButton.addEventListener("click", () => {
-  documentStatus.textContent = "";
-  loadDocuments();
-  documentsDialog.showModal();
-});
-closeDocumentsButton.addEventListener("click", () => documentsDialog.close());

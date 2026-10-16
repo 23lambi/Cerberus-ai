@@ -1,0 +1,38 @@
+from fastapi import APIRouter, HTTPException
+
+from cerberus import database
+from cerberus.schemas import ProjectIn
+
+router = APIRouter(prefix="/projects")
+
+
+def clean_name(body):
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="A project needs a name.")
+    return name[:80]
+
+
+@router.get("")
+def list_projects():
+    return {"projects": database.list_projects()}
+
+
+@router.post("")
+def create_project(body: ProjectIn):
+    return database.create_project(clean_name(body))
+
+
+@router.put("/{project_id}")
+def rename_project(project_id: int, body: ProjectIn):
+    name = clean_name(body)
+    if not database.rename_project(project_id, name):
+        raise HTTPException(status_code=404, detail="Project not found")
+    return {"id": project_id, "name": name}
+
+
+@router.delete("/{project_id}")
+def delete_project(project_id: int):
+    if not database.delete_project(project_id):
+        raise HTTPException(status_code=404, detail="Project not found")
+    return {"deleted": project_id}

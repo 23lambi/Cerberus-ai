@@ -1,9 +1,6 @@
-const memoryDialog = document.getElementById("memory-dialog");
 const memoryList = document.getElementById("memory-list");
 const memoryAddForm = document.getElementById("memory-add");
 const memoryInput = document.getElementById("memory-input");
-const openMemoryButton = document.getElementById("open-memory");
-const closeMemoryButton = document.getElementById("memory-close");
 
 async function loadMemories() {
   const response = await fetch("/memories");
@@ -72,9 +69,3 @@ memoryAddForm.addEventListener("submit", async (event) => {
   });
   loadMemories();
 });
-
-openMemoryButton.addEventListener("click", () => {
-  loadMemories();
-  memoryDialog.showModal();
-});
-closeMemoryButton.addEventListener("click", () => memoryDialog.close());

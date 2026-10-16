@@ -5,6 +5,7 @@ from cerberus.ollama import OllamaError, stream_chat
 from cerberus.prompts import GUARD_PROMPT
 
 MODES = ("chat", "memory")
+SHORT_REPLY_WORDS = 3
 
 # If any of these match, the message needs Cerberus's memory.
 MEMORY_RULES = [
@@ -46,6 +47,11 @@ async def route(message, model):
     mode = by_rules(message)
     if mode:
         return mode, "rules"
+
+    # Short replies like "yes", "ok" or "go on" have no topic of their own,
+    # so they stay in chat without asking the model.
+    if len(message.split()) <= SHORT_REPLY_WORDS:
+        return "chat", "rules"
 
     if GUARD_USE_MODEL:
         mode = await by_model(message, model)

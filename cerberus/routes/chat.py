@@ -2,9 +2,9 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from cerberus import database, guard, keeper, settings, summary
+from cerberus import database, guard, keeper, recap, settings, summary
 from cerberus.ollama import ERROR_MARK, OllamaError, stream_chat, trim_history
-from cerberus.prompts import KEEPER_RECALL, KEEPER_SAVED, SUMMARY_NOTE
+from cerberus.prompts import KEEPER_NOTHING, KEEPER_RECALL, KEEPER_SAVED, SUMMARY_NOTE
 from cerberus.schemas import ChatRequest
 
 router = APIRouter()
@@ -25,6 +25,11 @@ async def chat(req: ChatRequest):
     memory_mode = mode == "memory"
     system_prompt = settings.brain()
 
+        # Inside a project: add the notes from the project's other chats.
+    notes = recap.project_prompt(req.chat_id)
+    if notes:
+        system_prompt += "\n" + notes
+
     # Memory: save new memories, then find what matters for this question.
     saved = keeper.wants_to_save(question) if memory_mode else None
     if saved:
@@ -36,8 +41,11 @@ async def chat(req: ChatRequest):
         system_prompt += "\n" + context
     if saved:
         system_prompt += "\n" + KEEPER_SAVED.format(text=saved)
-    elif memory_mode:
+    elif memory_mode and (context or notes):
         system_prompt += "\n" + KEEPER_RECALL
+    elif memory_mode:
+        # Nothing was found, so tell the model plainly instead of letting it guess.
+        system_prompt += "\n" + KEEPER_NOTHING
     if earlier:
         system_prompt += "\n" + SUMMARY_NOTE.format(text=earlier)
 
@@ -100,3 +108,14 @@ async def make_title(chat_id: int, req: TitleRequest):
     if title:
         database.set_chat_title(chat_id, title)
     return {"title": title or chat["title"]}
+
+
+class RecapRequest(BaseModel):
+    model: str
+
+
+@router.post("/chats/{chat_id}/recap")
+async def recap_chat(chat_id: int, req: RecapRequest):
+    # The page calls this when you leave a project chat.
+    # The recap is null when there was nothing new to write.
+    return {"recap": await recap.make_recap(chat_id, req.model)}
