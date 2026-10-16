@@ -13,5 +13,5 @@ class GuardRequest(BaseModel):
 
 @router.post("/guard")
 async def check(req: GuardRequest):
-    head, decided_by = await guard.route(req.message, req.model)
-    return {"head": head, "decided_by": decided_by}
+    mode, decided_by = await guard.route(req.message, req.model)
+    return {"mode": mode, "decided_by": decided_by}

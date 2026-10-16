@@ -86,8 +86,8 @@ main {
 /* ---------- Three Heads ---------- */
 
 .heads {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+    display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 12px;
   margin-top: 8px;
 }
@@ -215,4 +215,18 @@ dialog {
 
 #document-list .text {
   flex: 1;
+}
+
+/* ---------- + button ---------- NEW */
+
+#attach {
+  width: 36px;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+#attach-status {
+  margin: 0;
+  min-height: 1em;
+  font-size: 0.9em;
 }

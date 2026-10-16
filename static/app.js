@@ -5,20 +5,20 @@ const modelSelect = document.getElementById("model");
 const threeHeads = document.getElementById("three-heads");
 const chatList = document.getElementById("chat-list");
 const newChatButton = document.getElementById("new-chat");
-const sendButton = form.querySelector("button");
+const sendButton = document.getElementById("send");
+const attachButton = document.getElementById("attach");
+const attachStatus = document.getElementById("attach-status");
 
 const ERROR_MARK = "[Cerberus error]";
 
-const HEAD_NAMES = {
-  talk: "Talker",
-  remember: "Keeper",
-  do: "Doer",
+const MODE_NAMES = {
+  chat: "Chat",
+  memory: "Memory",
 };
 
-const HEAD_LABELS = {
-  thinker: "Thinker",
-  coder: "Coder",
-  critic: "Critic",
+const STEP_LABELS = {
+  draft: "Draft",
+  review: "Review",
 };
 
 let history = [];
@@ -136,6 +136,7 @@ function newChat() {
   currentChatId = null;
   history = [];
   messagesEl.innerHTML = "";
+  attachStatus.textContent = "";
   loadChats();
   input.focus();
 }
@@ -164,7 +165,7 @@ async function ensureChat() {
   currentChatId = chat.id;
 }
 
-// NEW (titles): asks the server to give this chat a short title.
+// Asks the server to give this chat a short title.
 async function makeTitle(model) {
   try {
     await fetch("/chats/" + currentChatId + "/title", {
@@ -180,7 +181,7 @@ async function makeTitle(model) {
 // ---------- Sending ----------
 
 async function sendNormal(model) {
-  const bubble = addMessage("The Guard is choosing a head...");
+  const bubble = addMessage("Cerberus is thinking...");
 
   let response;
   try {
@@ -205,8 +206,8 @@ async function sendNormal(model) {
     return null;
   }
 
-  const head = HEAD_NAMES[response.headers.get("X-Cerberus-Head")] || "Talker";
-  const label = [head, ...sourceLabels(response.headers)].join(", ");
+  const mode = MODE_NAMES[response.headers.get("X-Cerberus-Mode")] || "Chat";
+  const label = [mode, ...sourceLabels(response.headers)].join(", ");
   bubble.textContent = "Cerberus (" + label + ") is thinking...";
 
   const reader = response.body.getReader();
@@ -242,26 +243,26 @@ async function sendNormal(model) {
 
 async function sendCouncil(model) {
   const container = document.createElement("div");
-  const answer = makeBox("judge", "Cerberus is thinking...");
+  const answer = makeBox("judge", "Cerberus is thinking deeply...");
 
   const details = document.createElement("details");
   const summary = document.createElement("summary");
-  summary.textContent = "Show how the heads worked";
+  summary.textContent = "Show how Cerberus thought";
   details.appendChild(summary);
 
-  const headsRow = makeBox("heads", "");
+  const stepsRow = makeBox("heads", "");
   const boxes = {};
-  for (const name of ["thinker", "coder", "critic"]) {
-    boxes[name] = makeBox("head", HEAD_LABELS[name] + ": waiting...");
-    headsRow.appendChild(boxes[name]);
+  for (const name of ["draft", "review"]) {
+    boxes[name] = makeBox("head", STEP_LABELS[name] + ": waiting...");
+    stepsRow.appendChild(boxes[name]);
   }
-  details.appendChild(headsRow);
+  details.appendChild(stepsRow);
 
   container.appendChild(answer);
   container.appendChild(details);
   messagesEl.appendChild(container);
 
-  const texts = { thinker: "", coder: "", critic: "", judge: "" };
+  const texts = { draft: "", review: "", final: "" };
   let failed = false;
 
   try {
@@ -297,19 +298,19 @@ async function sendCouncil(model) {
         if (!line.trim()) continue;
         const ev = JSON.parse(line);
 
-        if (ev.head === "error") {
+        if (ev.step === "error") {
           answer.textContent = "Cerberus: " + ev.text;
           failed = true;
           continue;
         }
 
-        texts[ev.head] += ev.text;
+        texts[ev.step] += ev.text;
 
-        if (ev.head === "judge") {
-          answer.textContent = "Cerberus: " + texts.judge;
+        if (ev.step === "final") {
+          answer.textContent = "Cerberus: " + texts.final;
         } else {
-          boxes[ev.head].textContent = HEAD_LABELS[ev.head] + ": " + texts[ev.head];
-          answer.textContent = HEAD_LABELS[ev.head] + " is working...";
+          boxes[ev.step].textContent = STEP_LABELS[ev.step] + ": " + texts[ev.step];
+          answer.textContent = "Cerberus is writing its " + STEP_LABELS[ev.step].toLowerCase() + "...";
         }
       }
       messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -320,7 +321,7 @@ async function sendCouncil(model) {
     return null;
   }
 
-  return failed ? null : texts.judge;
+  return failed ? null : texts.final;
 }
 
 form.addEventListener("submit", async (event) => {
@@ -359,7 +360,7 @@ form.addEventListener("submit", async (event) => {
       history.pop();
     } else {
       history.push({ role: "assistant", content: reply });
-      // NEW (titles): first question and answer of this chat, so name it.
+      // First question and answer of this chat, so give it a title.
       if (history.length === 2) await makeTitle(model);
     }
   } catch (error) {
@@ -374,6 +375,24 @@ form.addEventListener("submit", async (event) => {
 });
 
 newChatButton.addEventListener("click", newChat);
+
+// ---------- + button (documents) ----------
+
+// documents.js owns the file picker and the upload. It also declares
+// documentFile and documentStatus, and all scripts on a page share one
+// space, so here we look the elements up by id instead of declaring them again.
+attachButton.addEventListener("click", () => {
+  document.getElementById("document-file").click();
+});
+
+// Copy the upload messages from the Documents window to just above the chat field.
+new MutationObserver(() => {
+  attachStatus.textContent = document.getElementById("document-status").textContent;
+}).observe(document.getElementById("document-status"), {
+  childList: true,
+  characterData: true,
+  subtree: true,
+});
 
 // ---------- Start ----------
 

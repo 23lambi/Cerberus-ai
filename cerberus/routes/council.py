@@ -6,62 +6,49 @@ from fastapi.responses import StreamingResponse
 from cerberus import database, settings
 from cerberus.config import HEAD_MAX_TOKENS, JUDGE_MAX_TOKENS
 from cerberus.ollama import OllamaError, stream_chat, trim_history
+from cerberus.prompts import DEEP_THINK
 from cerberus.schemas import ChatRequest
 
 router = APIRouter()
 
 
-def event(head, text):
-    return json.dumps({"head": head, "text": text}) + "\n"
+def event(step, text):
+    return json.dumps({"step": step, "text": text}) + "\n"
 
 
 @router.post("/council")
 async def council(req: ChatRequest):
     history = trim_history([m.model_dump() for m in req.messages])
     question = history[-1]["content"]
+    brain = settings.brain()
 
     async def generate():
-        answers = {}
+        draft = review = final = ""
         try:
-            for name in ["thinker", "coder"]:
-                answers[name] = ""
-                prompt = settings.get(f"{name}_prompt")
-                messages = [{"role": "system", "content": prompt}] + history
-                async for piece in stream_chat(req.model, messages, HEAD_MAX_TOKENS):
-                    answers[name] += piece
-                    yield event(name, piece)
+            # Step 1: the brain writes a draft, seeing the whole conversation.
+            messages = [{"role": "system", "content": brain + "\n" + DEEP_THINK["draft"]}] + history
+            async for piece in stream_chat(req.model, messages, HEAD_MAX_TOKENS):
+                draft += piece
+                yield event("draft", piece)
 
-            review_request = f"""
-Question:
-{question}
-
-Thinker's answer:
-{answers["thinker"]}
-
-Coder's answer:
-{answers["coder"]}
-"""
-            answers["critic"] = ""
+            # Step 2: the same brain checks its own draft.
+            check = f"Question:\n{question}\n\nDraft:\n{draft}\n"
             messages = [
-                {"role": "system", "content": settings.get("critic_prompt")},
-                {"role": "user", "content": review_request},
+                {"role": "system", "content": brain + "\n" + DEEP_THINK["review"]},
+                {"role": "user", "content": check},
             ]
             async for piece in stream_chat(req.model, messages, HEAD_MAX_TOKENS):
-                answers["critic"] += piece
-                yield event("critic", piece)
+                review += piece
+                yield event("review", piece)
 
-            judge_request = review_request + f"""
-Critic's review:
-{answers["critic"]}
-"""
+            # Step 3: the final answer, with the review's fixes.
             messages = [
-                {"role": "system", "content": settings.get("judge_prompt")},
-                {"role": "user", "content": judge_request},
+                {"role": "system", "content": brain + "\n" + DEEP_THINK["final"]},
+                {"role": "user", "content": check + f"\nReview:\n{review}\n"},
             ]
-            answers["judge"] = ""
             async for piece in stream_chat(req.model, messages, JUDGE_MAX_TOKENS):
-                answers["judge"] += piece
-                yield event("judge", piece)
+                final += piece
+                yield event("final", piece)
 
         except OllamaError as error:
             yield event("error", str(error))
@@ -69,6 +56,6 @@ Critic's review:
 
         if req.chat_id:
             database.save_message(req.chat_id, "user", question)
-            database.save_message(req.chat_id, "assistant", answers["judge"])
+            database.save_message(req.chat_id, "assistant", final)
 
     return StreamingResponse(generate(), media_type="application/x-ndjson")

@@ -4,25 +4,23 @@ from cerberus.config import GUARD_USE_MODEL
 from cerberus.ollama import OllamaError, stream_chat
 from cerberus.prompts import GUARD_PROMPT
 
-HEADS = ("talk", "remember", "do")
+MODES = ("chat", "memory")
 
-# Checked in this order. The first rule that matches wins.
-RULES = [
-    ("do", r"\bremind me\b|\breminder\b|\bremember to\b|\bto-?dos?\b"),
-    ("do", r"\btasks?\b|\bschedule\b|\bdon'?t let me forget\b|\bplan (my|a|the)\b"),
-    ("remember", r"\bremember\b|\bforget (that|this|about)\b|\blast time\b"),
-    ("remember", r"\bwhat did (i|we)\b|\bwhat do you know about me\b"),
-    ("remember", r"\bmy (notes|documents?|files?)\b"),
-    ("remember", r"\bwe (talked|discussed|decided|said)\b"),
-    ("remember", r"\bin (the|my) (pdf|document|file|notes)\b"),
+# If any of these match, the message needs Cerberus's memory.
+MEMORY_RULES = [
+    r"\bremember\b|\bforget (that|this|about)\b|\blast time\b",
+    r"\bwhat did (i|we)\b|\bwhat do you know about me\b",
+    r"\bmy (notes|documents?|files?)\b",
+    r"\bwe (talked|discussed|decided|said)\b",
+    r"\bin (the|my) (pdf|document|file|notes)\b",
 ]
 
 
 def by_rules(message):
     text = message.lower()
-    for head, pattern in RULES:
+    for pattern in MEMORY_RULES:
         if re.search(pattern, text):
-            return head
+            return "memory"
     return None
 
 
@@ -39,19 +37,19 @@ async def by_model(message, model):
         return None
 
     for word in re.findall(r"[a-z]+", answer.lower()):
-        if word in HEADS:
+        if word in MODES:
             return word
     return None
 
 
 async def route(message, model):
-    head = by_rules(message)
-    if head:
-        return head, "rules"
+    mode = by_rules(message)
+    if mode:
+        return mode, "rules"
 
     if GUARD_USE_MODEL:
-        head = await by_model(message, model)
-        if head:
-            return head, "model"
+        mode = await by_model(message, model)
+        if mode:
+            return mode, "model"
 
-    return "talk", "default"
+    return "chat", "default"

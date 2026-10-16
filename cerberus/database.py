@@ -59,6 +59,13 @@ CREATE TABLE IF NOT EXISTS chunks (
     text TEXT NOT NULL,
     embedding TEXT
 );
+
+CREATE TABLE IF NOT EXISTS summaries (
+    chat_id INTEGER PRIMARY KEY,
+    text TEXT NOT NULL,
+    covered INTEGER NOT NULL
+);
+
 """)
 
 
@@ -105,10 +112,29 @@ def delete_chat(chat_id):
     with get_db() as conn:
         conn.execute("DELETE FROM messages WHERE chat_id = ?", (chat_id,))
         conn.execute("DELETE FROM chats WHERE id = ?", (chat_id,))
+        conn.execute("DELETE FROM summaries WHERE chat_id = ?", (chat_id,))
 
 def set_chat_title(chat_id,title):
     with get_db() as conn:
         conn.execute("UPDATE chats SET title = ? WHERE id = ?",(title,chat_id))
+
+def get_summary(chat_id):
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT text, covered FROM summaries WHERE chat_id = ?", (chat_id,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def set_summary(chat_id, text, covered):
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO summaries (chat_id, text, covered) VALUES (?, ?, ?) "
+            "ON CONFLICT(chat_id) DO UPDATE SET "
+            "text = excluded.text, covered = excluded.covered",
+            (chat_id, text, covered),
+        )
+
 
 def save_message(chat_id, role, content):
     with get_db() as conn:

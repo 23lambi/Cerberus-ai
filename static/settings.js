@@ -6,11 +6,7 @@ const resetSettingsButton = document.getElementById("settings-reset");
 const cancelSettingsButton = document.getElementById("settings-cancel");
 
 const SETTING_LABELS = {
-  system_prompt: "Personality (normal chat)",
-  thinker_prompt: "Thinker",
-  coder_prompt: "Coder",
-  critic_prompt: "Critic",
-  judge_prompt: "Judge",
+  system_prompt: "Cerberus's personality",
 };
 
 function fillSettings(values) {

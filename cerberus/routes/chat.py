@@ -1,68 +1,69 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-
-from cerberus import database, guard, keeper, settings
-from cerberus.ollama import ERROR_MARK, OllamaError, stream_chat, trim_history
-from cerberus.prompts import HEAD_NOT_READY, KEEPER_RECALL, KEEPER_SAVED
-from cerberus.schemas import ChatRequest
-
-
-from fastapi import HTTPException
 from pydantic import BaseModel
+
+from cerberus import database, guard, keeper, settings, summary
+from cerberus.ollama import ERROR_MARK, OllamaError, stream_chat, trim_history
+from cerberus.prompts import KEEPER_RECALL, KEEPER_SAVED, SUMMARY_NOTE
+from cerberus.schemas import ChatRequest
 
 router = APIRouter()
 
 
 @router.post("/chat")
 async def chat(req: ChatRequest):
-    history = trim_history([m.model_dump() for m in req.messages])
+    all_messages = [m.model_dump() for m in req.messages]
+    history = trim_history(all_messages)
     question = history[-1]["content"]
 
-    head, _ = await guard.route(question, req.model)
-    system_prompt = settings.get("system_prompt")
+    # Whatever trim_history dropped gets summarized instead of forgotten.
+    old = all_messages[: len(all_messages) - len(history)]
+    earlier = await summary.old_part(req.chat_id, old, req.model)
 
-    # The Keeper: save new memories, then find what matters for this question.
-    saved = keeper.wants_to_save(question) if head == "remember" else None
+    # The Guard only decides one thing: does this need memory?
+    mode, _ = await guard.route(question, req.model)
+    memory_mode = mode == "memory"
+    system_prompt = settings.brain()
+
+    # Memory: save new memories, then find what matters for this question.
+    saved = keeper.wants_to_save(question) if memory_mode else None
     if saved:
         await keeper.add(saved)
 
-    found = await keeper.recall(
-        question, keeper_mode=(head == "remember"), chat_id=req.chat_id
-    )
+    found = await keeper.recall(question, keeper_mode=memory_mode, chat_id=req.chat_id)
     context = keeper.context_prompt(found)
     if context:
         system_prompt += "\n" + context
     if saved:
         system_prompt += "\n" + KEEPER_SAVED.format(text=saved)
-    elif head == "remember":
+    elif memory_mode:
         system_prompt += "\n" + KEEPER_RECALL
-    if head in HEAD_NOT_READY:
-        system_prompt += "\n" + HEAD_NOT_READY[head]
+    if earlier:
+        system_prompt += "\n" + SUMMARY_NOTE.format(text=earlier)
 
     messages = [{"role": "system", "content": system_prompt}] + history
 
     async def generate():
         reply = ""
-        failed= False
-
+        failed = False
         try:
             async for piece in stream_chat(req.model, messages):
-                reply+= piece
+                reply += piece
                 yield piece
         except OllamaError as error:
-            failed =True
+            failed = True
             yield f"\n{ERROR_MARK} {error}"
         finally:
+            # Runs at the end, and also when the user presses Stop.
             if req.chat_id and reply and not failed:
-                database.save_message(req.chat_id, "user",question)
-                database.save_message(req.chat_id,"assistant",reply)
-
+                database.save_message(req.chat_id, "user", question)
+                database.save_message(req.chat_id, "assistant", reply)
 
     return StreamingResponse(
         generate(),
         media_type="text/plain",
         headers={
-            "X-Cerberus-Head": head,
+            "X-Cerberus-Mode": mode,
             "X-Cerberus-Memories": str(len(found["memories"])),
             "X-Cerberus-Documents": str(len(found["documents"])),
             "X-Cerberus-Chats": str(len(found["chats"])),

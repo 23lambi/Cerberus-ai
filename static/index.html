@@ -28,9 +28,14 @@
 
     <div id="messages"></div>
 
+    <!-- NEW: upload messages from the + button show here -->
+    <p id="attach-status" class="hint"></p>
     <form id="chat-form">
+      <!-- NEW: type="button" so clicking + doesn't send the message -->
+      <button type="button" id="attach" title="Add a document">+</button>
       <input id="input" placeholder="Say something..." autocomplete="off">
-      <button>Send</button>
+      <!-- NEW: id so app.js finds the Send button, not the + -->
+      <button id="send">Send</button>
     </form>
   </main>
 
@@ -76,3 +81,4 @@
   <script src="/static/documents.js"></script>
 </body>
 </html>
+
