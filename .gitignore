@@ -2,3 +2,4 @@ venv/
 cerberus.db
 __pycache__/
 documents/
+.pytest_cache/

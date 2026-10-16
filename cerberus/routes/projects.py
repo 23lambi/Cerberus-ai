@@ -1,3 +1,5 @@
+# Projects: groups of chats that share notes (see recap.py).
+
 from fastapi import APIRouter, HTTPException
 
 from cerberus import database
@@ -7,6 +9,7 @@ router = APIRouter(prefix="/projects")
 
 
 def clean_name(body):
+    # Never trust the browser: check the name here too, not only in the page.
     name = body.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="A project needs a name.")

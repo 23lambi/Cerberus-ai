@@ -1,6 +1,10 @@
+# Everything that talks to Ollama goes through this file. The rest of
+# Cerberus never builds an Ollama request itself, so if Ollama's API
+# changes, this is the only file to fix.
+
 import json
 
-import httpx
+import httpx  # an HTTP client like "requests", but it also works with async
 
 from cerberus.config import (
     DEFAULT_MAX_TOKENS,
@@ -9,21 +13,28 @@ from cerberus.config import (
     MAX_HISTORY_MESSAGES,
     NUM_CTX,
     OLLAMA_URL,
+    THINK_MAX_TOKENS,
 )
 
-ERROR_MARK = "[Cerberus error]"
-NOT_RUNNING = "Ollama isn't running. Start it with: brew services start ollama"
+NOT_RUNNING = (
+    "Ollama isn't running. Start it with: ollama serve "
+    "or sudo systemctl start ollama (Linux), brew services start ollama (macOS)"
+)
 
 
 class OllamaError(Exception):
+    # Our own error type: callers can catch Ollama problems with
+    # "except OllamaError" without catching every other bug too.
     pass
 
 
 def trim_history(history):
+    # A negative slice takes from the end: the newest messages.
     return history[-MAX_HISTORY_MESSAGES:]
 
 
 def error_message(body):
+    # Ollama sends errors as {"error": "..."}. Pull out the text if we can.
     try:
         return json.loads(body).get("error", "Unknown error from Ollama")
     except json.JSONDecodeError:
@@ -31,21 +42,65 @@ def error_message(body):
 
 
 async def list_models():
+    # GET /api/tags lists the models installed with "ollama pull".
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(f"{OLLAMA_URL}/api/tags")
     except httpx.ConnectError:
+        # "from None" hides the long httpx traceback; our message says it all.
         raise OllamaError(NOT_RUNNING) from None
     data = response.json()
     return [m["name"] for m in data["models"]]
 
 
-async def stream_chat(model, messages, max_tokens=DEFAULT_MAX_TOKENS, temperature=None):
+# Model name -> its abilities. A model's abilities never change, so we ask
+# Ollama once per model and remember the answer. This is called a cache.
+capabilities_cache = {}
+
+
+async def capabilities(model):
+    # /api/show lists what a model can do, like ["completion", "thinking"].
+    if model not in capabilities_cache:
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                response = await client.post(f"{OLLAMA_URL}/api/show", json={"model": model})
+            capabilities_cache[model] = response.json().get("capabilities", [])
+        except (httpx.HTTPError, ValueError):
+            return []  # don't cache: maybe Ollama is just starting
+    return capabilities_cache[model]
+
+
+async def can_think(model):
+    # Models like qwen3 or deepseek-r1 can reason before they answer.
+    return "thinking" in await capabilities(model)
+
+
+async def can_chat(model):
+    # Embedding models (like nomic-embed-text) turn text into numbers and
+    # can't chat. An empty list means "unknown" (an older Ollama), so we
+    # keep the model rather than hide it by mistake.
+    found = await capabilities(model)
+    return not found or "completion" in found
+
+
+# "async def" + "yield" makes an async generator: the caller loops over it
+# with "async for" and gets each piece of the answer as soon as it arrives.
+# Each piece is a pair (kind, value):
+#   ("thinking", text)  the model's reasoning, only when think=True
+#   ("content", text)   the answer itself
+#   ("stats", dict)     once at the end: token counts and speed
+async def stream_events(
+    model, messages, max_tokens=DEFAULT_MAX_TOKENS, temperature=None, think=False
+):
+    # num_predict = the most tokens the model may write (thinking included!);
+    # num_ctx = the context window.
     options = {"num_predict": max_tokens, "num_ctx": NUM_CTX}
     if temperature is not None:
+        # 0 = always the most likely word, higher = more random and creative.
         options["temperature"] = temperature
 
     try:
+        # timeout=None: a big model can think for minutes before the first word.
         async with httpx.AsyncClient(timeout=None) as client:
             async with client.stream(
                 "POST",
@@ -54,6 +109,10 @@ async def stream_chat(model, messages, max_tokens=DEFAULT_MAX_TOKENS, temperatur
                     "model": model,
                     "messages": messages,
                     "stream": True,
+                    # Always say it: thinking models think by default, and
+                    # then their answer would be empty when we don't read
+                    # the thinking. False works on every model.
+                    "think": think,
                     "keep_alive": KEEP_ALIVE,
                     "options": options,
                 },
@@ -62,20 +121,57 @@ async def stream_chat(model, messages, max_tokens=DEFAULT_MAX_TOKENS, temperatur
                     body = await response.aread()
                     raise OllamaError(error_message(body))
 
+                # Ollama streams one JSON object per line, like:
+                # {"message": {"content": "Hel"}, "done": false}
+                # {"message": {"thinking": "We are"}, "done": false}
                 async for line in response.aiter_lines():
                     if not line:
                         continue
                     chunk = json.loads(line)
                     if "error" in chunk:
                         raise OllamaError(chunk["error"])
-                    yield chunk.get("message", {}).get("content", "")
+                    message = chunk.get("message", {})
+                    if message.get("thinking"):
+                        yield "thinking", message["thinking"]
+                    if message.get("content"):
+                        yield "content", message["content"]
                     if chunk.get("done"):
+                        # The last chunk carries the numbers. Durations are
+                        # in nanoseconds (1 second = 1e9 ns).
+                        tokens = chunk.get("eval_count", 0)
+                        yield "stats", {
+                            "tokens": tokens,
+                            "seconds": chunk.get("eval_duration", 0) / 1e9,
+                            # prompt + answer = how full the context window got
+                            "context": chunk.get("prompt_eval_count", 0) + tokens,
+                            "num_ctx": NUM_CTX,
+                            # "length" = it stopped at max_tokens, not by choice
+                            "cut_off": chunk.get("done_reason") == "length",
+                        }
                         break
     except httpx.ConnectError:
         raise OllamaError(NOT_RUNNING) from None
 
 
+async def stream_chat(model, messages, max_tokens=DEFAULT_MAX_TOKENS, temperature=None):
+    # Only the answer text, as plain strings. The Guard, titles, summaries,
+    # recaps and Deep think use this: they need the answer, not reasoning.
+    #
+    # Some models (like qwen3:4b "Thinking") always think, even with
+    # think=False, and then write their reasoning into the answer. So a
+    # thinking model is allowed to think, gets room for it, and we throw
+    # the thinking away.
+    think = await can_think(model)
+    if think:
+        max_tokens += THINK_MAX_TOKENS
+    async for kind, value in stream_events(model, messages, max_tokens, temperature, think):
+        if kind == "content":
+            yield value
+
+
 async def embed(texts):
+    # Turns texts into vectors (lists of numbers). Texts with similar meaning
+    # get vectors that point in a similar direction. keeper.py uses this.
     try:
         async with httpx.AsyncClient(timeout=60) as client:
             response = await client.post(

@@ -1,3 +1,6 @@
+# The Memories tab: list, add, edit and forget memories.
+# The four URLs follow REST: GET reads, POST adds, PUT changes, DELETE removes.
+
 from fastapi import APIRouter, HTTPException
 
 from cerberus import keeper
@@ -11,6 +14,7 @@ def list_memories():
     return {"memories": keeper.list_all()}
 
 
+# async, because adding a memory waits for Ollama to make its embedding.
 @router.post("")
 async def add_memory(body: MemoryIn):
     return await keeper.add(body.text.strip())

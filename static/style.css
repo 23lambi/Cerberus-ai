@@ -1,5 +1,7 @@
 /* ---------- Colors and font (change the whole look here) ---------- */
 
+/* Custom properties (variables): define a color once, use it with var(--name). */
+
 :root {
   --bg: #1e2027;
   --side: #16181d;
@@ -10,12 +12,21 @@
   --muted: #8b909a;
   --accent: #e8707e;
   --accent-bg: #2a1f25;
+
+  /* Tells the browser this page is dark, so the parts it draws itself
+     (checkboxes, scrollbars, dropdown menus, the search box's x, the
+     file picker button) come out dark too, not white. */
+  color-scheme: dark;
+  /* The color of checkboxes and other built-in controls when they're on. */
+  accent-color: var(--accent);
 }
 
+/* border-box: a width includes the padding and border, which makes sizes easier. */
 * {
   box-sizing: border-box;
 }
 
+/* Flexbox: the sidebar and the main area sit side by side. */
 body {
   margin: 0;
   display: flex;
@@ -26,6 +37,7 @@ body {
   font-size: 14px;
 }
 
+/* Form elements don't take the page's font by default, so we tell them to. */
 button, input, select, textarea {
   font: inherit;
   color: inherit;
@@ -76,6 +88,7 @@ button, input, select, textarea {
   padding: 12px 8px 4px;
 }
 
+/* flex: 1 = take all the space left over in the sidebar. */
 #chat-list {
   list-style: none;
   margin: 0;
@@ -104,6 +117,7 @@ button, input, select, textarea {
   color: var(--accent);
 }
 
+/* Long titles end in "..." instead of wrapping onto a second line. */
 #chat-list .title {
   flex: 1;
   overflow: hidden;
@@ -119,8 +133,72 @@ button, input, select, textarea {
   visibility: hidden;
 }
 
-#chat-list li:hover .delete {
+#chat-list .edit {
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  visibility: hidden;
+}
+
+/* The ✎ and the x only show while the mouse is over their chat. */
+#chat-list li:hover .delete,
+#chat-list li:hover .edit {
   visibility: visible;
+}
+
+#chat-list .edit:hover,
+#chat-list .delete:hover {
+  color: var(--accent);
+}
+
+/* "No chats match." is a message, not a chat, so it isn't clickable. */
+#chat-list li.empty {
+  cursor: default;
+  font-style: italic;
+}
+
+/* The text box that replaces a title while you rename a chat. */
+#chat-list .rename {
+  flex: 1;
+  min-width: 0;
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 1px 4px;
+  outline: none;
+}
+
+#chat-search {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  margin: 0 0 6px;
+  font-size: 12px;
+  outline: none;
+}
+
+#chat-search:focus {
+  border-color: var(--accent);
+}
+
+/* The "Choose files" button of the file picker in the Documents tab. */
+::file-selector-button {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  margin-right: 8px;
+  cursor: pointer;
+}
+
+/* Inputs in dialogs and the memory form: keep them on the dark panel color. */
+input,
+textarea,
+select {
+  background-color: var(--panel);
 }
 
 #features {
@@ -131,12 +209,15 @@ button, input, select, textarea {
 
 /* ---------- Panels (one per feature) ---------- */
 
+/* min-width: 0 lets this area shrink; without it, a long code line
+   would push the whole page wider than the window. */
 main {
   flex: 1;
   display: flex;
   min-width: 0;
 }
 
+/* Every panel is hidden, except the one with the class "active". */
 .panel {
   display: none;
   flex: 1;
@@ -164,18 +245,93 @@ main {
 
 /* ---------- Chat ---------- */
 
+/* The message list fills the height and scrolls; max-width keeps lines readable. */
 #messages {
   flex: 1;
   overflow-y: auto;
-  white-space: pre-wrap;
   line-height: 1.55;
   width: 100%;
   max-width: 820px;
   margin: 0 auto;
 }
 
-#messages p {
+/* Plain text (your messages, the Deep think steps) keeps its line breaks. */
+.message,
+.head {
+  white-space: pre-wrap;
+}
+
+.message {
   margin: 0 0 14px;
+}
+
+/* Replies are HTML made from Markdown, so the HTML decides the line breaks. */
+.reply {
+  white-space: normal;
+}
+
+.reply p {
+  margin: 6px 0;
+}
+
+.reply code {
+  background: var(--panel);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.reply pre {
+  background: var(--side);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  overflow-x: auto;
+}
+
+.reply pre code {
+  background: none;
+  padding: 0;
+}
+
+/* The box around a code block. position: relative makes it the corner
+   that the Copy button (position: absolute) is placed against. */
+.code-box {
+  position: relative;
+}
+
+.copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+  opacity: 0; /* invisible until the mouse is over the code */
+}
+
+.code-box:hover .copy {
+  opacity: 1;
+}
+
+.copy:hover,
+#regenerate:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+#regenerate {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 3px 10px;
+  margin: 0 0 14px;
+  cursor: pointer;
 }
 
 #composer {
@@ -195,12 +351,18 @@ main {
   padding: 10px 12px;
 }
 
+/* The message box. resize: none hides the drag handle, because app.js
+   sets the height itself. Past max-height it scrolls instead of growing. */
 #input {
+  display: block;
   width: 100%;
   background: none;
   border: none;
   outline: none;
   padding: 6px 2px 12px;
+  resize: none;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 .composer-bar {
@@ -250,6 +412,7 @@ main {
 
 /* ---------- Deep think ---------- */
 
+/* Grid: the draft and the review side by side, in two equal columns. */
 .heads {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -275,6 +438,30 @@ details {
 
 summary {
   cursor: pointer;
+}
+
+/* ---------- Thinking and stats ---------- */
+
+/* The fold-out box with the model's reasoning, above the answer. */
+.thinking {
+  margin: 0 0 6px;
+  font-size: 12px;
+}
+
+.thinking > div {
+  white-space: pre-wrap;
+  border-left: 2px solid var(--border);
+  padding: 4px 0 4px 10px;
+  margin-top: 4px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* "312 tokens · 24.1 tok/s · context 1,532 / 8,192" under an answer. */
+.stats {
+  color: var(--muted);
+  font-size: 11px;
+  margin: -8px 0 14px;
 }
 
 /* ---------- Memory panel ---------- */
@@ -363,6 +550,7 @@ dialog {
   border-radius: 12px;
 }
 
+/* ::backdrop is the dark layer behind an open dialog. */
 dialog::backdrop {
   background: rgba(0, 0, 0, 0.6);
 }
@@ -378,7 +566,41 @@ dialog h2 {
   font-weight: bold;
 }
 
-.setting textarea {
+/* A group of settings that belong together, like the Helper. */
+.setting-group {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px 12px;
+  margin: 0 0 12px;
+}
+
+.setting-group legend {
+  color: var(--accent);
+  font-weight: bold;
+  padding: 0 6px;
+}
+
+.setting-group select {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+/* A greyed-out dropdown while the Helper is off. */
+.setting-group select:disabled {
+  opacity: 0.5;
+}
+
+.setting-group .hint {
+  margin: 8px 0 0;
+}
+
+.setting textarea,
+.setting select {
   display: block;
   width: 100%;
   margin-top: 6px;
@@ -387,6 +609,12 @@ dialog h2 {
   border-radius: 8px;
   padding: 8px;
   font-weight: normal;
+}
+
+/* The explanation under a setting: normal weight, a little space above. */
+.setting .hint {
+  font-weight: normal;
+  margin: 6px 0 0;
 }
 
 .dialog-buttons {
@@ -430,6 +658,8 @@ dialog h2 {
 
 /* ---------- Projects ---------- */
 
+/* The hidden attribute must always win, even over rules like display: flex.
+   !important beats every normal rule. */
 [hidden] {
   display: none !important;
 }

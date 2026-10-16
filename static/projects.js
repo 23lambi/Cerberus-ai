@@ -1,3 +1,6 @@
+// Projects in the sidebar: create, enter, rename, leave and delete.
+// Inside a project, new chats belong to it and share its notes.
+
 const projectList = document.getElementById("project-list");
 const projectBar = document.getElementById("project-bar");
 const projectName = document.getElementById("project-name");
@@ -18,6 +21,7 @@ async function loadProjects() {
     const title = document.createElement("span");
     title.className = "title";
     title.textContent = project.name;
+    // The tooltip when you hover the name, like "3 chats".
     title.title = project.chats + (project.chats === 1 ? " chat" : " chats");
 
     const del = document.createElement("button");
@@ -27,7 +31,7 @@ async function loadProjects() {
 
     li.addEventListener("click", () => enterProject(project));
     del.addEventListener("click", (event) => {
-      event.stopPropagation();
+      event.stopPropagation(); // don't also enter the project we're deleting
       deleteProject(project);
     });
 
@@ -99,6 +103,7 @@ async function renameProject() {
     return;
   }
 
+  // Use the name the server saved (it may be trimmed or shortened).
   currentProject.name = data.name;
   showProjectMode();
 }

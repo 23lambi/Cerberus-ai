@@ -1,3 +1,7 @@
+# Projects: when you leave a chat inside a project, the model writes a
+# short recap of it. Every other chat in the same project then gets these
+# recaps in its system prompt, so the project "remembers" its own work.
+
 from cerberus import database
 from cerberus.config import PROJECT_NOTES_MAX_CHARS
 from cerberus.ollama import OllamaError, stream_chat
@@ -25,7 +29,7 @@ def as_text(chat_id, messages):
             break
         lines.append(line)
         used += len(line)
-    lines.reverse()
+    lines.reverse()  # back to oldest-first, the order a person reads in
 
     text = "\n".join(lines)
     if start:
@@ -72,6 +76,7 @@ def notes_for(project_id, exclude_chat_id=None):
     parts = []
     used = 0
     for note in database.project_notes(project_id, exclude_chat_id):
+        # Notes from a chat are labelled with its title, others with their kind.
         label = note["title"] or note["kind"]
         part = f"[{label}, {note['updated_at'][:10]}] {note['text']}"
         if used + len(part) > PROJECT_NOTES_MAX_CHARS:
@@ -89,6 +94,7 @@ def project_prompt(chat_id):
     if chat is None or chat["project_id"] is None:
         return ""
     project = database.get_project(chat["project_id"])
+    # Leave out this chat's own recap: the model already sees the chat itself.
     notes = notes_for(chat["project_id"], exclude_chat_id=chat_id)
     if project is None or not notes:
         return ""

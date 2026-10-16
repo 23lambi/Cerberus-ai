@@ -1,81 +1,73 @@
+# POST /chat: the heart of Cerberus. One message comes in, context.py
+# builds the system prompt (personality, project notes, memories, summary),
+# and the answer is streamed back to the browser piece by piece.
+#
+# The stream is NDJSON: one JSON object per line, each with a "type":
+#   {"type": "thinking", "text": "..."}   the model's reasoning (Think on)
+#   {"type": "content", "text": "..."}    a piece of the answer
+#   {"type": "stats", "tokens": 312, ...} once, at the end
+#   {"type": "error", "text": "..."}      when Ollama fails
+# Plain text could only carry the answer; JSON lines can carry all four.
+
+import json
+
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from cerberus import database, guard, keeper, recap, settings, summary
-from cerberus.ollama import ERROR_MARK, OllamaError, stream_chat, trim_history
-from cerberus.prompts import KEEPER_NOTHING, KEEPER_RECALL, KEEPER_SAVED, SUMMARY_NOTE
+from cerberus import context, database, recap, settings
+from cerberus.config import DEFAULT_MAX_TOKENS, THINK_MAX_TOKENS
+from cerberus.ollama import OllamaError, can_think, stream_chat, stream_events
 from cerberus.schemas import ChatRequest
 
+# A router is a group of URLs that main.py plugs into the app.
 router = APIRouter()
+
+
+def line(**fields):
+    # line(type="content", text="Hi") -> '{"type": "content", "text": "Hi"}\n'
+    # **fields collects all keyword arguments into one dict.
+    return json.dumps(fields) + "\n"
 
 
 @router.post("/chat")
 async def chat(req: ChatRequest):
-    all_messages = [m.model_dump() for m in req.messages]
-    history = trim_history(all_messages)
-    question = history[-1]["content"]
+    ctx = await context.prepare(req)
+    question = ctx.question
+    messages = ctx.messages()
 
-    # Whatever trim_history dropped gets summarized instead of forgotten.
-    old = all_messages[: len(all_messages) - len(history)]
-    earlier = await summary.old_part(req.chat_id, old, req.model)
+    # Only think when the user asked for it AND the model can do it.
+    # Thinking uses tokens too, so it gets its own budget on top.
+    think = req.think and await can_think(req.model)
+    max_tokens = DEFAULT_MAX_TOKENS + (THINK_MAX_TOKENS if think else 0)
 
-    # The Guard only decides one thing: does this need memory?
-    mode, _ = await guard.route(question, req.model)
-    memory_mode = mode == "memory"
-    system_prompt = settings.brain()
-
-        # Inside a project: add the notes from the project's other chats.
-    notes = recap.project_prompt(req.chat_id)
-    if notes:
-        system_prompt += "\n" + notes
-
-    # Memory: save new memories, then find what matters for this question.
-    saved = keeper.wants_to_save(question) if memory_mode else None
-    if saved:
-        await keeper.add(saved)
-
-    found = await keeper.recall(question, keeper_mode=memory_mode, chat_id=req.chat_id)
-    context = keeper.context_prompt(found)
-    if context:
-        system_prompt += "\n" + context
-    if saved:
-        system_prompt += "\n" + KEEPER_SAVED.format(text=saved)
-    elif memory_mode and (context or notes):
-        system_prompt += "\n" + KEEPER_RECALL
-    elif memory_mode:
-        # Nothing was found, so tell the model plainly instead of letting it guess.
-        system_prompt += "\n" + KEEPER_NOTHING
-    if earlier:
-        system_prompt += "\n" + SUMMARY_NOTE.format(text=earlier)
-
-    messages = [{"role": "system", "content": system_prompt}] + history
-
+    # A generator: StreamingResponse sends each piece it yields to the
+    # browser right away, so the user sees the answer being written.
     async def generate():
         reply = ""
         failed = False
         try:
-            async for piece in stream_chat(req.model, messages):
-                reply += piece
-                yield piece
+            async for kind, value in stream_events(req.model, messages, max_tokens, think=think):
+                if kind == "stats":
+                    # **value spreads the stats dict into the line's fields.
+                    yield line(type="stats", **value)
+                    continue
+                if kind == "content":
+                    reply += value  # only the answer is saved, not the thinking
+                yield line(type=kind, text=value)
         except OllamaError as error:
             failed = True
-            yield f"\n{ERROR_MARK} {error}"
+            yield line(type="error", text=str(error))
         finally:
             # Runs at the end, and also when the user presses Stop.
+            # Question and answer are saved together, so a chat never has
+            # a question without its answer.
             if req.chat_id and reply and not failed:
                 database.save_message(req.chat_id, "user", question)
                 database.save_message(req.chat_id, "assistant", reply)
 
     return StreamingResponse(
-        generate(),
-        media_type="text/plain",
-        headers={
-            "X-Cerberus-Mode": mode,
-            "X-Cerberus-Memories": str(len(found["memories"])),
-            "X-Cerberus-Documents": str(len(found["documents"])),
-            "X-Cerberus-Chats": str(len(found["chats"])),
-        },
+        generate(), media_type="application/x-ndjson", headers=ctx.headers()
     )
 
 
@@ -85,6 +77,7 @@ class TitleRequest(BaseModel):
 
 @router.post("/chats/{chat_id}/title")
 async def make_title(chat_id: int, req: TitleRequest):
+    # The page calls this after the first answer of a new chat.
     chat = database.get_chat(chat_id)
     if chat is None or len(chat["messages"]) < 2:
         raise HTTPException(status_code=404, detail="Nothing to title yet")
@@ -97,13 +90,17 @@ async def make_title(chat_id: int, req: TitleRequest):
         f"User: {question}\nAssistant: {answer}"
     )
 
+    # A title is a background job, so the helper model writes it.
+    helper = await settings.jobs_model(req.model)
     title = ""
     try:
-        async for piece in stream_chat(req.model, [{"role": "user", "content": prompt}]):
+        async for piece in stream_chat(helper, [{"role": "user", "content": prompt}]):
             title += piece
     except OllamaError:
         return {"title": chat["title"]}  # keep the placeholder
 
+    # Clean up what models like to add: keep the first line only, drop
+    # quotes and a final dot, and cut at 60 characters.
     title = title.strip().splitlines()[0].strip(' "\'.')[:60] if title.strip() else ""
     if title:
         database.set_chat_title(chat_id, title)
@@ -118,4 +115,6 @@ class RecapRequest(BaseModel):
 async def recap_chat(chat_id: int, req: RecapRequest):
     # The page calls this when you leave a project chat.
     # The recap is null when there was nothing new to write.
-    return {"recap": await recap.make_recap(chat_id, req.model)}
+    # Recaps are background jobs, so the helper model writes them.
+    helper = await settings.jobs_model(req.model)
+    return {"recap": await recap.make_recap(chat_id, helper)}
