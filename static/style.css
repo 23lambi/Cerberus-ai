@@ -48,10 +48,11 @@ button, input, select, textarea {
 /* ---------- Sidebar ---------- */
 
 #sidebar {
-  width: 250px;
+  width: 264px;
+  flex-shrink: 0; /* never squeezed by a wide chat */
   background: var(--side);
   border-right: 1px solid var(--border);
-  padding: 14px 10px;
+  padding: 16px 12px 12px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -59,10 +60,14 @@ button, input, select, textarea {
 
 /* The name at the top: a button that goes home, but looks like a title. */
 .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   color: var(--accent);
   font-weight: bold;
-  font-size: 16px;
-  padding: 4px 8px 14px;
+  font-size: 18px;
+  letter-spacing: 1px;
+  padding: 2px 8px 16px;
   background: none;
   border: none;
   text-align: left;
@@ -71,6 +76,21 @@ button, input, select, textarea {
 
 .brand:hover {
   opacity: 0.8;
+}
+
+/* The most used button gets a real button look. */
+#new-chat {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  font-weight: bold;
+  padding: 9px 12px;
+  margin-bottom: 4px;
+}
+
+#new-chat:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-bg);
 }
 
 /* ---------- Home screen (no chat open) ---------- */
@@ -127,9 +147,10 @@ button, input, select, textarea {
   text-align: left;
   background: none;
   border: none;
-  padding: 7px 8px;
-  border-radius: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
   cursor: pointer;
+  transition: background 0.15s, color 0.15s; /* a soft change on hover */
 }
 
 .nav:hover {
@@ -141,10 +162,14 @@ button, input, select, textarea {
   color: var(--accent);
 }
 
+/* Section titles: small capitals, so they don't look like chats. */
 .nav-label {
   color: var(--muted);
-  font-size: 12px;
-  padding: 12px 8px 4px;
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  padding: 16px 10px 6px;
 }
 
 /* flex: 1 = take all the space left over in the sidebar. */
@@ -159,10 +184,26 @@ button, input, select, textarea {
 #chat-list li {
   display: flex;
   align-items: center;
-  padding: 6px 8px;
-  border-radius: 6px;
+  gap: 2px;
+  padding: 7px 10px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 13px;
+  color: var(--muted);
+  transition: background 0.15s, color 0.15s;
+}
+
+/* "Today", "Yesterday"...: headings between the chats, not chats. */
+#chat-list li.group {
+  cursor: default;
+  font-size: 11px;
+  color: var(--muted);
+  opacity: 0.7;
+  padding: 12px 10px 4px;
+}
+
+#chat-list li.group:hover {
+  background: none;
   color: var(--muted);
 }
 
@@ -184,26 +225,22 @@ button, input, select, textarea {
   white-space: nowrap;
 }
 
-#chat-list .delete {
-  border: none;
-  background: none;
-  color: var(--muted);
-  cursor: pointer;
-  visibility: hidden;
-}
-
+/* The ✎ and the x only show while the mouse is over their chat. With
+   display: none (not visibility: hidden) they take no space when hidden,
+   so the titles can use the full width. */
+#chat-list .delete,
 #chat-list .edit {
+  display: none;
   border: none;
   background: none;
   color: var(--muted);
   cursor: pointer;
-  visibility: hidden;
+  padding: 0 3px;
 }
 
-/* The ✎ and the x only show while the mouse is over their chat. */
 #chat-list li:hover .delete,
 #chat-list li:hover .edit {
-  visibility: visible;
+  display: inline-block;
 }
 
 #chat-list .edit:hover,
@@ -231,9 +268,9 @@ button, input, select, textarea {
 #chat-search {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 5px 8px;
-  margin: 0 0 6px;
+  border-radius: 8px;
+  padding: 7px 10px;
+  margin: 0 0 4px;
   font-size: 12px;
   outline: none;
 }
@@ -601,13 +638,16 @@ dialog button {
 
 /* ---------- Settings dialog ---------- */
 
+/* The dialog is a column: header, a scrolling middle, and the buttons. */
 dialog {
-  width: 600px;
-  max-width: 90vw;
+  width: 780px;
+  max-width: 92vw;
+  padding: 0;
   background: var(--side);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
 
 /* ::backdrop is the dark layer behind an open dialog. */
@@ -615,23 +655,74 @@ dialog::backdrop {
   background: rgba(0, 0, 0, 0.6);
 }
 
-dialog h2 {
+#settings-form {
+  display: flex;
+  flex-direction: column;
+  max-height: 88vh;
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dialog-header h2 {
+  flex: 1;
+  margin: 0;
   color: var(--accent);
-  font-size: 16px;
+  font-size: 17px;
 }
 
-.setting {
-  display: block;
-  margin-bottom: 12px;
+dialog .dialog-close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 22px;
+  line-height: 1;
+  padding: 0 4px;
+}
+
+dialog .dialog-close:hover {
+  color: var(--accent);
+}
+
+/* Only this part scrolls. min-height: 0 lets it shrink inside the column. */
+.dialog-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 20px 4px;
+}
+
+.dialog-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+}
+
+dialog button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #1b1b1f;
   font-weight: bold;
+  padding: 5px 16px;
 }
 
-/* A group of settings that belong together, like the Helper. */
+#settings-reset {
+  color: var(--muted);
+}
+
+/* A section of settings that belong together, like the Helper. */
 .setting-group {
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 12px 12px;
-  margin: 0 0 12px;
+  border-radius: 10px;
+  padding: 10px 14px 14px;
+  margin: 0 0 16px;
+  background: rgba(255, 255, 255, 0.015);
 }
 
 .setting-group legend {
@@ -640,47 +731,85 @@ dialog h2 {
   padding: 0 6px;
 }
 
+.setting-group .hint {
+  margin: 8px 0 0;
+  line-height: 1.5;
+}
+
 .setting-group select {
   display: block;
   width: 100%;
-  margin-top: 8px;
+  margin-top: 10px;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 6px 8px;
+  padding: 7px 8px;
 }
 
-/* A greyed-out dropdown while the Helper is off. */
+/* A greyed-out dropdown while its feature is off. */
 .setting-group select:disabled {
   opacity: 0.5;
 }
 
-.setting-group .hint {
-  margin: 8px 0 0;
-}
-
-.setting textarea,
-.setting select {
+/* The personality: big enough to read all of it, easy on the eyes.
+   settings.js sets the height to fit the text; past max-height it scrolls. */
+.prompt-edit {
   display: block;
   width: 100%;
-  margin-top: 6px;
+  margin-top: 10px;
+  min-height: 120px;
+  max-height: 50vh;
+  padding: 12px 14px;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 8px;
-  font-weight: normal;
+  font-size: 13px;
+  line-height: 1.65;
+  resize: vertical;
+  outline: none;
 }
 
-/* The explanation under a setting: normal weight, a little space above. */
-.setting .hint {
-  font-weight: normal;
-  margin: 6px 0 0;
+.prompt-edit:focus {
+  border-color: var(--accent);
 }
 
-.dialog-buttons {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
+.setting-group .counter {
+  text-align: right;
+  margin-top: 4px;
+}
+
+/* The built-in prompts, folded at the bottom. */
+.built-in {
+  margin: 0 0 16px;
+  color: var(--text);
+}
+
+.built-in summary {
+  color: var(--muted);
+}
+
+.built-in h4 {
+  color: var(--accent);
+  margin: 18px 0 2px;
+  font-size: 13px;
+}
+
+.built-in .hint {
+  margin: 0 0 6px;
+}
+
+/* Each prompt as it is in prompts.py: same line breaks, wrapped lines. */
+.prompt-text {
+  white-space: pre-wrap;
+  margin: 0;
+  padding: 10px 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text);
 }
 
 /* ---------- File chips ---------- */
@@ -756,11 +885,19 @@ dialog h2 {
 #project-list li {
   display: flex;
   align-items: center;
-  padding: 6px 8px;
-  border-radius: 6px;
+  padding: 7px 10px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 13px;
   color: var(--muted);
+  transition: background 0.15s, color 0.15s;
+}
+
+/* A small folder sign in front of each project, so it doesn't look like a chat.
+   ::before adds content with CSS only, no extra HTML. */
+#project-list .title::before {
+  content: "▸ ";
+  color: var(--accent);
 }
 
 #project-list li:hover {
@@ -776,15 +913,15 @@ dialog h2 {
 }
 
 #project-list .delete {
+  display: none;
   border: none;
   background: none;
   color: var(--muted);
   cursor: pointer;
-  visibility: hidden;
 }
 
 #project-list li:hover .delete {
-  visibility: visible;
+  display: inline-block;
 }
 
 #project-bar {

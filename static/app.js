@@ -181,17 +181,21 @@ async function loadModels() {
     return;
   }
 
+  // "None" first: no model at all, so no model takes up RAM.
+  // new Option(text, value) is a short way to make an <option>.
+  modelSelect.appendChild(new Option("None (free all memory)", ""));
   for (const name of data.models) {
-    const option = document.createElement("option");
-    option.value = name;
-    option.textContent = name;
-    modelSelect.appendChild(option);
+    modelSelect.appendChild(new Option(name, name));
   }
 
-  // Pick the model used last time, if it's still installed.
+  // Pick the model used last time: a model that's still installed, or
+  // None (saved as ""). The first time ever, take the first real model.
+  // getItem gives null when nothing was ever saved.
   const saved = localStorage.getItem("cerberus-model");
-  if (saved && data.models.includes(saved)) {
+  if (saved === "" || data.models.includes(saved)) {
     modelSelect.value = saved;
+  } else {
+    modelSelect.value = data.models[0];
   }
 
   // A Set is a list where each value appears once, with a fast .has().
@@ -248,7 +252,19 @@ async function loadChats() {
     return;
   }
 
+  // The chats come newest first. A heading goes in whenever the group
+  // changes: Today, Yesterday, Previous 7 days...
+  let group = null;
   for (const chat of data.chats) {
+    const label = dateGroup(chat.created_at);
+    if (label !== group) {
+      group = label;
+      const heading = document.createElement("li");
+      heading.className = "group";
+      heading.textContent = label;
+      chatList.appendChild(heading);
+    }
+
     const li = document.createElement("li");
     if (chat.id === currentChatId) {
       li.className = "active";
@@ -285,6 +301,22 @@ async function loadChats() {
     li.appendChild(del);
     chatList.appendChild(li);
   }
+}
+
+// Which group a chat belongs to, from its date ("2026-10-17T12:00:00").
+function dateGroup(createdAt) {
+  // Both dates at midnight, so only the day counts, not the hour.
+  const day = new Date(createdAt.slice(0, 10) + "T00:00:00");
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  // Subtracting dates gives milliseconds; 86400000 ms = one day.
+  const daysAgo = Math.round((today - day) / 86400000);
+
+  if (daysAgo <= 0) return "Today";
+  if (daysAgo === 1) return "Yesterday";
+  if (daysAgo < 7) return "Previous 7 days";
+  if (daysAgo < 30) return "Previous 30 days";
+  return "Older";
 }
 
 // Swaps the chat's title for a text box. Enter (or clicking elsewhere)
@@ -801,7 +833,7 @@ form.addEventListener("submit", async (event) => {
 
   const model = modelSelect.value;
   if (!model) {
-    addMessage("Please pick a model first.");
+    addMessage("Please pick a model first. With None, no model is loaded.");
     return;
   }
 
@@ -861,8 +893,8 @@ chatSearch.addEventListener("keydown", (event) => {
 // Free the RAM of the models we don't use anymore. Ollama keeps every
 // model it used in memory for 30 minutes; we tell it to let go of the old
 // ones right away. We don't wait for it, the chat works meanwhile.
+// With None chosen (value ""), every model is unloaded.
 function freeOtherModels() {
-  if (!modelSelect.value) return;
   fetch("/models/keep", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -872,6 +904,8 @@ function freeOtherModels() {
     .then((data) => {
       if (data.unloaded.length > 0) {
         attachStatus.textContent = "Freed memory: " + data.unloaded.join(", ");
+      } else if (!modelSelect.value) {
+        attachStatus.textContent = "No model is loaded.";
       }
     })
     .catch(() => {

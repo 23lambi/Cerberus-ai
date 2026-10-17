@@ -87,6 +87,12 @@ def test_switching_models_frees_the_others(client, fake):
     assert fake.unloaded == ["big:8b"]
 
 
+def test_choosing_none_frees_every_model(client, fake):
+    fake.loaded = ["big:8b", "nomic-embed-text:latest"]
+    response = client.post("/models/keep", json={"model": ""})
+    assert response.json()["unloaded"] == ["big:8b", "nomic-embed-text:latest"]
+
+
 def test_rename_chat(client):
     chat_id = client.post("/chats", json={}).json()["id"]
 
@@ -155,3 +161,11 @@ def test_without_eyes_the_model_is_told_it_cannot_see(client, fake):
     client.post("/chat", json=image_body("What is this?", "small:3b"))
 
     assert "can't see them" in fake.calls[-1]["messages"][-1]["content"]
+
+
+def test_settings_show_every_built_in_prompt(client):
+    prompts = client.get("/settings/prompts").json()["prompts"]
+    names = [prompt["name"] for prompt in prompts]
+    assert "Guard" in names and "Reverse: skill" in names
+    # Every prompt has text and an explanation; none is empty by mistake.
+    assert all(prompt["text"] and prompt["about"] for prompt in prompts)

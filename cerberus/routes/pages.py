@@ -40,7 +40,7 @@ async def models():
 
 
 class KeepRequest(BaseModel):
-    model: str
+    model: str = ""  # "" = None in the dropdown: keep no model at all
 
 
 @router.post("/models/keep")
@@ -51,10 +51,13 @@ async def keep_only(req: KeepRequest):
     #   - the Helper's model, when the Helper is on (it works on every message)
     #   - the Eyes' model, when Eyes is on
     #   - the embedding model (small, and used for every memory search)
-    keep = {req.model, EMBED_MODEL}
-    for model in [await settings.helper_model(), await settings.eyes_model()]:
-        if model:
-            keep.add(model)
+    # With "None" chosen (model ""), nothing is kept: all RAM is freed.
+    keep = set()
+    if req.model:
+        keep = {req.model, EMBED_MODEL}
+        for model in [await settings.helper_model(), await settings.eyes_model()]:
+            if model:
+                keep.add(model)
     keep = {full_name(name) for name in keep}
 
     unloaded = []

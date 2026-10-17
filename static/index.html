@@ -5,6 +5,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Cerberus</title>
+  <!-- The tab icon: the logo, as an SVG written straight into the link -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 24'%3E%3Cpath d='M22 6.5 A8 8 0 1 0 22 17.5' fill='none' stroke='%23e8707e' stroke-width='3.6' stroke-linecap='round'/%3E%3Ccircle cx='26.5' cy='12' r='2.2' fill='%23e8707e'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/static/style.css">
   <!-- Colors for code blocks (highlight.js theme) -->
   <link rel="stylesheet" href="/static/vendor/github-dark.min.css">
@@ -13,7 +15,9 @@
   <!-- ========== Left: the sidebar ========== -->
   <aside id="sidebar">
     <!-- A button, so it works with the mouse and the keyboard: back to the home screen -->
-    <button class="brand" id="home-button" title="Home">Cerberus</button>
+    <button class="brand" id="home-button" title="Home">
+      Cerberus
+    </button>
 
     <button class="nav" id="new-chat">+ New chat</button>
 
@@ -34,7 +38,7 @@
 
     <div class="nav-label" id="chats-label">Chats</div>
     <!-- type="search" gives a small x to clear it in most browsers -->
-    <input type="search" id="chat-search" placeholder="Search chats..." autocomplete="off">
+    <input type="search" id="chat-search" placeholder="⌕  Search chats" autocomplete="off">
     <ul id="chat-list"></ul>
 
     <!-- Features: each button opens its own panel on the right -->
@@ -118,15 +122,20 @@
   </main>
 
   <!-- <dialog> is a built-in popup. settings.js opens it with showModal(). -->
+  <!-- The header and the buttons stay in place; only the middle scrolls. -->
   <dialog id="settings-dialog">
     <form id="settings-form">
-      <h2>Settings</h2>
-      <div id="settings-fields"></div>
-      <div class="dialog-buttons">
+      <header class="dialog-header">
+        <h2>Settings</h2>
+        <button type="button" class="dialog-close" id="settings-close" title="Close">&times;</button>
+      </header>
+      <div class="dialog-body" id="settings-fields"></div>
+      <footer class="dialog-buttons">
         <button type="button" id="settings-reset">Reset to defaults</button>
+        <span class="spacer"></span>
         <button type="button" id="settings-cancel">Cancel</button>
-        <button type="submit">Save</button>
-      </div>
+        <button type="submit" class="primary">Save</button>
+      </footer>
     </form>
   </dialog>
 

@@ -1,6 +1,7 @@
-// The Settings dialog. Text settings are built from SETTING_LABELS, so a
-// new one only needs one line here (and a default in cerberus/settings.py).
+// The Settings dialog. Text settings are built from TEXT_SETTINGS, so a
+// new one only needs one entry here (and a default in cerberus/settings.py).
 // The on/off features with a model (Helper, Eyes) are built from MODEL_FEATURES.
+// At the bottom, the built-in prompts can be read (not changed).
 
 const settingsDialog = document.getElementById("settings-dialog");
 const settingsForm = document.getElementById("settings-form");
@@ -8,34 +9,110 @@ const settingsFields = document.getElementById("settings-fields");
 const openSettingsButton = document.getElementById("open-settings");
 const resetSettingsButton = document.getElementById("settings-reset");
 const cancelSettingsButton = document.getElementById("settings-cancel");
+const closeSettingsButton = document.getElementById("settings-close");
 
-// Setting key (as the server calls it) -> label shown to the user.
-const SETTING_LABELS = {
-  system_prompt: "Cerberus's personality",
+// Text settings: the key (as the server calls it), a title and a hint.
+const TEXT_SETTINGS = {
+  system_prompt: {
+    title: "Personality",
+    hint:
+      "The system prompt: the first thing the model reads in every chat, before " +
+      "your messages. Write it like instructions to a person. Memories, " +
+      "documents and project notes are added after it by Cerberus.",
+  },
 };
 
-// Builds one field per setting, filled with the current values.
+// Builds one section per setting, filled with the current values.
 function fillSettings(values) {
   settingsFields.innerHTML = "";
 
-  // Object.entries turns { a: 1 } into [["a", 1]], so we get key and label.
-  for (const [key, label] of Object.entries(SETTING_LABELS)) {
-    const wrapper = document.createElement("label");
-    wrapper.className = "setting";
-    wrapper.textContent = label;
+  // Object.entries turns { a: 1 } into [["a", 1]], so we get key and info.
+  for (const [key, info] of Object.entries(TEXT_SETTINGS)) {
+    const section = document.createElement("fieldset");
+    section.className = "setting-group";
+
+    const legend = document.createElement("legend");
+    legend.textContent = info.title;
+
+    const hint = document.createElement("p");
+    hint.className = "hint";
+    hint.textContent = info.hint;
 
     const textarea = document.createElement("textarea");
     textarea.name = key;
-    textarea.rows = 4;
+    textarea.className = "prompt-edit";
     textarea.value = values[key];
+    textarea.spellcheck = false;
 
-    wrapper.appendChild(textarea);
-    settingsFields.appendChild(wrapper);
+    // "1234 characters, about 309 tokens". A token is about 4 characters
+    // of English, so this shows how much of the context window it uses.
+    const counter = document.createElement("p");
+    counter.className = "hint counter";
+    function update() {
+      growTextarea(textarea);
+      const chars = textarea.value.length;
+      counter.textContent = chars + " characters, about " + Math.round(chars / 4) + " tokens";
+    }
+    textarea.addEventListener("input", update);
+    textarea.dataset.grow = "yes"; // openSettings grows it once it's visible
+    update();
+
+    section.append(legend, hint, textarea, counter);
+    settingsFields.appendChild(section);
   }
 
   for (const feature of MODEL_FEATURES) {
     addModelFeature(values, feature);
   }
+  settingsFields.appendChild(builtInPrompts());
+}
+
+// Makes a textarea exactly as tall as its text, so you see all of it
+// without scrolling inside a small box. (CSS caps it at max-height.)
+function growTextarea(textarea) {
+  textarea.style.height = "auto";
+  textarea.style.height = textarea.scrollHeight + 2 + "px"; // + the border
+}
+
+// ---------- The built-in prompts (read only) ----------
+
+// A folded section. The prompts are only loaded the first time it's
+// opened: most visits to Settings don't need them.
+function builtInPrompts() {
+  const details = document.createElement("details");
+  details.className = "built-in";
+
+  const summary = document.createElement("summary");
+  summary.textContent = "Built-in prompts (read only)";
+
+  const intro = document.createElement("p");
+  intro.className = "hint";
+  intro.textContent =
+    "Everything else Cerberus tells the model, for each feature. Words in " +
+    "{curly braces} are filled in by Cerberus. To change these, edit cerberus/prompts.py.";
+
+  const list = document.createElement("div");
+  details.append(summary, intro, list);
+
+  // "toggle" fires when a <details> opens or closes.
+  details.addEventListener("toggle", async () => {
+    if (!details.open || list.children.length > 0) return;
+    const response = await fetch("/settings/prompts");
+    const data = await response.json();
+    for (const prompt of data.prompts) {
+      const title = document.createElement("h4");
+      title.textContent = prompt.name;
+      const about = document.createElement("p");
+      about.className = "hint";
+      about.textContent = prompt.about;
+      // A <pre> keeps the prompt's own line breaks, like in prompts.py.
+      const text = document.createElement("pre");
+      text.className = "prompt-text";
+      text.textContent = prompt.text;
+      list.append(title, about, text);
+    }
+  });
+  return details;
 }
 
 // The on/off features that use a second model. Each one is saved as two
@@ -47,8 +124,9 @@ const MODEL_FEATURES = [
     key: "helper",
     title: "Helper",
     label: "Use a Helper model for background jobs",
-    // Any chat model can be the Helper.
-    models: () => [...modelSelect.options].map((option) => option.value),
+    // Any chat model can be the Helper. filter(Boolean) drops the "None"
+    // choice of the chat dropdown, whose value is "" (and "" counts as false).
+    models: () => [...modelSelect.options].map((option) => option.value).filter(Boolean),
     hint:
       "The Helper sorts your messages, writes chat titles, summaries and project " +
       "notes, so your chat model only has to answer. Pick a small, fast model " +
@@ -117,6 +195,13 @@ async function openSettings() {
   const values = await response.json();
   fillSettings(values);
   settingsDialog.showModal(); // a modal dialog blocks the page behind it
+  growAll(); // only now the boxes are visible and have a real height
+}
+
+function growAll() {
+  for (const textarea of settingsFields.querySelectorAll("textarea[data-grow]")) {
+    growTextarea(textarea);
+  }
 }
 
 settingsForm.addEventListener("submit", async (event) => {
@@ -147,7 +232,9 @@ resetSettingsButton.addEventListener("click", async () => {
   const response = await fetch("/settings/reset", { method: "POST" });
   const values = await response.json();
   fillSettings(values);
+  growAll();
 });
 
 cancelSettingsButton.addEventListener("click", () => settingsDialog.close());
+closeSettingsButton.addEventListener("click", () => settingsDialog.close());
 openSettingsButton.addEventListener("click", openSettings);
