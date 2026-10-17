@@ -331,6 +331,7 @@ async function askAboutFile(text, log, send) {
         facts: reverseFacts,
         messages: reverseHistory,
         think: wantsThinking(), // the Think checkbox from the chat
+        tools: wantsTools(), // and the Tools checkbox
       }),
       signal: reverseController.signal,
     });

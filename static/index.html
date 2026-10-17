@@ -73,6 +73,10 @@
             <label class="toggle" id="think-toggle" hidden title="Let the model reason before it answers">
               <input type="checkbox" id="think" checked> Think
             </label>
+            <!-- Only shown for models that can use tools (app.js decides) -->
+            <label class="toggle" id="tools-toggle" hidden title="Let the model use tools: a calculator, the time, your memories">
+              <input type="checkbox" id="tools" checked> Tools
+            </label>
             <label class="toggle">
               <input type="checkbox" id="three-heads"> Deep think
             </label>

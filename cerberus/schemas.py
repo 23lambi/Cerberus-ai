@@ -17,6 +17,7 @@ class ChatRequest(BaseModel):
     model: str  # the Ollama model name, like "qwen3-coder:30b"
     chat_id: int | None = None  # None = don't save this chat
     think: bool = False  # let a thinking model reason first (normal chat only)
+    tools: bool = False  # let the model use tools (calculator, memory search...)
 
 
 class NewChat(BaseModel):

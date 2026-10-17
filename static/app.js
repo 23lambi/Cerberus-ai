@@ -12,6 +12,8 @@ const modelSelect = document.getElementById("model");
 const threeHeads = document.getElementById("three-heads");
 const thinkToggle = document.getElementById("think-toggle");
 const thinkCheck = document.getElementById("think");
+const toolsToggle = document.getElementById("tools-toggle");
+const toolsCheck = document.getElementById("tools");
 const chatList = document.getElementById("chat-list");
 const chatSearch = document.getElementById("chat-search");
 const newChatButton = document.getElementById("new-chat");
@@ -62,6 +64,7 @@ let controller = null;
 // everything after it.
 let lastUserEl = null;
 let thinkingModels = new Set(); // the models that can think, from /models
+let toolModels = new Set(); // the models that can use tools, from /models
 let visionModels = new Set(); // the models that can see images, from /models
 let pendingImages = []; // images waiting to be sent, as base64 text
 let eyesReady = false; // Eyes is on, so every chat model can take images
@@ -200,6 +203,7 @@ async function loadModels() {
 
   // A Set is a list where each value appears once, with a fast .has().
   thinkingModels = new Set(data.thinking);
+  toolModels = new Set(data.tools);
   visionModels = new Set(data.vision);
   updateModelFeatures();
 }
@@ -208,6 +212,7 @@ async function loadModels() {
 // models, the image button for vision models.
 function updateModelFeatures() {
   thinkToggle.hidden = !thinkingModels.has(modelSelect.value);
+  toolsToggle.hidden = !toolModels.has(modelSelect.value);
   imageButton.hidden = !canTakeImages();
 }
 
@@ -521,6 +526,7 @@ async function sendNormal(model) {
         model: model,
         chat_id: currentChatId,
         think: wantsThinking(),
+        tools: wantsTools(),
       }),
       // The signal connects this request to the Stop button.
       signal: controller.signal,
@@ -575,6 +581,9 @@ async function readReply(response, bubble, who, onOther) {
         showReply(bubble, who, result.reply);
       } else if (ev.type === "stats") {
         result.stats = ev;
+      } else if (ev.type === "tool") {
+        showToolCall(bubble, ev);
+        bubble.textContent = who + " ..."; // the model goes on after the tool
       } else if (ev.type === "error") {
         result.failure = ev.text;
       } else if (onOther) {
@@ -675,6 +684,32 @@ function showStats(bubble, stats) {
 // True when the user wants thinking and the chosen model can do it.
 function wantsThinking() {
   return thinkCheck.checked && !thinkToggle.hidden;
+}
+
+// True when the user wants tools and the chosen model can use them.
+function wantsTools() {
+  return toolsCheck.checked && !toolsToggle.hidden;
+}
+
+// One folded line for each tool the model used, above the answer:
+// "🔧 calculate(1234*5678) → 7006652". Click it to see the full result.
+// You always see what was run, with what, and what came back.
+function showToolCall(bubble, ev) {
+  const details = document.createElement("details");
+  details.className = "tool-call";
+
+  // Object.values({ expression: "6*7" }) gives ["6*7"].
+  const inputs = Object.values(ev.arguments).join(", ");
+  const short = ev.result.replace(/\s+/g, " "); // one line: no line breaks
+  const summary = document.createElement("summary");
+  summary.textContent =
+    "🔧 " + ev.name + "(" + inputs + ") → " + (short.length > 70 ? short.slice(0, 70) + "..." : short);
+
+  const result = document.createElement("pre");
+  result.textContent = ev.result;
+
+  details.append(summary, result);
+  bubble.before(details);
 }
 
 // A Deep think answer: the draft and the review go in a fold-out box,

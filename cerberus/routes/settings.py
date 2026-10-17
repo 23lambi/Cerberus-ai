@@ -25,6 +25,8 @@ BUILT_IN = [
     ("Eyes", "Asks a vision model to describe your images.", prompts.EYES_PROMPT),
     ("Reverse: skill", "Added to the personality in the Reverse panel.", prompts.SKILLS["reverse"]),
     ("Reverse: facts", "How the facts about a file are given to the model.", prompts.REVERSE_FACTS),
+    ("Tools", "Added when Tools is on: when to use which tool.", prompts.TOOLS_NOTE),
+    ("Reverse: tools", "Added in the Reverse panel when Tools is on.", prompts.REVERSE_TOOLS_NOTE),
 ]
 
 

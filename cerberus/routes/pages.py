@@ -6,7 +6,14 @@ from pydantic import BaseModel
 
 from cerberus import settings
 from cerberus.config import EMBED_MODEL
-from cerberus.ollama import OllamaError, can_chat, can_see, can_think, list_models
+from cerberus.ollama import (
+    OllamaError,
+    can_chat,
+    can_see,
+    can_think,
+    can_use_tools,
+    list_models,
+)
 from cerberus.ollama import full_name, loaded_models, unload
 
 router = APIRouter()
@@ -34,7 +41,8 @@ async def models():
         names = [name for name in await list_models() if await can_chat(name)]
         thinking = [name for name in names if await can_think(name)]
         vision = [name for name in names if await can_see(name)]
-        return {"models": names, "thinking": thinking, "vision": vision}
+        with_tools = [name for name in names if await can_use_tools(name)]
+        return {"models": names, "thinking": thinking, "vision": vision, "tools": with_tools}
     except OllamaError as error:
         raise HTTPException(status_code=503, detail=str(error)) from None
 

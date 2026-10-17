@@ -1158,3 +1158,26 @@ dialog button.primary {
 .sign-info {
   color: var(--muted);
 }
+
+/* One line per tool the model used (🔧 calculate(...) → result). */
+.tool-call {
+  margin: 0 0 4px;
+  font-size: 12px;
+}
+
+.tool-call summary {
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tool-call pre {
+  white-space: pre-wrap;
+  margin: 4px 0 6px;
+  padding: 6px 10px;
+  border-left: 2px solid var(--accent);
+  color: var(--text);
+  max-height: 260px;
+  overflow-y: auto;
+}

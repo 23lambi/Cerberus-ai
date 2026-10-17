@@ -11,9 +11,7 @@ from fastapi.testclient import TestClient
 from cerberus import database, keeper, settings
 from cerberus import ollama
 from cerberus.ollama import OllamaError
-from cerberus.routes import chat as chat_route
 from cerberus.routes import pages
-from cerberus.routes import reverse as reverse_route
 
 
 @pytest.fixture
@@ -35,16 +33,27 @@ class FakeOllama:
     same result.
     """
 
-    MODELS = ["small:3b", "big:8b", "thinker:4b", "eyes:4b", "embed-text"]
+    MODELS = ["small:3b", "big:8b", "thinker:4b", "eyes:4b", "tooly:7b", "embed-text"]
 
     def __init__(self):
         self.calls = []  # every request the "model" got
         self.reply = "Hello from the fake model"
         self.loaded = []  # the models "in RAM"
         self.unloaded = []  # every model we were asked to unload
+        # A script for the next answers: each item is one answer, as a list
+        # of events, like [("tool_calls", [...])]. Empty = the normal reply.
+        self.script = []
 
-    async def stream_events(self, model, messages, max_tokens=600, temperature=None, think=False):
-        self.calls.append({"model": model, "messages": messages, "think": think})
+    async def stream_events(
+        self, model, messages, max_tokens=600, temperature=None, think=False, tools=None
+    ):
+        # list(messages): a copy, because the agent loop keeps adding to its list.
+        self.calls.append({"model": model, "messages": list(messages), "think": think, "tools": tools})
+        if self.script:
+            for event in self.script.pop(0):
+                yield event
+            yield "stats", {"tokens": 5, "seconds": 0.5, "context": 50, "num_ctx": 8192, "cut_off": False}
+            return
         if think:
             yield "thinking", "Let me think..."
         # A "vision model" that gets images describes them.
@@ -58,6 +67,8 @@ class FakeOllama:
             return ["completion", "thinking"]
         if model.startswith("eyes"):
             return ["completion", "vision"]
+        if model.startswith("tooly"):
+            return ["completion", "tools"]
         return ["completion"]
 
     async def list_models(self):
@@ -73,14 +84,10 @@ class FakeOllama:
 @pytest.fixture
 def fake(monkeypatch):
     fake = FakeOllama()
-    # Patch a name where it is USED. chat.py did "from cerberus.ollama import
-    # stream_events", so it has its own copy of the name; changing only
-    # ollama.stream_events would not reach it. stream_chat inside ollama.py
-    # looks up ollama.stream_events, so that one covers the Guard, titles,
-    # summaries and recaps.
+    # Patch a name where it is USED. stream_chat (in ollama.py) and the agent
+    # loop (in tools.py) both look up ollama.stream_events, so replacing it
+    # there reaches every answer: chat, Reverse, Guard, titles, summaries.
     monkeypatch.setattr(ollama, "stream_events", fake.stream_events)
-    monkeypatch.setattr(chat_route, "stream_events", fake.stream_events)
-    monkeypatch.setattr(reverse_route, "stream_events", fake.stream_events)
     monkeypatch.setattr(ollama, "capabilities", fake.capabilities)
     monkeypatch.setattr(settings, "list_models", fake.list_models)
     monkeypatch.setattr(pages, "list_models", fake.list_models)

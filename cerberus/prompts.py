@@ -48,6 +48,27 @@ and never say it is certainly malware. Suggest searching its sha256 on
 virustotal.com and not running files they don't trust.
 """
 
+# ---------- Tools (cerberus/tools.py) ----------
+
+# Added to the system prompt when Tools is on. The tools themselves are
+# described to the model by Ollama; this says WHEN to use them.
+TOOLS_NOTE = """
+You can use tools. Use calculate for any arithmetic instead of doing it in
+your head, current_time for today's date or time, and search_memory when
+the question is about the user, their documents or earlier chats. Use
+remember only when the user asks you to remember something. Copy numbers
+from tool results exactly, digit by digit, without rounding or reformatting,
+and write math as plain text (like 1234 * 5678), not LaTeX.
+Never invent a tool result; if a tool fails, say so.
+"""
+
+REVERSE_TOOLS_NOTE = """
+You can use tools: disassemble(address) reads any function of this file,
+find_strings(text) searches all of its strings, and calculate does exact
+math (like decoding XOR or offsets). Use them to check things instead of
+guessing, and say what you looked at.
+"""
+
 # ---------- Deep think: the same brain answers in three steps ----------
 
 # routes/council.py runs these one after the other: draft, then a review

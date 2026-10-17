@@ -222,6 +222,23 @@ def disassemble(data):
     return functions
 
 
+def disassemble_at(data, address, budget=150):
+    """One function, starting at address, as text. For the disassemble tool."""
+    try:
+        program = Program(data)
+        if program.elf["e_machine"] != "EM_X86_64":
+            return "Disassembly works for Linux x86-64 programs only."
+        lines, calls = read_function(program, new_disassembler(), address, budget)
+    except Exception:  # broken file: see disassemble()
+        return "This file could not be disassembled."
+    if not lines:
+        return f"There is no code at {address:#x}."
+    text = as_text([{"name": f"function at {address:#x}", "lines": lines}])
+    if calls:
+        text += "\nIt calls: " + ", ".join(f"{target:#x}" for target in calls)
+    return text
+
+
 def as_text(functions):
     """The listing as plain text: each function, one instruction per line."""
     blocks = []

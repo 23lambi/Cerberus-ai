@@ -5,6 +5,8 @@
 # The stream is NDJSON: one JSON object per line, each with a "type":
 #   {"type": "thinking", "text": "..."}   the model's reasoning (Think on)
 #   {"type": "content", "text": "..."}    a piece of the answer
+#   {"type": "tool", "name": ..., "arguments": ..., "result": ...}
+#                                         a tool the model used
 #   {"type": "stats", "tokens": 312, ...} once, at the end
 #   {"type": "error", "text": "..."}      when Ollama fails
 # Plain text could only carry the answer; JSON lines can carry all four.
@@ -15,9 +17,10 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from cerberus import context, database, recap, settings
+from cerberus import context, database, recap, settings, tools
 from cerberus.config import DEFAULT_MAX_TOKENS, THINK_MAX_TOKENS
-from cerberus.ollama import OllamaError, can_think, stream_chat, stream_events
+from cerberus.ollama import OllamaError, can_think, can_use_tools, stream_chat
+from cerberus.prompts import TOOLS_NOTE
 from cerberus.schemas import ChatRequest
 
 # A router is a group of URLs that main.py plugs into the app.
@@ -34,7 +37,10 @@ def line(**fields):
 async def chat(req: ChatRequest):
     ctx = await context.prepare(req)
     question = ctx.question
-    messages = ctx.messages()
+
+    # Tools only when the user wants them AND the model can use them.
+    toolbox = tools.CHAT_TOOLS if req.tools and await can_use_tools(req.model) else []
+    messages = ctx.messages(extra=TOOLS_NOTE if toolbox else "")
 
     # Only think when the user asked for it AND the model can do it.
     # Thinking uses tokens too, so it gets its own budget on top.
@@ -50,10 +56,15 @@ async def chat(req: ChatRequest):
             # First, what the Eyes saw, so the page can show it and keep it.
             yield line(type="seen", text=ctx.seen, model=ctx.eyes)
         try:
-            async for kind, value in stream_events(req.model, messages, max_tokens, think=think):
-                if kind == "stats":
-                    # **value spreads the stats dict into the line's fields.
-                    yield line(type="stats", **value)
+            # The agent loop: when the model asks for a tool, tools.py runs
+            # it and asks the model again (see stream_with_tools).
+            events = tools.stream_with_tools(
+                req.model, messages, max_tokens, think, toolbox, tools.Context(chat_id=req.chat_id)
+            )
+            async for kind, value in events:
+                if kind in ("stats", "tool"):
+                    # **value spreads the dict into the line's fields.
+                    yield line(type=kind, **value)
                     continue
                 if kind == "content":
                     reply += value  # only the answer is saved, not the thinking

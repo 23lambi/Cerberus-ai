@@ -5,14 +5,21 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from cerberus import reverse, settings, signs
+from cerberus import reverse, settings, signs, tools
 from cerberus.config import MAX_UPLOAD_MB, THINK_MAX_TOKENS
-from cerberus.ollama import OllamaError, can_think, stream_events, trim_history
-from cerberus.prompts import REVERSE_FACTS
+from cerberus.ollama import OllamaError, can_think, can_use_tools, trim_history
+from cerberus.prompts import REVERSE_FACTS, REVERSE_TOOLS_NOTE
 from cerberus.routes.chat import line
 from cerberus.schemas import Message
 
 REVERSE_MAX_TOKENS = 1200  # explanations are longer than chat answers
+KEEP_FILES = 3
+
+# The last few files, in memory only (never on disk), by their sha256. The
+# tools need the file itself (to disassemble any function), but the page
+# only sends the facts with a question. A dict keeps the order things
+# were added, so the oldest file is the first one.
+recent_files = {}
 
 router = APIRouter(prefix="/reverse")
 
@@ -26,7 +33,11 @@ async def analyze(request: Request, name: str):
         raise HTTPException(status_code=400, detail="The file is empty.")
     if len(data) > MAX_UPLOAD_MB * 1024 * 1024:
         raise HTTPException(status_code=413, detail=f"Files can be up to {MAX_UPLOAD_MB} MB.")
-    return reverse.analyze(name, data)
+    facts = reverse.analyze(name, data)
+    recent_files[facts["sha256"]] = data
+    while len(recent_files) > KEEP_FILES:
+        recent_files.pop(next(iter(recent_files)))  # forget the oldest
+    return facts
 
 
 # A second look with ClamAV, a real virus scanner, if it's installed. Its
@@ -44,6 +55,7 @@ class ReverseChat(BaseModel):
     facts: dict  # what POST /reverse answered; the page sends it back
     messages: list[Message]  # the questions and answers about this file
     think: bool = False
+    tools: bool = False
 
 
 # Ask the model about the file. The file itself is gone (it was never
@@ -56,17 +68,26 @@ async def chat(req: ReverseChat):
     # question about this file, so Ollama's prompt cache can be reused.
     sheet = reverse.fact_sheet(req.facts)
     system = settings.brain("reverse") + REVERSE_FACTS.format(name=req.facts["name"], sheet=sheet)
+    toolbox = tools.REVERSE_TOOLS if req.tools and await can_use_tools(req.model) else []
+    if toolbox:
+        system += REVERSE_TOOLS_NOTE
     history = [{"role": m.role, "content": m.content} for m in trim_history(req.messages)]
     messages = [{"role": "system", "content": system}] + history
 
     think = req.think and await can_think(req.model)
     max_tokens = REVERSE_MAX_TOKENS + (THINK_MAX_TOKENS if think else 0)
 
+    # The file itself, for the tools (None if it was dropped long ago).
+    tool_context = tools.Context(file=recent_files.get(req.facts.get("sha256")))
+
     async def generate():
         try:
-            async for kind, value in stream_events(req.model, messages, max_tokens, think=think):
-                if kind == "stats":
-                    yield line(type="stats", **value)
+            events = tools.stream_with_tools(
+                req.model, messages, max_tokens, think, toolbox, tool_context
+            )
+            async for kind, value in events:
+                if kind in ("stats", "tool"):
+                    yield line(type=kind, **value)
                 else:
                     yield line(type=kind, text=value)
         except OllamaError as error:

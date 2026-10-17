@@ -80,6 +80,11 @@ async def can_see(model):
     return "vision" in await capabilities(model)
 
 
+async def can_use_tools(model):
+    # Models like qwen3-coder or llama3.1 can ask Cerberus to run tools.
+    return "tools" in await capabilities(model)
+
+
 async def can_chat(model):
     # Embedding models (like nomic-embed-text) turn text into numbers and
     # can't chat. An empty list means "unknown" (an older Ollama), so we
@@ -93,9 +98,10 @@ async def can_chat(model):
 # Each piece is a pair (kind, value):
 #   ("thinking", text)  the model's reasoning, only when think=True
 #   ("content", text)   the answer itself
+#   ("tool_calls", list) the model asks to run tools (only with tools=...)
 #   ("stats", dict)     once at the end: token counts and speed
 async def stream_events(
-    model, messages, max_tokens=DEFAULT_MAX_TOKENS, temperature=None, think=False
+    model, messages, max_tokens=DEFAULT_MAX_TOKENS, temperature=None, think=False, tools=None
 ):
     # num_predict = the most tokens the model may write (thinking included!);
     # num_ctx = the context window.
@@ -104,24 +110,26 @@ async def stream_events(
         # 0 = always the most likely word, higher = more random and creative.
         options["temperature"] = temperature
 
+    body = {
+        "model": model,
+        "messages": messages,
+        "stream": True,
+        # Always say it: thinking models think by default, and then their
+        # answer would be empty when we don't read the thinking. False
+        # works on every model.
+        "think": think,
+        "keep_alive": KEEP_ALIVE,
+        "options": options,
+    }
+    if tools:
+        # The tools the model may ask for (see cerberus/tools.py). Ollama
+        # puts them into the prompt in the format the model was trained on.
+        body["tools"] = tools
+
     try:
         # timeout=None: a big model can think for minutes before the first word.
         async with httpx.AsyncClient(timeout=None) as client:
-            async with client.stream(
-                "POST",
-                f"{OLLAMA_URL}/api/chat",
-                json={
-                    "model": model,
-                    "messages": messages,
-                    "stream": True,
-                    # Always say it: thinking models think by default, and
-                    # then their answer would be empty when we don't read
-                    # the thinking. False works on every model.
-                    "think": think,
-                    "keep_alive": KEEP_ALIVE,
-                    "options": options,
-                },
-            ) as response:
+            async with client.stream("POST", f"{OLLAMA_URL}/api/chat", json=body) as response:
                 if response.status_code != 200:
                     body = await response.aread()
                     raise OllamaError(error_message(body))
@@ -140,6 +148,10 @@ async def stream_events(
                         yield "thinking", message["thinking"]
                     if message.get("content"):
                         yield "content", message["content"]
+                    if message.get("tool_calls"):
+                        # Like [{"function": {"name": "calculate",
+                        #        "arguments": {"expression": "2*3"}}}]
+                        yield "tool_calls", message["tool_calls"]
                     if chunk.get("done"):
                         # The last chunk carries the numbers. Durations are
                         # in nanoseconds (1 second = 1e9 ns).
