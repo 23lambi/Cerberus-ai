@@ -13,6 +13,7 @@ from cerberus import ollama
 from cerberus.ollama import OllamaError
 from cerberus.routes import chat as chat_route
 from cerberus.routes import pages
+from cerberus.routes import reverse as reverse_route
 
 
 @pytest.fixture
@@ -34,17 +35,20 @@ class FakeOllama:
     same result.
     """
 
-    MODELS = ["small:3b", "big:8b", "thinker:4b", "embed-text"]
+    MODELS = ["small:3b", "big:8b", "thinker:4b", "eyes:4b", "embed-text"]
 
     def __init__(self):
         self.calls = []  # every request the "model" got
         self.reply = "Hello from the fake model"
+        self.loaded = []  # the models "in RAM"
+        self.unloaded = []  # every model we were asked to unload
 
     async def stream_events(self, model, messages, max_tokens=600, temperature=None, think=False):
         self.calls.append({"model": model, "messages": messages, "think": think})
         if think:
             yield "thinking", "Let me think..."
-        yield "content", self.reply
+        # A "vision model" that gets images describes them.
+        yield "content", "I see a red square" if messages[-1].get("images") else self.reply
         yield "stats", {"tokens": 5, "seconds": 0.5, "context": 50, "num_ctx": 8192, "cut_off": False}
 
     async def capabilities(self, model):
@@ -52,10 +56,18 @@ class FakeOllama:
             return ["embedding"]
         if model.startswith("thinker"):
             return ["completion", "thinking"]
+        if model.startswith("eyes"):
+            return ["completion", "vision"]
         return ["completion"]
 
     async def list_models(self):
         return self.MODELS
+
+    async def loaded_models(self):
+        return self.loaded
+
+    async def unload(self, model):
+        self.unloaded.append(model)
 
 
 @pytest.fixture
@@ -68,9 +80,13 @@ def fake(monkeypatch):
     # summaries and recaps.
     monkeypatch.setattr(ollama, "stream_events", fake.stream_events)
     monkeypatch.setattr(chat_route, "stream_events", fake.stream_events)
+    monkeypatch.setattr(reverse_route, "stream_events", fake.stream_events)
     monkeypatch.setattr(ollama, "capabilities", fake.capabilities)
     monkeypatch.setattr(settings, "list_models", fake.list_models)
     monkeypatch.setattr(pages, "list_models", fake.list_models)
+
+    monkeypatch.setattr(pages, "loaded_models", fake.loaded_models)
+    monkeypatch.setattr(pages, "unload", fake.unload)
 
     # No embedding model: the Keeper falls back to searching by words.
     async def no_embeddings(texts):

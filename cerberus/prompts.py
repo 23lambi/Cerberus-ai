@@ -28,6 +28,26 @@ from what you guess, and never invent code or addresses that are not in the inpu
 """,
 }
 
+# Reverse panel (routes/reverse.py): the facts about the file, after the skill.
+REVERSE_FACTS = """
+Cerberus read the file "{name}" WITHOUT running it, and found these facts:
+
+{sheet}
+
+Explain from these facts and say which fact shows what. Keep sure things
+apart from guesses. Imports show what a program is able to do, not what it
+really does: compilers add some of them to almost every program.
+When there is a disassembly, it is the program's real code: follow it step
+by step, and trust it more than guesses from strings. The notes after ';'
+were added by Cerberus (strings, imported functions, letters in compares).
+Some setup code (like the stack check with fs:[0x28]) is added by the
+compiler; mention it briefly at most.
+If the user asks whether the file is dangerous: explain the warning signs
+and what they mean, but never call a file safe (no check can prove that)
+and never say it is certainly malware. Suggest searching its sha256 on
+virustotal.com and not running files they don't trust.
+"""
+
 # ---------- Deep think: the same brain answers in three steps ----------
 
 # routes/council.py runs these one after the other: draft, then a review
@@ -97,6 +117,22 @@ SUMMARY_PROMPT = (
 )
 
 SUMMARY_NOTE = "Summary of earlier in this chat: {text}"
+
+# eyes.py: the vision model describes the images for the chat model.
+EYES_PROMPT = (
+    "Describe the image(s) for someone who can't see them. They asked: "
+    "\"{question}\"\n"
+    "Describe everything that helps to answer that: what is shown, people, "
+    "objects, layout, colors, and copy any text in the image exactly. "
+    "Only describe; don't answer the question yourself."
+)
+
+# Added to a user message whose images the chat model can't see.
+SEEN_NOTE = "[The user attached images. Another model looked at them and saw:]\n{text}"
+UNSEEN_NOTE = (
+    "[The user attached images, but you can't see them. Say so if the "
+    "question is about them.]"
+)
 
 # context.py: what Cerberus found for this question goes in front of the
 # user's newest message (not in the system prompt, see context.py for why).

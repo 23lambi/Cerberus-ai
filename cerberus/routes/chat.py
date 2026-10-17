@@ -46,6 +46,9 @@ async def chat(req: ChatRequest):
     async def generate():
         reply = ""
         failed = False
+        if ctx.seen:
+            # First, what the Eyes saw, so the page can show it and keep it.
+            yield line(type="seen", text=ctx.seen, model=ctx.eyes)
         try:
             async for kind, value in stream_events(req.model, messages, max_tokens, think=think):
                 if kind == "stats":
@@ -63,7 +66,7 @@ async def chat(req: ChatRequest):
             # Question and answer are saved together, so a chat never has
             # a question without its answer.
             if req.chat_id and reply and not failed:
-                database.save_message(req.chat_id, "user", question)
+                database.save_message(req.chat_id, "user", question, ctx.images, ctx.seen)
                 database.save_message(req.chat_id, "assistant", reply)
 
     return StreamingResponse(

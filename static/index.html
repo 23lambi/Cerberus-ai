@@ -12,7 +12,8 @@
 <body>
   <!-- ========== Left: the sidebar ========== -->
   <aside id="sidebar">
-    <div class="brand">Cerberus</div>
+    <!-- A button, so it works with the mouse and the keyboard: back to the home screen -->
+    <button class="brand" id="home-button" title="Home">Cerberus</button>
 
     <button class="nav" id="new-chat">+ New chat</button>
 
@@ -60,6 +61,9 @@
           <div class="composer-bar">
             <!-- type="button": this button must not submit the form -->
             <button type="button" id="attach" title="Add a document">+</button>
+            <!-- Only shown for models that can see images (app.js decides) -->
+            <button type="button" id="image" title="Add an image (or paste one with Ctrl+V)" hidden>&#128247;</button>
+            <input type="file" id="image-file" accept="image/*" multiple hidden>
             <select id="model" title="Model"></select>
             <!-- Only shown for models that can think (app.js decides) -->
             <label class="toggle" id="think-toggle" hidden title="Let the model reason before it answers">
@@ -76,10 +80,14 @@
       </div>
     </section>
 
-    <!-- Reverse panel: filled in at Level 10 -->
+    <!-- Reverse panel: take a program apart without running it (reverse.js) -->
     <section id="panel-reverse" class="panel">
       <h2>Reverse</h2>
-      <p class="hint">Coming soon: drop a program here and Cerberus takes it apart and explains it, without ever running it.</p>
+      <p class="hint">Drop a program or script to see what's inside. Cerberus only reads the file; it never runs it.</p>
+      <div id="drop-zone">Drop a file here, or click to pick one</div>
+      <input type="file" id="reverse-file" hidden>
+      <p id="reverse-status" class="hint"></p>
+      <div id="reverse-result"></div>
     </section>
 
     <!-- Memory panel: memories and documents in two tabs -->
@@ -132,6 +140,7 @@
   <script src="/static/settings.js"></script>
   <script src="/static/memory.js"></script>
   <script src="/static/documents.js"></script>
+  <script src="/static/reverse.js"></script>
   <script src="/static/features.js"></script>
   <script src="/static/projects.js"></script>
 </body>

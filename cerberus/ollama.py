@@ -75,6 +75,11 @@ async def can_think(model):
     return "thinking" in await capabilities(model)
 
 
+async def can_see(model):
+    # Vision models (like gemma3 or qwen2.5vl) can look at images.
+    return "vision" in await capabilities(model)
+
+
 async def can_chat(model):
     # Embedding models (like nomic-embed-text) turn text into numbers and
     # can't chat. An empty list means "unknown" (an older Ollama), so we
@@ -183,3 +188,36 @@ async def embed(texts):
     if response.status_code != 200:
         raise OllamaError(error_message(response.content))
     return response.json()["embeddings"]
+
+
+# ---------- Freeing memory ----------
+
+
+def full_name(model):
+    # Ollama adds ":latest" when a name has no tag, so "nomic-embed-text"
+    # and "nomic-embed-text:latest" are the same model.
+    return model if ":" in model else model + ":latest"
+
+
+async def loaded_models():
+    # GET /api/ps lists the models that are in memory (RAM) right now.
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.get(f"{OLLAMA_URL}/api/ps")
+        return [m["name"] for m in response.json()["models"]]
+    except (httpx.HTTPError, ValueError, KeyError):
+        return []
+
+
+async def unload(model):
+    # keep_alive 0 means "don't keep this model at all": Ollama frees its
+    # RAM right away. A chat request with no messages writes nothing; it
+    # only changes how long the model stays loaded.
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            await client.post(
+                f"{OLLAMA_URL}/api/chat",
+                json={"model": model, "messages": [], "keep_alive": 0},
+            )
+    except httpx.HTTPError:
+        pass  # if Ollama can't be reached, there's nothing to free anyway

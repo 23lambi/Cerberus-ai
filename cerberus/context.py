@@ -17,13 +17,16 @@
 from dataclasses import dataclass
 
 from cerberus import guard, keeper, recap, settings, summary
-from cerberus.ollama import trim_history
+from cerberus.eyes import describe
+from cerberus.ollama import can_see, trim_history
 from cerberus.prompts import (
     CONTEXT_NOTE,
     KEEPER_NOTHING,
     KEEPER_RECALL,
     KEEPER_SAVED,
+    SEEN_NOTE,
     SUMMARY_NOTE,
+    UNSEEN_NOTE,
 )
 
 
@@ -38,6 +41,9 @@ class Context:
     notes: str  # this question's part: memories and documents found ("" = none)
     mode: str  # "chat" or "memory", from the Guard
     found: dict  # what the Keeper found: memories, documents, chats
+    images: list  # the pictures sent with the question, to save with it
+    seen: str  # what the Eyes saw in them ("" = nothing to describe)
+    eyes: str | None  # the vision model that looked just now, or None
 
     def messages(self, extra=""):
         # The full list for Ollama. extra is added to the system prompt
@@ -56,20 +62,50 @@ class Context:
     def headers(self):
         # Headers arrive before the answer, so the page can already show
         # the mode and what was found ("Memory, 2 memories").
-        return {
+        headers = {
             "X-Cerberus-Mode": self.mode,
             "X-Cerberus-Memories": str(len(self.found["memories"])),
             "X-Cerberus-Documents": str(len(self.found["documents"])),
             "X-Cerberus-Chats": str(len(self.found["chats"])),
         }
+        if self.eyes:
+            headers["X-Cerberus-Eyes"] = self.eyes
+        return headers
+
+
+def for_model(message, see):
+    # The message the way Ollama wants it. A model that can see gets the
+    # images; a model that can't gets what the Eyes saw, as text.
+    clean = {"role": message["role"], "content": message["content"]}
+    if message.get("images"):
+        if see:
+            clean["images"] = message["images"]
+        elif message.get("seen"):
+            clean["content"] += "\n\n" + SEEN_NOTE.format(text=message["seen"])
+        else:
+            # Say so plainly, or the model may pretend it can see the image.
+            clean["content"] += "\n\n" + UNSEEN_NOTE
+    return clean
 
 
 async def prepare(req):
     # req is a ChatRequest: the messages, the model and the chat id.
     # model_dump() turns each pydantic Message into a plain dict.
     all_messages = [m.model_dump() for m in req.messages]
-    history = trim_history(all_messages)
-    question = history[-1]["content"]  # the newest message is the question
+    newest = all_messages[-1]
+    question = newest["content"]  # the newest message is the question
+    see = await can_see(req.model)
+
+    # Eyes: when the chat model can't see, a vision model describes the
+    # new images. Older messages already carry their "seen" text, so it
+    # never has to look at the same picture twice.
+    eyes = None
+    if newest["images"] and not see and not newest["seen"]:
+        eyes = await settings.eyes_model()
+        if eyes:
+            newest["seen"] = await describe(eyes, newest["images"], question)
+
+    history = [for_model(m, see) for m in trim_history(all_messages)]
 
     # Background jobs (summary, Guard) go to the Helper when it's on.
     helper = await settings.helper_model()
@@ -124,4 +160,7 @@ async def prepare(req):
         notes="\n\n".join(parts),
         mode=mode,
         found=found,
+        images=newest["images"],
+        seen=newest["seen"],
+        eyes=eyes,
     )

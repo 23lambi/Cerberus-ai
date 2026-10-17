@@ -6,6 +6,7 @@
 # They go in as "?" placeholders, and SQLite fills them in safely. That
 # stops SQL injection (a message like "'; DROP TABLE chats; --").
 
+import json
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
@@ -104,6 +105,13 @@ CREATE TABLE IF NOT EXISTS project_notes (
         if "project_id" not in columns:
             conn.execute("ALTER TABLE chats ADD COLUMN project_id INTEGER")
 
+        # The same for the images of a message (Level 10).
+        columns = [row["name"] for row in conn.execute("PRAGMA table_info(messages)")]
+        if "images" not in columns:
+            conn.execute("ALTER TABLE messages ADD COLUMN images TEXT")
+        if "seen" not in columns:
+            conn.execute("ALTER TABLE messages ADD COLUMN seen TEXT")
+
 
 def now():
     # The time as text, like "2026-10-17T14:05:09". SQLite has no date type,
@@ -170,14 +178,23 @@ def get_chat(chat_id):
         if chat is None:
             return None
         rows = conn.execute(
-            "SELECT role, content FROM messages WHERE chat_id = ? ORDER BY id",
+            "SELECT role, content, images, seen FROM messages WHERE chat_id = ? ORDER BY id",
             (chat_id,),
         ).fetchall()
     return {
         "id": chat["id"],
         "title": chat["title"],
         "project_id": chat["project_id"],
-        "messages": [dict(row) for row in rows],
+        # Images are stored as JSON text; turn them back into a list.
+        "messages": [
+            {
+                "role": row["role"],
+                "content": row["content"],
+                "images": json.loads(row["images"]) if row["images"] else [],
+                "seen": row["seen"] or "",
+            }
+            for row in rows
+        ],
     }
 
 
@@ -229,12 +246,21 @@ def set_summary(chat_id, text, covered):
         )
 
 
-def save_message(chat_id, role, content):
+def save_message(chat_id, role, content, images=None, seen=""):
+    # images: a list of base64 pictures, saved as JSON text (None = no images).
+    # seen: what the Eyes saw in them, so it never has to look twice.
     with get_db() as conn:
         conn.execute(
-            "INSERT INTO messages (chat_id, role, content, created_at) "
-            "VALUES (?, ?, ?, ?)",
-            (chat_id, role, content, now()),
+            "INSERT INTO messages (chat_id, role, content, images, seen, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                chat_id,
+                role,
+                content,
+                json.dumps(images) if images else None,
+                seen or None,
+                now(),
+            ),
         )
         if role == "user":
             # A first, quick title: the start of the first question.

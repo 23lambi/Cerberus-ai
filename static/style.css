@@ -19,6 +19,8 @@
   color-scheme: dark;
   /* The color of checkboxes and other built-in controls when they're on. */
   accent-color: var(--accent);
+  /* Scrollbars in our colors: the handle, then the track behind it. */
+  scrollbar-color: var(--border) var(--side);
 }
 
 /* border-box: a width includes the padding and border, which makes sizes easier. */
@@ -55,11 +57,68 @@ button, input, select, textarea {
   gap: 2px;
 }
 
+/* The name at the top: a button that goes home, but looks like a title. */
 .brand {
   color: var(--accent);
   font-weight: bold;
   font-size: 16px;
   padding: 4px 8px 14px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.brand:hover {
+  opacity: 0.8;
+}
+
+/* ---------- Home screen (no chat open) ---------- */
+
+/* Fills the empty chat area and puts everything in the middle. */
+#home {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+}
+
+#home h1 {
+  color: var(--accent);
+  font-size: 42px;
+  margin: 0;
+  letter-spacing: 2px;
+}
+
+#home .tagline {
+  color: var(--muted);
+  margin: 0 0 18px;
+}
+
+/* The example questions in a grid of two columns, all the same width. */
+.suggestions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  width: 100%;
+  max-width: 640px;
+}
+
+.suggestions button {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.suggestions button:hover {
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .nav {
@@ -375,7 +434,8 @@ main {
   flex: 1;
 }
 
-#attach {
+#attach,
+#image {
   width: 30px;
   height: 30px;
   border-radius: 8px;
@@ -754,4 +814,210 @@ dialog h2 {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ---------- Images ---------- */
+
+/* Images waiting to be sent, shown above the message box. */
+#image-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+/* position: relative, so the x can sit on the image's corner. */
+.image-chip {
+  position: relative;
+}
+
+.image-chip img {
+  display: block;
+  height: 56px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.image-chip .chip-x {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  line-height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--side);
+}
+
+/* Images inside a sent message. */
+.message-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.message-images img {
+  max-width: 240px;
+  max-height: 160px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+/* What the Eyes saw, folded under the user's images. */
+.seen {
+  margin: 6px 0 0;
+  font-size: 12px;
+}
+
+.seen > div {
+  white-space: pre-wrap;
+  border-left: 2px solid var(--border);
+  padding: 4px 0 4px 10px;
+  margin-top: 4px;
+}
+
+/* ---------- Reverse panel ---------- */
+
+/* The big dashed box you drop a file on. */
+#drop-zone {
+  max-width: 820px;
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  padding: 32px;
+  text-align: center;
+  color: var(--muted);
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+
+/* While the mouse (or a dragged file) is over it. */
+#drop-zone:hover,
+#drop-zone.dragging {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+
+#reverse-result {
+  max-width: 820px;
+}
+
+#reverse-result h3 {
+  margin: 8px 0 4px;
+  font-size: 15px;
+}
+
+.facts {
+  margin: 0 0 4px;
+}
+
+.strings-filter {
+  display: block;
+  width: 100%;
+  margin: 8px 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  outline: none;
+}
+
+/* The list of strings: scrolls inside its own box. */
+.strings {
+  color: var(--text);
+  background: var(--side);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  margin: 0;
+  max-height: 400px;
+  overflow: auto;
+  font-size: 12px;
+}
+
+/* What the imports say the program can do. */
+.capabilities {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 12px;
+  margin: 10px 0;
+}
+
+.capabilities h4 {
+  color: var(--accent);
+  margin: 6px 0;
+}
+
+.capabilities p {
+  margin: 4px 0;
+}
+
+/* The Reverse panel's conversation about the file. */
+.explain {
+  background: var(--accent);
+  color: #1b1b1f;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 14px;
+  margin: 10px 0;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.reverse-log {
+  line-height: 1.55;
+  margin-top: 10px;
+}
+
+.reverse-form {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0 20px;
+}
+
+.reverse-form input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 10px;
+  outline: none;
+}
+
+.reverse-form button {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+
+/* Warning signs (R5). */
+.signs {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 12px 10px;
+  margin: 10px 0;
+}
+
+.signs h4 {
+  margin: 6px 0;
+}
+
+.signs p {
+  margin: 4px 0;
+}
+
+.signs a {
+  color: var(--accent);
+}
+
+.sign-warn {
+  color: var(--accent);
+}
+
+.sign-info {
+  color: var(--muted);
 }

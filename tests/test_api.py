@@ -26,6 +26,7 @@ def test_models_hides_embedding_models(client):
     data = client.get("/models").json()
     assert "embed-text" not in data["models"]
     assert data["thinking"] == ["thinker:4b"]
+    assert data["vision"] == ["eyes:4b"]
 
 
 def test_chat_streams_the_answer_and_saves_it(client):
@@ -75,9 +76,82 @@ def test_title_uses_the_helper_only_when_it_is_on(client, fake):
     assert fake.calls[-1]["model"] == "small:3b"
 
 
+def test_switching_models_frees_the_others(client, fake):
+    fake.loaded = ["big:8b", "small:3b", "thinker:4b", "nomic-embed-text:latest"]
+    client.put("/settings", json={"helper_on": "yes", "helper_model": "thinker:4b"})
+
+    response = client.post("/models/keep", json={"model": "small:3b"})
+
+    # Kept: the chosen model, the Helper and the embedding model.
+    assert response.json()["unloaded"] == ["big:8b"]
+    assert fake.unloaded == ["big:8b"]
+
+
 def test_rename_chat(client):
     chat_id = client.post("/chats", json={}).json()["id"]
 
     assert client.put(f"/chats/{chat_id}", json={"title": "  Renamed  "}).json()["title"] == "Renamed"
     assert client.put(f"/chats/{chat_id}", json={"title": "   "}).status_code == 400
     assert client.put("/chats/999", json={"title": "x"}).status_code == 404
+
+
+def test_images_go_only_to_models_that_can_see(client, fake):
+    chat_id = client.post("/chats", json={}).json()["id"]
+    body = chat_body("What is in this picture?", model="eyes:4b", chat_id=chat_id)
+    body["messages"][0]["images"] = ["aGVsbG8="]  # a tiny bit of base64
+
+    client.post("/chat", json=body)
+    assert fake.calls[-1]["messages"][-1]["images"] == ["aGVsbG8="]
+    # Saved with the question, so it's still there when the chat is reopened.
+    assert database.get_chat(chat_id)["messages"][0]["images"] == ["aGVsbG8="]
+
+    # A model that can't see gets only the text.
+    body["model"] = "small:3b"
+    client.post("/chat", json=body)
+    assert "images" not in fake.calls[-1]["messages"][-1]
+
+
+# ---------- Eyes: a vision model describes images for the chat model ----------
+
+
+def image_body(text, model, chat_id=None):
+    body = chat_body(text, model=model, chat_id=chat_id)
+    body["messages"][0]["images"] = ["aGVsbG8="]
+    return body
+
+
+def test_eyes_describe_images_for_a_model_that_cannot_see(client, fake):
+    client.put("/settings", json={"eyes_on": "yes", "eyes_model": "eyes:4b"})
+    chat_id = client.post("/chats", json={}).json()["id"]
+
+    response = client.post("/chat", json=image_body("What is this?", "small:3b", chat_id))
+
+    # First the vision model looks, then the chat model answers from its words.
+    look, answer = fake.calls[-2], fake.calls[-1]
+    assert look["model"] == "eyes:4b"
+    assert look["messages"][-1]["images"] == ["aGVsbG8="]
+    assert answer["model"] == "small:3b"
+    assert "images" not in answer["messages"][-1]
+    assert "I see a red square" in answer["messages"][-1]["content"]
+
+    # The page gets what was seen first, and it's saved apart from the question.
+    assert events(response)[0] == {"type": "seen", "text": "I see a red square", "model": "eyes:4b"}
+    saved = database.get_chat(chat_id)["messages"][0]
+    assert saved["content"] == "What is this?"
+    assert saved["seen"] == "I see a red square"
+
+
+def test_eyes_never_look_at_the_same_picture_twice(client, fake):
+    client.put("/settings", json={"eyes_on": "yes", "eyes_model": "eyes:4b"})
+    body = image_body("What is this?", "small:3b")
+    body["messages"][0]["seen"] = "I see a red square"  # described last time
+
+    client.post("/chat", json=body)
+
+    assert [call["model"] for call in fake.calls] == ["small:3b"]
+
+
+def test_without_eyes_the_model_is_told_it_cannot_see(client, fake):
+    client.post("/chat", json=image_body("What is this?", "small:3b"))
+
+    assert "can't see them" in fake.calls[-1]["messages"][-1]["content"]

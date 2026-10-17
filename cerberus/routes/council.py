@@ -35,6 +35,8 @@ async def council(req: ChatRequest):
 
     async def generate():
         draft = review = final = ""  # three variables, all set to ""
+        if ctx.seen:
+            yield event("seen", ctx.seen)  # what the Eyes saw, for the page
         try:
             # Step 1: the brain writes a draft, seeing the whole conversation.
             messages = ctx.messages(extra=DEEP_THINK["draft"])
@@ -67,7 +69,7 @@ async def council(req: ChatRequest):
 
         # Only the question and the final answer are saved, not the steps.
         if req.chat_id:
-            database.save_message(req.chat_id, "user", question)
+            database.save_message(req.chat_id, "user", question, ctx.images, ctx.seen)
             database.save_message(req.chat_id, "assistant", final)
 
     return StreamingResponse(

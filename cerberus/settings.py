@@ -14,6 +14,10 @@ DEFAULTS = {
     # chosen model, so switching it on again needs no new choice.
     "helper_on": "no",
     "helper_model": "",
+    # The Eyes feature: a vision model that describes images for a chat
+    # model that can't see them.
+    "eyes_on": "no",
+    "eyes_model": "",
 }
 
 
@@ -50,21 +54,35 @@ def brain(skill=None):
     return prompt
 
 
-async def helper_model():
-    """The Helper's model when the Helper is on and installed, otherwise None.
+async def feature_model(feature):
+    """The model of an on/off feature ("helper" or "eyes"), or None.
 
-    The chef (chat model) writes the answers; the Helper does the small
-    jobs around them, so a slow thinking model never has to make titles.
+    Each feature has two settings: "<feature>_on" and "<feature>_model".
+    None means: the feature is off, no model is picked, or the model was
+    removed with "ollama rm" since it was chosen.
     """
-    name = get("helper_model")
-    if get("helper_on") != "yes" or not name:
-        return None  # the Helper is off: the chat model does everything
+    model = get(f"{feature}_model")
+    if get(f"{feature}_on") != "yes" or not model:
+        return None
     try:
         installed = await list_models()
     except OllamaError:
         return None
-    # The model may have been removed with "ollama rm" since it was chosen.
-    return name if name in installed else None
+    return model if model in installed else None
+
+
+async def helper_model():
+    """The Helper's model when the Helper is on, otherwise None.
+
+    The chef (chat model) writes the answers; the Helper does the small
+    jobs around them, so a slow thinking model never has to make titles.
+    """
+    return await feature_model("helper")
+
+
+async def eyes_model():
+    """The Eyes' vision model when Eyes is on, otherwise None."""
+    return await feature_model("eyes")
 
 
 async def jobs_model(chat_model):

@@ -8,6 +8,8 @@ from pydantic import BaseModel
 class Message(BaseModel):
     role: str  # "user" or "assistant"
     content: str
+    images: list[str] = []  # pictures as base64 text (only on user messages)
+    seen: str = ""  # what the Eyes saw in those pictures, as text
 
 
 class ChatRequest(BaseModel):

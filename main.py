@@ -16,6 +16,7 @@ from cerberus.routes import (
     memories,
     pages,
     projects,
+    reverse,
     settings,
 )
 
@@ -50,6 +51,7 @@ app.include_router(settings.router)
 app.include_router(guard.router)
 app.include_router(memories.router)
 app.include_router(documents.router)
+app.include_router(reverse.router)
 
 # Serve the files in the static folder (HTML, CSS, JS) at /static/...
 # so the browser can download them.

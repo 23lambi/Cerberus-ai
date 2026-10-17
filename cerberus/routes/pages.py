@@ -2,8 +2,12 @@
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 
-from cerberus.ollama import OllamaError, can_chat, can_think, list_models
+from cerberus import settings
+from cerberus.config import EMBED_MODEL
+from cerberus.ollama import OllamaError, can_chat, can_see, can_think, list_models
+from cerberus.ollama import full_name, loaded_models, unload
 
 router = APIRouter()
 
@@ -29,6 +33,33 @@ async def models():
         # Only models that can chat; embedding models are left out.
         names = [name for name in await list_models() if await can_chat(name)]
         thinking = [name for name in names if await can_think(name)]
-        return {"models": names, "thinking": thinking}
+        vision = [name for name in names if await can_see(name)]
+        return {"models": names, "thinking": thinking, "vision": vision}
     except OllamaError as error:
         raise HTTPException(status_code=503, detail=str(error)) from None
+
+
+class KeepRequest(BaseModel):
+    model: str
+
+
+@router.post("/models/keep")
+async def keep_only(req: KeepRequest):
+    # The page calls this when you pick another model. Every model in RAM
+    # is unloaded, except the ones Cerberus still needs:
+    #   - the chosen chat model
+    #   - the Helper's model, when the Helper is on (it works on every message)
+    #   - the Eyes' model, when Eyes is on
+    #   - the embedding model (small, and used for every memory search)
+    keep = {req.model, EMBED_MODEL}
+    for model in [await settings.helper_model(), await settings.eyes_model()]:
+        if model:
+            keep.add(model)
+    keep = {full_name(name) for name in keep}
+
+    unloaded = []
+    for name in await loaded_models():
+        if full_name(name) not in keep:
+            await unload(name)
+            unloaded.append(name)
+    return {"unloaded": unloaded}

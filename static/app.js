@@ -24,6 +24,14 @@ const attachChips = document.createElement("div");
 attachChips.id = "attach-chips";
 form.before(attachChips);
 
+// The row of images waiting to be sent, right above the message box.
+const imageChips = document.createElement("div");
+imageChips.id = "image-chips";
+form.before(imageChips);
+
+const imageButton = document.getElementById("image");
+const imageFile = document.getElementById("image-file");
+
 // The Regenerate button. There is only one: after each answer it moves to
 // the bottom of the chat (appendChild moves an element that already exists).
 const regenButton = document.createElement("button");
@@ -54,6 +62,9 @@ let controller = null;
 // everything after it.
 let lastUserEl = null;
 let thinkingModels = new Set(); // the models that can think, from /models
+let visionModels = new Set(); // the models that can see images, from /models
+let pendingImages = []; // images waiting to be sent, as base64 text
+let eyesReady = false; // Eyes is on, so every chat model can take images
 
 // ---------- Helpers ----------
 
@@ -185,12 +196,30 @@ async function loadModels() {
 
   // A Set is a list where each value appears once, with a fast .has().
   thinkingModels = new Set(data.thinking);
-  updateThinkToggle();
+  visionModels = new Set(data.vision);
+  updateModelFeatures();
 }
 
-// The Think checkbox only makes sense for models that can think.
-function updateThinkToggle() {
+// Show only the buttons the chosen model can use: Think for thinking
+// models, the image button for vision models.
+function updateModelFeatures() {
   thinkToggle.hidden = !thinkingModels.has(modelSelect.value);
+  imageButton.hidden = !canTakeImages();
+}
+
+// A chat model can take images when it can see them itself, or when the
+// Eyes feature describes them for it.
+function canTakeImages() {
+  return visionModels.has(modelSelect.value) || eyesReady;
+}
+
+// Asks the server if Eyes is on. Called when the page opens and after
+// the settings are saved.
+async function loadEyes() {
+  const response = await fetch("/settings");
+  const values = await response.json();
+  eyesReady = values.eyes_on === "yes" && values.eyes_model !== "";
+  updateModelFeatures();
 }
 
 // ---------- Chat list ----------
@@ -312,6 +341,8 @@ async function openChat(id) {
   for (const message of history) {
     if (message.role === "user") {
       lastUserEl = addMessage("You: " + message.content);
+      addImagesTo(lastUserEl, message.images);
+      if (message.seen) showSeen(lastUserEl, message.seen);
     } else {
       showReply(addMessage(""), "Cerberus:", message.content);
     }
@@ -331,10 +362,59 @@ function newChat() {
   messagesEl.innerHTML = "";
   attachStatus.textContent = "";
   attachChips.innerHTML = ""; // NEW: chips go, the documents stay in Memory
+  pendingImages = [];
+  showPendingImages();
+  showHome();
   loadChats();
   showFeature("chat");
   input.focus();
 }
+
+// ---------- Home screen ----------
+
+// Example questions. A click puts one in the message box (it doesn't send
+// it), so you can change it first.
+const SUGGESTIONS = [
+  "Explain how a hash table works",
+  "Help me find the bug in this code:",
+  "What do you remember about me?",
+  "Write a short poem about a three-headed dog",
+];
+
+// The big "Cerberus" in the middle of an empty chat.
+function showHome() {
+  const home = document.createElement("div");
+  home.id = "home";
+
+  const title = document.createElement("h1");
+  title.textContent = "Cerberus";
+
+  const tagline = document.createElement("p");
+  tagline.className = "tagline";
+  tagline.textContent = currentProject
+    ? "Project: " + currentProject.name
+    : "Your private AI. Everything stays on this computer.";
+
+  const suggestions = document.createElement("div");
+  suggestions.className = "suggestions";
+  for (const text of SUGGESTIONS) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = text;
+    button.addEventListener("click", () => {
+      input.value = text;
+      resizeInput();
+      input.focus();
+    });
+    suggestions.appendChild(button);
+  }
+
+  home.append(title, tagline, suggestions);
+  messagesEl.appendChild(home);
+}
+
+// Clicking the name in the sidebar: a new, empty chat with the home screen.
+document.getElementById("home-button").addEventListener("click", newChat);
 
 async function deleteChat(id) {
   if (!confirm("Delete this chat?")) return;
@@ -394,7 +474,10 @@ function recapChat(chatId) {
 // A normal answer. Returns the reply text, or null when there is no reply
 // (an error, or stopped before the first word).
 async function sendNormal(model) {
-  const bubble = addMessage("Cerberus is thinking...");
+  // When the Eyes have to look at an image first, say so: it takes a while.
+  const last = history[history.length - 1];
+  const looking = last.images && last.images.length > 0 && !last.seen && !visionModels.has(model);
+  const bubble = addMessage(looking ? "Cerberus is looking at the image..." : "Cerberus is thinking...");
 
   let response;
   try {
@@ -425,10 +508,26 @@ async function sendNormal(model) {
   const who = "Cerberus (" + replyLabel(response.headers) + "):";
   bubble.textContent = who + " ...";
 
-  let reply = "";
+  const result = await readReply(response, bubble, who, (ev) => {
+    if (ev.type === "seen") {
+      // What the Eyes saw: keep it with the question, so they never
+      // have to look at this picture again, and show it.
+      history[history.length - 1].seen = ev.text;
+      showSeen(lastUserEl, ev.text, ev.model);
+    }
+  });
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  // The server saves a stopped answer too, so we keep it here as well.
+  return finishReply(result, bubble, who);
+}
+
+// Reads a streamed answer (NDJSON like /chat sends it) into bubble: the
+// thinking, the answer, the stats and errors. Event types it doesn't know
+// (like "seen") go to onOther. The main chat and the Reverse panel both
+// use it. Returns { reply, stats, failure, stopped }.
+async function readReply(response, bubble, who, onOther) {
+  const result = { reply: "", stats: null, failure: null, stopped: false };
   let thinkBox = null; // the fold-out box, made when the first thought arrives
-  let stats = null;
-  let failure = null;
 
   try {
     await readEvents(response, (ev) => {
@@ -437,41 +536,50 @@ async function sendNormal(model) {
         thinkBox.lastChild.textContent += ev.text;
       } else if (ev.type === "content") {
         // The first word of the answer: thinking is over.
-        if (thinkBox && !reply) {
+        if (thinkBox && !result.reply) {
           thinkBox.firstChild.textContent = "Show thinking";
         }
-        reply += ev.text;
-        showReply(bubble, who, reply);
+        result.reply += ev.text;
+        showReply(bubble, who, result.reply);
       } else if (ev.type === "stats") {
-        stats = ev;
+        result.stats = ev;
       } else if (ev.type === "error") {
-        failure = ev.text;
+        result.failure = ev.text;
+      } else if (onOther) {
+        onOther(ev);
       }
-      messagesEl.scrollTop = messagesEl.scrollHeight;
     });
   } catch (error) {
-    // AbortError = the user pressed Stop. Any other error goes up to the caller.
+    // AbortError = the user pressed Stop: keep whatever arrived.
+    // Any other error goes up to the caller.
     if (error.name !== "AbortError") throw error;
-    if (!reply) {
+    result.stopped = true;
+  }
+  return result;
+}
+
+// Shows how an answer ended, and returns its text (null = no answer).
+function finishReply(result, bubble, who) {
+  if (result.stopped) {
+    if (!result.reply) {
       bubble.textContent = "Cerberus: (stopped)";
       return null;
     }
-    // Stopped halfway: keep what we have. The server saves it too.
-    showReply(bubble, who, reply + "\n\n*(stopped)*");
-    return reply;
+    // Stopped halfway: keep what we have.
+    showReply(bubble, who, result.reply + "\n\n*(stopped)*");
+    return result.reply;
   }
-
-  if (failure) {
-    bubble.textContent = "Cerberus: " + failure;
+  if (result.failure) {
+    bubble.textContent = "Cerberus: " + result.failure;
     return null;
   }
-  if (!reply) {
+  if (!result.reply) {
     // This happens when a thinking model uses up all its tokens on thinking.
     bubble.textContent = "Cerberus: (no answer, the model ran out of tokens while thinking)";
     return null;
   }
-  if (stats) showStats(bubble, stats);
-  return reply;
+  if (result.stats) showStats(bubble, result.stats);
+  return result.reply;
 }
 
 // Reads an NDJSON stream (one JSON object per line) and calls onEvent with
@@ -584,6 +692,11 @@ async function sendCouncil(model) {
     const label = replyLabel(response.headers);
 
     await readEvents(response, (ev) => {
+      if (ev.step === "seen") {
+        history[history.length - 1].seen = ev.text;
+        showSeen(lastUserEl, ev.text);
+        return;
+      }
       if (ev.step === "error") {
         answer.textContent = "Cerberus: " + ev.text;
         failed = true;
@@ -611,12 +724,16 @@ async function sendCouncil(model) {
 
 // Sends one question and shows the answer. The form uses it, and so does
 // Regenerate, which is why it's a function of its own.
-async function send(text, model) {
+async function send(text, model, images = [], seen = "") {
   await ensureChat();
 
   regenButton.remove(); // no Regenerate while an answer is running
+  // The first message of a new chat: the home screen makes room for it.
+  // "?." = only call remove() if the element exists.
+  document.getElementById("home")?.remove();
   lastUserEl = addMessage("You: " + text);
-  history.push({ role: "user", content: text });
+  addImagesTo(lastUserEl, images);
+  history.push({ role: "user", content: text, images: images, seen: seen });
 
   controller = new AbortController();
   sendButton.textContent = "Stop";
@@ -656,7 +773,8 @@ async function regenerate() {
   if (controller || !lastUserEl || !model) return;
 
   // The last two entries in history are the question and its answer.
-  const question = history[history.length - 2].content;
+  // { content, images } = ... takes those two fields out of the object.
+  const { content, images, seen } = history[history.length - 2];
   await fetch("/chats/" + currentChatId + "/last-turn", { method: "DELETE" });
   history.splice(-2); // remove both from the page's history too
 
@@ -664,7 +782,8 @@ async function regenerate() {
   while (lastUserEl.nextSibling) lastUserEl.nextSibling.remove();
   lastUserEl.remove();
 
-  await send(question, model);
+  // seen goes along too, so the Eyes don't have to look again.
+  await send(content, model, images || [], seen || "");
 }
 
 form.addEventListener("submit", async (event) => {
@@ -678,7 +797,7 @@ form.addEventListener("submit", async (event) => {
   }
 
   const text = input.value.trim();
-  if (!text) return;
+  if (!text && pendingImages.length === 0) return;
 
   const model = modelSelect.value;
   if (!model) {
@@ -688,7 +807,11 @@ form.addEventListener("submit", async (event) => {
 
   input.value = "";
   resizeInput(); // shrink the box back to one line
-  await send(text, model);
+  const images = pendingImages;
+  pendingImages = [];
+  showPendingImages();
+  // An image alone, without a question, gets a default question.
+  await send(text || "What is in this image?", model, images);
 });
 
 // ---------- The message box ----------
@@ -735,10 +858,33 @@ chatSearch.addEventListener("keydown", (event) => {
   }
 });
 
+// Free the RAM of the models we don't use anymore. Ollama keeps every
+// model it used in memory for 30 minutes; we tell it to let go of the old
+// ones right away. We don't wait for it, the chat works meanwhile.
+function freeOtherModels() {
+  if (!modelSelect.value) return;
+  fetch("/models/keep", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model: modelSelect.value }),
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.unloaded.length > 0) {
+        attachStatus.textContent = "Freed memory: " + data.unloaded.join(", ");
+      }
+    })
+    .catch(() => {
+      // Not freeing memory isn't worth an error message.
+    });
+}
+
+modelSelect.addEventListener("change", freeOtherModels);
+
 // Remember the chosen model for the next visit.
 modelSelect.addEventListener("change", () => {
   localStorage.setItem("cerberus-model", modelSelect.value);
-  updateThinkToggle();
+  updateModelFeatures();
 });
 
 // NEW (projects step 2): closing or reloading the page also leaves the chat.
@@ -794,7 +940,135 @@ document.addEventListener("document-added", (event) => {
   }
 });
 
+// ---------- Images ----------
+
+const MAX_IMAGES = 4; // per message
+const IMAGE_SIZE = 1024; // the longest side, in pixels, after shrinking
+
+// Shrinks a picture and turns it into base64 text, the format Ollama wants.
+// A 4000-pixel photo would be slow for a model on a CPU, and it doesn't
+// need that much detail, so the longest side becomes at most IMAGE_SIZE.
+function readImage(file) {
+  // A Promise is a value that arrives later. We make one by hand, because
+  // an <img> tells us it finished loading with an event, not with await.
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, IMAGE_SIZE / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+
+      const draw = canvas.getContext("2d");
+      // JPEG has no transparency, so paint white first (instead of black).
+      draw.fillStyle = "#fff";
+      draw.fillRect(0, 0, canvas.width, canvas.height);
+      draw.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(img.src); // free the memory of the original file
+
+      // toDataURL gives "data:image/jpeg;base64,AAAA...". Ollama wants only
+      // the part after the comma.
+      resolve(canvas.toDataURL("image/jpeg", 0.85).split(",")[1]);
+    };
+    img.onerror = () => reject(new Error("not an image"));
+    // An object URL lets an <img> show a file from the user's computer.
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+// Adds picked or pasted files to the images waiting to be sent.
+async function addImages(files) {
+  if (!canTakeImages()) {
+    attachStatus.textContent =
+      "This model can't see images. Pick a vision model (like gemma3:4b), or turn on Eyes in Settings.";
+    return;
+  }
+  for (const file of files) {
+    if (!file.type.startsWith("image/")) continue;
+    if (pendingImages.length >= MAX_IMAGES) {
+      attachStatus.textContent = "Up to " + MAX_IMAGES + " images per message.";
+      break;
+    }
+    try {
+      pendingImages.push(await readImage(file));
+    } catch (error) {
+      attachStatus.textContent = file.name + " could not be read.";
+    }
+  }
+  showPendingImages();
+}
+
+// Draws the waiting images as small pictures, each with an x to remove it.
+function showPendingImages() {
+  imageChips.innerHTML = "";
+  // forEach gives each item and its position (index) in the list.
+  pendingImages.forEach((base64, index) => {
+    const chip = document.createElement("span");
+    chip.className = "image-chip";
+
+    const img = document.createElement("img");
+    img.src = "data:image/jpeg;base64," + base64;
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "chip-x";
+    remove.textContent = "×";
+    remove.title = "Remove this image";
+    remove.addEventListener("click", () => {
+      pendingImages.splice(index, 1); // remove 1 item at this position
+      showPendingImages();
+    });
+
+    chip.append(img, remove);
+    imageChips.appendChild(chip);
+  });
+}
+
+// Under a user's images: what the Eyes saw in them, folded away.
+function showSeen(el, text, model) {
+  const details = document.createElement("details");
+  details.className = "seen";
+  const summary = document.createElement("summary");
+  summary.textContent = "What " + (model || "the Eyes") + " saw";
+  const body = document.createElement("div");
+  body.textContent = text;
+  details.append(summary, body);
+  el.appendChild(details);
+}
+
+// Shows a message's images under its text.
+function addImagesTo(el, images) {
+  if (!images || images.length === 0) return;
+  const row = document.createElement("div");
+  row.className = "message-images";
+  for (const base64 of images) {
+    const img = document.createElement("img");
+    img.src = "data:image/jpeg;base64," + base64;
+    row.appendChild(img);
+  }
+  el.appendChild(row);
+}
+
+imageButton.addEventListener("click", () => imageFile.click());
+
+imageFile.addEventListener("change", async () => {
+  await addImages(imageFile.files);
+  imageFile.value = ""; // so picking the same file again works
+});
+
+// Paste a screenshot straight into the message box with Ctrl+V.
+input.addEventListener("paste", (event) => {
+  // [...list] turns the clipboard's file list into a normal array.
+  const files = [...event.clipboardData.files].filter((file) => file.type.startsWith("image/"));
+  if (files.length > 0) {
+    event.preventDefault(); // don't paste the file name as text
+    addImages(files);
+  }
+});
+
 // ---------- Start ----------
 
-loadModels();
+// When the page opens, only the chosen model stays in memory too.
+loadModels().then(loadEyes).then(freeOtherModels);
 loadChats();
+showHome(); // no chat is open yet
