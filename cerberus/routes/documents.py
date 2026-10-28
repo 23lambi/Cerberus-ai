@@ -149,7 +149,7 @@ def list_documents(project_id: int | None = None):
 async def upload_document(request: Request, name: str, project_id: int | None = None, chat_id: int | None = None):
     if chat_id is not None:
         turns.require_idle(chat_id)
-        chat = database.get_chat(chat_id)
+        chat = database.get_chat_info(chat_id)
         if chat is None:
             raise HTTPException(404, "Chat not found")
         project_id = chat["project_id"]

@@ -271,7 +271,7 @@ def search_chats(question, exclude_chat_id=None, project_id=None):
 
 
 async def recall(question, keeper_mode=False, chat_id=None):
-    chat = database.get_chat(chat_id) if chat_id else None
+    chat = database.get_chat_info(chat_id) if chat_id else None
     project_id = chat["project_id"] if chat else None
     memory_rows = database.memories_with_embeddings()
     chunk_rows = database.all_chunks(project_id)

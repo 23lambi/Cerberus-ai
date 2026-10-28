@@ -90,7 +90,7 @@ def project_prompt(chat_id):
     """The project notes for the system prompt, or "" when this chat isn't in a project."""
     if not chat_id:
         return ""
-    chat = database.get_chat(chat_id)
+    chat = database.get_chat_info(chat_id)
     if chat is None or chat["project_id"] is None:
         return ""
     project = database.get_project(chat["project_id"])

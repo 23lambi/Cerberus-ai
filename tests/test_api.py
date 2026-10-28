@@ -40,6 +40,23 @@ def test_chat_streams_the_answer_and_saves_it(client):
     assert [m["content"] for m in saved] == ["Hi there", "Hello from the fake model"]
 
 
+def test_one_message_loads_the_full_chat_only_once(client, monkeypatch):
+    # get_chat reads every message, images included. Only the check for a
+    # stale history needs that; the rest only needs the chat's project.
+    project = database.create_project("Project")["id"]
+    chat_id = database.create_chat("Chat", project)["id"]
+    loads = []
+    real_get_chat = database.get_chat
+
+    def counting_get_chat(chat_id):
+        loads.append(chat_id)
+        return real_get_chat(chat_id)
+
+    monkeypatch.setattr(database, "get_chat", counting_get_chat)
+    client.post("/chat", json=chat_body("Hi there", chat_id=chat_id))
+    assert loads == [chat_id]
+
+
 def test_memory_goes_in_the_last_message_not_the_system_prompt(client, fake):
     # This is the speed fix: if the memory were in the system prompt, the
     # start of the prompt would change every time and Ollama's cache

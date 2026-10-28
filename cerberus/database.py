@@ -239,6 +239,16 @@ def get_chat(chat_id):
     }
 
 
+def get_chat_info(chat_id):
+    # Only the chat itself (id, title, project_id), without its messages.
+    # Much cheaper than get_chat when a chat has many messages or images.
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT id, title, project_id FROM chats WHERE id = ?", (chat_id,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
 def delete_chat(chat_id):
     # Delete everything that belongs to the chat first, then the chat itself.
     with get_db() as conn:
