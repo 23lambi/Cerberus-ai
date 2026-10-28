@@ -84,9 +84,15 @@ deletion removes them. All chats can also have their own Markdown documents.
 
 ## Web search
 
-Tick **🌐 Web** beside the message box to search the web before answering.
-It works with every model and in Deep think. Without it, nothing leaves your
-computer. Cerberus asks [SearXNG](https://docs.searxng.org/), a search engine
+Turn on **Web** beside the message box to let Cerberus search the web. It works
+with every model and in Deep think. Without it, nothing leaves your computer.
+Cerberus searches only when a message needs it: not for "hello", thanks,
+arithmetic, writing tasks or questions about your memories ("Web: not
+needed"). With the Helper model on, the Helper decides and rewrites follow-ups
+such as "and when was it released?" into a real query; without it, rules
+decide and add your previous question to short follow-ups. The query used is
+shown above the sources. A web answer takes longer on a CPU, mostly because the
+model reads the pages. Cerberus asks [SearXNG](https://docs.searxng.org/), a search engine
 running locally, reads the top three pages, and gives the model only the
 pieces that best fit your question. They appear as 🌐 source buttons; click
 one to see the exact text used and to open the page. The answer label says

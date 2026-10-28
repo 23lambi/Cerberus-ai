@@ -98,7 +98,10 @@ function replyLabel(headers) {
   // The server only sends X-Cerberus-Web when the web was asked, even
   // with 0 pages found, so you always see that a request went online.
   const web = headers.get("X-Cerberus-Web");
-  if (web !== null) {
+  if (web === "skipped") {
+    // Web was allowed, but this message didn't need it (like "hello").
+    labels.push("Web: not needed");
+  } else if (web !== null) {
     const pages = Number(web);
     labels.push("Web: " + (pages ? pages + (pages === 1 ? " page" : " pages") : "no pages"));
   }
@@ -200,7 +203,11 @@ function renderDocumentSources(el, sources) {
   list.className = "answer-sources";
   const label = document.createElement("p");
   label.className = "hint";
-  label.textContent = "Sources supplied to the model — click to inspect:";
+  // Show what Cerberus searched for: it may differ from your words, like
+  // "Python 3.15 release date" for "and when was it released?".
+  const searched = sources.find(source => source.kind === "web" && source.query);
+  label.textContent = (searched ? "Searched the web for “" + searched.query + "”. " : "") +
+    "Sources supplied to the model — click to inspect:";
   list.appendChild(label);
   for (const source of sources) {
     // 🌐 marks what came from the internet, so it stands apart from your own files.

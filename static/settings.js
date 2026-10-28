@@ -111,7 +111,9 @@ function fillSettings(values) {
 function addWebSetting(values) {
   const card = settingCard(
     "Web search",
-    "The address of your SearXNG. Only messages sent with Web on go online. " +
+    "The address of your SearXNG. With Web on, Cerberus searches only when a " +
+      "message needs it (not for \"hello\"). With the Helper on, it decides " +
+      "better and turns follow-up questions into good search queries. " +
       "Cerberus never opens pages on this computer or your home network. " +
       "Offline? Run: sudo docker start searxng"
   );

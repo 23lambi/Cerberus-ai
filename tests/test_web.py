@@ -137,3 +137,109 @@ def test_deep_think_gets_the_web_too(client, fake, monkeypatch, route):
                                         "messages": [{"role": "user", "content": "Why do zebras have stripes?"}]})
     assert response.headers["X-Cerberus-Web"] == "1"
     assert all(ZEBRA in str(call["messages"]) for call in fake.calls[-3:] if route == "/council")
+
+
+# ---------- Smart search: only when the message needs it ----------
+
+
+@pytest.mark.parametrize("message", [
+    "hello", "Hello there!", "thanks a lot", "ok", "how are you doing today?", "γεια σου",
+    "thanks, that helped!", "Thank you so much for the explanation",
+])
+def test_small_talk_never_searches(message):
+    assert asyncio.run(web.plan(message)) is None
+
+
+def test_questions_about_you_never_search():
+    # The Guard said "memory": the answer is in Cerberus, not on the internet.
+    assert asyncio.run(web.plan("What is my favourite language?", memory=True)) is None
+
+
+@pytest.mark.parametrize("message, searches", [
+    ("What's the latest Python version?", True),  # "latest": it changes
+    ("Write a poem about a dog", False),  # a task done from the message
+    ("Translate this to Greek: good night", False),
+    ("Explain how hash tables work", True),  # not sure: search
+    ("What is 17 * 23?", False),  # plain arithmetic
+    ("2^10 + 5", False),
+])
+def test_without_a_helper_the_rules_decide(message, searches):
+    assert asyncio.run(web.plan(message)) == (message if searches else None)
+
+
+def test_without_a_helper_a_follow_up_gets_the_earlier_question():
+    recent = [{"role": "user", "content": "What's new in Python 3.15?"},
+              {"role": "assistant", "content": "Lazy imports."}]
+    query = asyncio.run(web.plan("and when was it released?", recent))
+    assert query == "What's new in Python 3.15? and when was it released?"
+    # A question that stands on its own is searched as it is.
+    assert asyncio.run(web.plan("Who won the last Formula 1 race?", recent)) == "Who won the last Formula 1 race?"
+
+
+def test_the_helper_turns_a_follow_up_into_a_real_query(fake):
+    fake.script = [[("content", '"Python 3.15 release date"\n')]]
+    recent = [{"role": "user", "content": "What's new in Python 3.15?"},
+              {"role": "assistant", "content": "Lazy imports and faster startup."}]
+
+    query = asyncio.run(web.plan("and when was it released?", recent, helper="small:3b"))
+
+    assert query == "Python 3.15 release date"  # quotes and newline cleaned away
+    sent = fake.calls[-1]["messages"][-1]["content"]
+    assert "What's new in Python 3.15?" in sent and "and when was it released?" in sent
+
+
+def test_the_helper_can_say_no(fake):
+    fake.script = [[("content", "NONE")]]
+    assert asyncio.run(web.plan("Tell me a joke about cats", helper="small:3b")) is None
+
+
+def test_words_about_now_win_over_a_helper_that_says_no(fake):
+    fake.script = [[("content", "NONE.")]]
+    question = "What's the weather today in Athens?"
+    assert asyncio.run(web.plan(question, helper="small:3b")) == question
+
+
+def test_a_failing_helper_leaves_it_to_the_rules(fake, monkeypatch):
+    from cerberus import ollama
+
+    async def broken(*args, **kwargs):
+        raise ollama.OllamaError("helper crashed")
+        yield
+
+    monkeypatch.setattr(ollama, "stream_events", broken)
+    question = "Who is the mayor of Athens?"
+    assert asyncio.run(web.plan(question, helper="small:3b")) == question
+
+
+def test_a_thinking_helper_is_not_asked(fake):
+    # It would think for seconds just to say NONE, like in the Guard.
+    question = "Tell me a joke about cats"
+    assert asyncio.run(web.plan(question, helper="thinker:4b")) == question
+    assert fake.calls == []
+
+
+def test_hello_with_web_on_does_not_go_online(client, fake, monkeypatch):
+    searched = fake_internet(monkeypatch, {"https://animals.example/zebra": ("Zebra facts", ZEBRA)})
+
+    response = ask(client, text="hello")
+
+    assert searched == []
+    assert response.headers["X-Cerberus-Web"] == "skipped"
+    assert all(event["type"] != "sources" for event in events(response))
+
+
+def test_a_follow_up_is_searched_with_the_helpers_query(client, fake, monkeypatch):
+    searched = fake_internet(monkeypatch, {"https://animals.example/zebra": ("Zebra facts", ZEBRA)})
+    client.put("/settings", json={"helper_on": "yes", "helper_model": "small:3b"})
+    # With the Helper on, the Guard asks it first ("chat"), then web.plan does.
+    fake.script = [[("content", "chat")], [("content", "zebra stripes reason")]]
+
+    response = client.post("/chat", json={"model": "small:3b", "web": True, "messages": [
+        {"role": "user", "content": "Tell me about zebras"},
+        {"role": "assistant", "content": "They are striped horses."},
+        {"role": "user", "content": "why are they striped?"},
+    ]})
+
+    assert searched == ["zebra stripes reason"]
+    sources = events(response)[0]["sources"]
+    assert sources[0]["query"] == "zebra stripes reason"  # saved with the answer

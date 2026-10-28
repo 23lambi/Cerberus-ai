@@ -178,6 +178,20 @@ the sources over your own memory, cite them as [1], [2], and say plainly
 when they don't answer the question.
 """
 
+# web.py: the Helper decides whether a message needs the web, and if so
+# writes the search query. One word (NONE) or one short line.
+WEB_PLAN_PROMPT = """
+You decide whether a web search would help answer the user's last message.
+Search when the answer depends on facts that change or that you may not know:
+news, recent events, versions, prices, weather, people, places, products,
+documentation. Do not search for greetings, small talk, opinions, creative
+writing, math, coding help on code the user gave, or questions about this
+conversation or about the user.
+Reply with exactly one line: NONE, or a short search query (at most 10 words)
+in the language of the message. For a follow-up question, put the topic from
+the earlier messages into the query.
+"""
+
 # When the search itself failed (SearXNG not running, no internet...).
 WEB_FAILED = """
 The user asked for a web search, but it failed: {error}

@@ -56,6 +56,7 @@ class Context:
     sources: list = field(default_factory=list)
     web_asked: bool = False  # the user ticked the web box for this message
     web_error: str = ""  # why the web search failed ("" = it didn't)
+    web_skipped: bool = False  # web was allowed, but this message didn't need it
 
     def web_pages(self):
         return sum(1 for source in self.sources if source["kind"] == "web")
@@ -100,7 +101,7 @@ class Context:
             headers["X-Cerberus-Eyes"] = self.eyes
         # Always said when the web was asked, so you know a request went online.
         if self.web_asked:
-            headers["X-Cerberus-Web"] = str(self.web_pages())
+            headers["X-Cerberus-Web"] = "skipped" if self.web_skipped else str(self.web_pages())
         if self.web_error:
             # Headers may only hold plain ASCII text.
             headers["X-Cerberus-Web-Error"] = self.web_error.encode("ascii", "replace").decode()
@@ -195,16 +196,23 @@ async def prepare(req):
     for doc in found["documents"]:
         sources.append({**doc, "number": len(sources) + 1, "kind": "passage"})
 
-    # Web search, only when you ask for it: then the question leaves this
-    # computer. Web sources come last, so they can be dropped from the end
-    # if the prompt gets too big (see the bottom of this function).
+    # Web search, only when you allow it AND the message needs it ("hello"
+    # doesn't): only then does the question leave this computer. Web
+    # sources come last, so they can be dropped from the end if the prompt
+    # gets too big (see the bottom of this function).
     web_error = ""
+    web_skipped = False
     if req.web:
-        try:
-            for page in await web.research(settings.get("web_url"), question):
-                sources.append({**page, "number": len(sources) + 1})
-        except WebError as error:
-            web_error = str(error)
+        # The last few messages, for follow-ups like "and its price?".
+        query = await web.plan(question, all_messages[-5:-1], helper, memory_mode)
+        if query is None:
+            web_skipped = True
+        else:
+            try:
+                for page in await web.research(settings.get("web_url"), query):
+                    sources.append({**page, "number": len(sources) + 1})
+            except WebError as error:
+                web_error = str(error)
     context = keeper.context_prompt({**found, "documents": []})
     if sources:
         system_prompt += ("\nWhen using a document source, cite its number as [1], [2], etc. "
@@ -235,6 +243,7 @@ async def prepare(req):
         sources=sources,
         web_asked=req.web,
         web_error=web_error,
+        web_skipped=web_skipped,
     )
     while True:
         try:

@@ -27,6 +27,7 @@ BUILT_IN = [
     ("Reverse: facts", "How the facts about a file are given to the model.", prompts.REVERSE_FACTS),
     ("Tools", "Added when Tools is on: when to use which tool.", prompts.TOOLS_NOTE),
     ("Reverse: tools", "Added in the Reverse panel when Tools is on.", prompts.REVERSE_TOOLS_NOTE),
+    ("Web: decide", "The Helper decides if a message needs the web, and what to search.", prompts.WEB_PLAN_PROMPT),
     ("Web", "Added when web pages were found for your message.", prompts.WEB_NOTE),
     ("Web: failed", "Added when the web search didn't work.", prompts.WEB_FAILED),
 ]

@@ -288,6 +288,7 @@ test("the answer label says when the web was used, also when nothing was found",
   assert.equal(labelFor({"X-Cerberus-Mode": "chat", "X-Cerberus-Web": "3"}), "Chat, Web: 3 pages");
   assert.equal(labelFor({"X-Cerberus-Mode": "chat", "X-Cerberus-Web": "1"}), "Chat, Web: 1 page");
   assert.equal(labelFor({"X-Cerberus-Mode": "chat", "X-Cerberus-Web": "0"}), "Chat, Web: no pages");
+  assert.equal(labelFor({"X-Cerberus-Mode": "chat", "X-Cerberus-Web": "skipped"}), "Chat, Web: not needed");
 });
 
 test("a web source opens its page in a new tab instead of a document", async () => {
