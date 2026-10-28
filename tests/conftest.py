@@ -14,6 +14,14 @@ from cerberus.ollama import OllamaError
 from cerberus.routes import pages
 
 
+@pytest.fixture(autouse=True)
+def private_keys(tmp_path, monkeypatch):
+    # autouse: every test gets this, without asking for it. API keys then
+    # go to a temporary file, never to the real one on your computer.
+    from cerberus import keys
+    monkeypatch.setattr(keys, "KEYS_FILE", tmp_path / "keys.json")
+
+
 @pytest.fixture
 def db(tmp_path, monkeypatch):
     # tmp_path is a fixture built into pytest: a new, empty folder for

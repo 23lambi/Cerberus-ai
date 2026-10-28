@@ -158,6 +158,7 @@ function replyHead(label) {
 // into HTML. Model text is never put in innerHTML without DOMPurify: it
 // removes anything that could run, like <script> or onerror="...".
 function showReply(el, label, text) {
+  el.classList.remove("pending"); // the words are here: no more shimmer
   el.innerHTML = DOMPurify.sanitize(marked.parse(text));
   el.prepend(replyHead(label));
   el.classList.add("reply");
@@ -308,11 +309,37 @@ async function loadModels() {
     modelSelect.value = data.models[0];
   }
 
+  showEngine(data.engine);
+
   // A Set is a list where each value appears once, with a fast .has().
   thinkingModels = new Set(data.thinking);
   toolModels = new Set(data.tools);
   visionModels = new Set(data.vision);
   updateModelFeatures();
+}
+
+// Which engine answers. Ollama is the normal case: no badge. Another
+// engine gets its name next to the model list, and a cloud engine a ☁ and
+// an honest line under the message box, because messages leave the computer.
+let currentEngine = { kind: "ollama", name: "Ollama", cloud: false };
+
+function showEngine(engine) {
+  currentEngine = engine || currentEngine;
+  const badge = document.getElementById("engine-badge");
+  badge.hidden = currentEngine.kind === "ollama";
+  badge.classList.toggle("cloud", currentEngine.cloud);
+  // "Hugging Face (cloud)" -> "Hugging Face": the ☁ already says cloud.
+  const name = currentEngine.name.replace(" (cloud)", "");
+  badge.textContent = (currentEngine.cloud ? "☁ " : "") + name;
+  badge.title = currentEngine.cloud
+    ? "A cloud engine: your messages are sent to " + name + "."
+    : "Answered by " + name + ", on this computer.";
+  const hint = document.querySelector(".composer-hint");
+  if (hint) {
+    hint.textContent = currentEngine.cloud
+      ? "Enter to send · Shift+Enter for a new line · ☁ Your messages are sent to " + name
+      : "Enter to send · Shift+Enter for a new line · Everything stays on this computer unless Web or Research is on";
+  }
 }
 
 // Show only the buttons the chosen model can use: Think for thinking
@@ -764,6 +791,9 @@ async function sendNormal(model, url = "/chat") {
     researching ? "Cerberus is starting the research..." :
     looking ? "Cerberus is looking at the image..." : "Cerberus is thinking..."
   );
+  // It shimmers while Cerberus works (.pending in style.css). showReply
+  // and send() take the shimmer away again.
+  bubble.classList.add("pending");
 
   let response;
   try {
@@ -1016,6 +1046,7 @@ function showToolCall(bubble, ev) {
 async function sendCouncil(model) {
   const container = document.createElement("div");
   const answer = makeBox("judge", "Cerberus is thinking deeply...");
+  answer.classList.add("pending"); // shimmers while it works, like a normal answer
 
   // <details> is a box the user can open and close; <summary> is its title.
   const details = document.createElement("details");
@@ -1192,6 +1223,8 @@ async function send(text, model, images = [], seen = "") {
   } finally {
     controller = null;
     sendButton.textContent = "Send";
+    // However it ended (answer, Stop, error): nothing shimmers anymore.
+    for (const el of messagesEl.querySelectorAll(".pending")) el.classList.remove("pending");
     loadChats();
   }
 }

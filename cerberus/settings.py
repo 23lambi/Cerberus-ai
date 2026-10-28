@@ -1,7 +1,7 @@
 # Settings the user can change in the Settings dialog. They are saved in
 # the database; anything never saved falls back to DEFAULTS.
 
-from cerberus import database
+from cerberus import database, keys
 from cerberus.ollama import OllamaError, list_models
 from cerberus.prompts import SKILLS, SYSTEM_PROMPT
 
@@ -20,6 +20,11 @@ DEFAULTS = {
     "eyes_model": "",
     # Web search: the address of SearXNG (see websearch.py).
     "web_url": "http://127.0.0.1:8888",
+    # The AI engine: "ollama", or "openai" for any OpenAI-compatible engine
+    # (openai_api.py). openai_url "" = the preset's own address.
+    "engine": "ollama",
+    "openai_preset": "huggingface",
+    "openai_url": "",
 }
 
 
@@ -33,10 +38,17 @@ def get(key):
 
 def get_all():
     # A dict comprehension: builds {"system_prompt": "...", ...} in one line.
-    return {key: get(key) for key in DEFAULTS}
+    values = {key: get(key) for key in DEFAULTS}
+    # The API key itself never goes to the browser: only whether there is one.
+    values["openai_key_set"] = "yes" if keys.get("openai_key") else "no"
+    return values
 
 
 def update(values):
+    # A new API key goes to its own private file, never into the database
+    # (see keys.py). An empty one means "keep the key I have".
+    if values.get("openai_key"):
+        keys.set("openai_key", values["openai_key"].strip())
     for key, value in values.items():
         # Ignore unknown keys, so nobody can fill the table with junk.
         if key in DEFAULTS:
@@ -44,8 +56,10 @@ def update(values):
 
 
 def reset():
-    # Deleting the saved values makes get() fall back to the defaults.
+    # Deleting the saved values makes get() fall back to the defaults. The
+    # API key goes too: "reset everything" shouldn't leave a password behind.
     database.clear_settings()
+    keys.set("openai_key", "")
 
 
 def brain(skill=None):

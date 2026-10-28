@@ -10,6 +10,25 @@ uvicorn main:app --reload
 
 Open http://127.0.0.1:8000. Ollama must be running separately.
 
+## Setup window
+
+When something important is missing (no running AI engine, or no chat
+model), a **Set up Cerberus** window opens by itself; open it any time from
+Settings → Setup check. It has three steps:
+
+1. **AI engine (Ollama).** An installed and running Ollama is simply used. If
+   it's installed but not running, the window shows how to start it (Cerberus
+   doesn't start a system Ollama itself: run as you instead of as its service,
+   it would look for models elsewhere). If Ollama is missing, **Download & run
+   Ollama** fetches the official ready-to-run version (about 1.5 GB, 220 MB on
+   macOS) into the system's app folder, with resume after an interruption, and
+   Cerberus starts and stops that copy together with itself. No admin rights.
+2. **Models.** Suggests a first chat model that fits your memory and the
+   embedding model for search by meaning, each installable with one click.
+3. **Web search (SearXNG).** Tests the address (which you can change), and
+   **Help me set up SearXNG** writes its settings file (never over an existing
+   one) and shows the Docker commands to copy.
+
 ## Desktop app
 
 Cerberus can also run in its own window, with an icon in your app menu, on

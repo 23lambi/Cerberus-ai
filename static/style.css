@@ -43,8 +43,47 @@
   color-scheme: dark;
   /* The color of built-in controls (checkboxes, sliders) when they're on. */
   accent-color: var(--accent);
-  /* Scrollbars in our colors: the handle, then the track behind it. */
-  scrollbar-color: var(--border-strong) transparent;
+}
+
+/* Scrollbars: thin, rounded, in our colors. There are two ways to style
+   them, and each browser engine knows only one:
+   - Chromium (the desktop app's engine, Chrome, Edge) uses ::-webkit-scrollbar,
+     but ONLY if scrollbar-color isn't set: then it would draw the old
+     scrollbar with arrows instead.
+   - Firefox only knows scrollbar-color and scrollbar-width.
+   @supports asks "does this engine know ::-webkit-scrollbar?" and gives
+   Firefox its own rule. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+  /* A transparent border makes the visible handle thinner than its track. */
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--faint);
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-button {
+  display: none; /* no arrows */
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  :root {
+    scrollbar-color: var(--border-strong) transparent;
+    scrollbar-width: thin;
+  }
 }
 
 /* ---------- Basics ---------- */
@@ -244,43 +283,115 @@ button:disabled {
   border-color: var(--accent);
 }
 
-/* ---------- Sidebar ---------- */
+/* ---------- The rail: the features, far left ---------- */
+
+#rail {
+  width: 68px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 0 12px;
+  background: #0e0f12; /* a step darker than the sidebar: the frame of the app */
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+}
+
+/* The logo at the top: back to a new chat. */
+.rail-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 10px;
+  border: none;
+  border-radius: 14px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s;
+}
+
+.rail-logo .logo {
+  width: 28px;
+  height: 21px;
+  stroke-width: 3.6;
+}
+
+.rail-logo:hover {
+  background: rgba(232, 112, 126, 0.2);
+  transform: rotate(-8deg); /* a small wink */
+}
+
+/* One feature: its icon, and its name small underneath. */
+.rail-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 58px;
+  padding: 8px 0 6px;
+  border: none;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--faint);
+  font-size: 10.5px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.rail-item .icon {
+  width: 20px;
+  height: 20px;
+}
+
+.rail-item:hover {
+  background: var(--panel);
+  color: var(--text);
+}
+
+.rail-item.active {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+/* The chosen feature also gets a small bar on the left edge. */
+.rail-item.active::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+/* ---------- Sidebar: the chats ---------- */
 
 #sidebar {
-  width: 272px;
+  width: 260px;
   flex-shrink: 0; /* never squeezed by a wide chat */
   background: var(--side);
   border-right: 1px solid var(--border);
-  padding: 18px 12px 12px;
+  padding: 16px 12px 12px;
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-/* The name at the top: a button that goes home, but looks like a title. */
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+/* The name at the top of the chats. */
+.wordmark {
   color: var(--accent);
   font-family: var(--font-mono);
   font-weight: 700;
-  font-size: 16px;
+  font-size: 14px;
   letter-spacing: 3px;
   text-transform: uppercase;
-  padding: 0 8px 18px;
-  background: none;
-  border: none;
-  cursor: pointer;
-}
-
-.brand .logo {
-  width: 30px;
-  height: 22px;
-}
-
-.brand:hover {
-  opacity: 0.85;
+  padding: 4px 8px 14px;
 }
 
 /* Sidebar rows: New chat, the features at the bottom, Settings. */
@@ -552,16 +663,6 @@ button:disabled {
   white-space: nowrap;
 }
 
-/* The features at the bottom of the sidebar. */
-#features {
-  border-top: 1px solid var(--border);
-  margin-top: 8px;
-  padding-top: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
 /* ---------- Panels (one per feature) ---------- */
 
 /* min-width: 0 lets this area shrink; without it, a long code line
@@ -570,6 +671,11 @@ main {
   flex: 1;
   display: flex;
   min-width: 0;
+  /* A soft glow of the brand color at the top: depth instead of a flat
+     surface. Two backgrounds: the glow, painted over the plain color. */
+  background:
+    radial-gradient(900px 420px at 50% -120px, rgba(232, 112, 126, 0.08), transparent 70%),
+    var(--bg);
 }
 
 /* Every panel is hidden, except the one with the class "active". */
@@ -1170,7 +1276,8 @@ main {
   border-radius: 999px;
   padding: 4px 10px;
   font-size: 13px;
-  max-width: 220px;
+  max-width: 190px;
+  min-width: 0; /* may shrink, so Send stays on the same line */
 }
 
 /* The options (Think, Tools, Web, Deep think) as pills. The real checkbox
@@ -2046,4 +2153,287 @@ dialog .dialog-close:hover {
 
 #model-source {
   margin-bottom: 8px;
+}
+
+/* ---------- Motion ----------
+   Small, quick movements, so things feel connected instead of jumping.
+   @keyframes describes a movement once; "animation" plays it. */
+
+/* A panel appears: fades in while moving up a little. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.panel.active {
+  animation: rise-in 0.22s ease-out;
+}
+
+/* New messages and Cerberus's answers slide in the same way. */
+.message,
+.reply,
+.research-steps,
+.thinking,
+.tool-call {
+  animation: rise-in 0.25s ease-out;
+}
+
+/* While Cerberus works, "Cerberus is thinking..." shimmers: a light
+   band runs through the text. The text is painted with a moving
+   gradient instead of one color (background-clip: text). */
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+.pending {
+  background: linear-gradient(90deg, var(--faint) 30%, var(--text) 50%, var(--faint) 70%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: rise-in 0.25s ease-out, shimmer 1.6s linear infinite;
+}
+
+/* Buttons give way a little when pressed. */
+button:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+/* Dialogs open with a soft zoom, and their backdrop fades in. */
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+dialog[open] {
+  animation: dialog-in 0.2s ease-out;
+}
+
+dialog[open]::backdrop {
+  animation: fade-in 0.2s ease-out;
+}
+
+/* Rows in lists light up smoothly, not at once. */
+#memory-list li,
+#document-list li,
+.model-list li,
+.suggestions button {
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+
+.model-list li:hover,
+#memory-list li:hover,
+#document-list li:hover {
+  border-color: var(--border-strong);
+}
+
+/* Some people get dizzy from moving screens and tell their computer so
+   ("reduce motion"). Then everything appears at once, without movement. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after,
+  ::backdrop {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------- Short windows ----------
+   On a small or scaled-up screen the window can be only about 600 CSS
+   pixels high: then the home screen and composer make room for the chat. */
+@media (max-height: 760px) {
+  #messages {
+    padding-top: 16px;
+  }
+
+  .home-logo .logo {
+    width: 44px;
+    height: 33px;
+  }
+
+  #home h1 {
+    font-size: 24px;
+  }
+
+  #home .tagline {
+    margin-bottom: 18px;
+  }
+
+  .suggestions button {
+    padding: 10px 14px;
+  }
+
+  .composer-hint {
+    display: none;
+  }
+
+  .panel {
+    padding-top: 18px;
+  }
+}
+
+/* ---------- Setup window ---------- */
+
+#setup-dialog {
+  width: min(720px, 92vw);
+}
+
+#setup-dialog .dialog-body {
+  max-height: 72vh;
+}
+
+/* One step: number and title, a badge, and what to do. */
+.setup-step {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin: 0 0 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.setup-step > .hint,
+.setup-step > .model-form {
+  margin: 0;
+  width: 100%;
+}
+
+.setup-step-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.setup-step-head h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.setup-badge {
+  border-radius: 999px;
+  font-size: 12px;
+  padding: 2px 10px;
+}
+
+.setup-badge.ok {
+  background: rgba(110, 200, 140, 0.12);
+  color: #7fd39b;
+}
+
+.setup-badge.todo {
+  background: rgba(240, 179, 94, 0.12);
+  color: var(--warn);
+}
+
+/* A terminal command with its Copy button. */
+.setup-command {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.setup-command code {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  background: var(--side);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  font-size: 12.5px;
+}
+
+/* The same progress bar as in the Models panel. */
+.progress-bar {
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border: none;
+  border-radius: 999px;
+  background: var(--raised);
+  overflow: hidden;
+}
+
+.progress-bar::-webkit-progress-bar {
+  background: var(--raised);
+}
+
+.progress-bar::-webkit-progress-value {
+  background: var(--accent);
+}
+
+.progress-bar::-moz-progress-bar {
+  background: var(--accent);
+}
+
+/* ---------- Engines ---------- */
+
+/* Next to the model list: which engine answers, ☁ for a cloud one. */
+.engine-badge {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}
+
+.engine-badge.cloud,
+.engine-cloud {
+  color: var(--warn);
+}
+
+.engine-badge.cloud {
+  border-color: rgba(240, 179, 94, 0.45);
+  background: rgba(240, 179, 94, 0.08);
+}
+
+.setup-engine {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.setup-step select,
+.setup-engine input {
+  width: 100%;
+}
+
+.engine-note {
+  border: 1px solid rgba(240, 179, 94, 0.35);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  color: var(--warn);
 }

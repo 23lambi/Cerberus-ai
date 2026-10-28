@@ -43,7 +43,7 @@ function sendingContext(overrides = {}) {
   const history = [{ role: "user", content: "previous" }, { role: "assistant", content: "answer" }];
   return vm.createContext({
     controller: null, AbortController, sendButton: {}, lastUserEl: previousUser, history,
-    attachChips: {children: []}, attachStatus: {},
+    attachChips: {children: []}, attachStatus: {}, messagesEl: { querySelectorAll: () => [] },
     ensureChat: async () => {}, regenButton: { remove() {} },
     document: { getElementById: () => null }, addUserMessage: () => ({ name: "new question" }),
     addImagesTo() {}, threeHeads: { checked: false }, researchCheck: { checked: false }, sendNormal: async () => null,
@@ -397,4 +397,18 @@ test("a Hugging Face model counts as installed when any of its versions is", () 
   assert.equal(context.repoInstalled("bartowski/Qwen2.5-7B-Instruct-GGUF"), true); // capitals don't matter
   assert.equal(context.repoInstalled("bartowski/Qwen2.5-7B-Instruct"), false); // a different repo
   assert.equal(context.repoInstalled("Qwen/Qwen3-4B-GGUF"), false);
+});
+
+test("the thinking shimmer stops however an answer ends", async () => {
+  for (const ending of ["answer", "error"]) {
+    const bubble = { classes: new Set(["pending"]), classList: { remove(name) { bubble.classes.delete(name); } } };
+    const context = sendingContext({
+      messagesEl: { querySelectorAll: selector => (selector === ".pending" && bubble.classes.has("pending") ? [bubble] : []) },
+      sendNormal: async () => { if (ending === "error") throw new Error("Ollama crashed"); return null; },
+      addMessage: () => ({}),
+    });
+    vm.runInContext(section("async function send(text,", "// Regenerate: forget"), context);
+    await context.send("hello", "model");
+    assert.equal(bubble.classes.has("pending"), false, ending);
+  }
 });

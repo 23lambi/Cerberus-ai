@@ -1,6 +1,8 @@
 # The starting point of Cerberus. Run it with:  uvicorn main:app --reload
 # "main:app" means: in the file main.py, use the object called app.
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
@@ -22,13 +24,30 @@ from cerberus.routes import (
     research,
     reverse,
     settings,
+    setup,
 )
+from cerberus import engine
 
 # Create the tables in cerberus.db if they don't exist yet.
 # This runs once, when the server starts.
 init_db()
 
-app = FastAPI(title="Cerberus")
+# The lifespan runs around the server's whole life: the code before
+# "yield" when it starts, the code after it when it stops.
+@asynccontextmanager
+async def lifespan(app):
+    # Cerberus's own downloaded Ollama (see engine.py) starts with it...
+    if engine.managed_binary() and not await engine.version():
+        try:
+            await engine.start()
+        except engine.EngineError as error:
+            print("Cerberus:", error)
+    yield
+    # ...and stops with it. A system Ollama is never touched.
+    engine.stop()
+
+
+app = FastAPI(title="Cerberus", lifespan=lifespan)
 
 
 # Middleware runs on every request: before it (code above call_next) and
@@ -54,6 +73,7 @@ app.include_router(research.router)
 app.include_router(chats.router)
 app.include_router(projects.router)
 app.include_router(settings.router)
+app.include_router(setup.router)
 app.include_router(guard.router)
 app.include_router(memories.router)
 app.include_router(models.router)

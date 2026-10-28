@@ -7,6 +7,7 @@ from contextlib import aclosing
 import json
 
 import httpx  # an HTTP client like "requests", but it also works with async
+from cerberus import database, openai_api
 from cerberus.budget import ContextTooLarge, fit
 
 from cerberus.config import (
@@ -28,7 +29,22 @@ NOT_RUNNING = (
 class OllamaError(Exception):
     # Our own error type: callers can catch Ollama problems with
     # "except OllamaError" without catching every other bug too.
+    # Problems with the other engines arrive as this type too.
     pass
+
+
+# ---------- Which engine ----------
+#
+# Cerberus talks to its AI engine only through this file. Ollama is the
+# default; "openai" means any OpenAI-compatible engine (Hugging Face's
+# cloud, LM Studio, OpenAI... see openai_api.py). The functions below
+# check the choice and pass the request on, so the rest of Cerberus works
+# the same with every engine.
+
+
+def engine():
+    """ "ollama" or "openai", from the settings."""
+    return database.get_setting("engine") or "ollama"
 
 
 def trim_history(history):
@@ -48,6 +64,11 @@ def error_message(body):
 
 
 async def list_models():
+    if engine() == "openai":
+        try:
+            return await openai_api.list_models()
+        except openai_api.EngineError as error:
+            raise OllamaError(str(error)) from None
     # GET /api/tags lists the models installed with "ollama pull".
     try:
         async with httpx.AsyncClient() as client:
@@ -55,8 +76,11 @@ async def list_models():
     except httpx.ConnectError:
         # "from None" hides the long httpx traceback; our message says it all.
         raise OllamaError(NOT_RUNNING) from None
-    data = response.json()
-    return [m["name"] for m in data["models"]]
+    try:
+        return [m["name"] for m in response.json()["models"]]
+    except (ValueError, KeyError, TypeError):
+        # Something else answered on Ollama's address, or a broken answer.
+        raise OllamaError("Ollama's model list could not be read.") from None
 
 
 # Model name -> its abilities. A model's abilities never change, so we ask
@@ -65,6 +89,11 @@ capabilities_cache = {}
 
 
 async def capabilities(model):
+    if engine() == "openai":
+        # OpenAI-compatible engines don't say what a model can do. So we let
+        # every model try tools and pictures: if one can't, the engine's own
+        # error says so, instead of Cerberus quietly holding a picture back.
+        return ["completion", "tools", "vision"]
     # /api/show lists what a model can do, like ["completion", "thinking"].
     if model not in capabilities_cache:
         try:
@@ -109,6 +138,13 @@ async def can_chat(model):
 async def stream_events(
     model, messages, max_tokens=DEFAULT_MAX_TOKENS, temperature=None, think=False, tools=None
 ):
+    if engine() == "openai":
+        try:
+            async for event in openai_api.stream_events(model, messages, max_tokens, temperature, think, tools, NUM_CTX):
+                yield event
+        except openai_api.EngineError as error:
+            raise OllamaError(str(error)) from None
+        return
     # num_predict = the most tokens the model may write (thinking included!);
     # num_ctx = the context window.
     try:

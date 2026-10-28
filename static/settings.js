@@ -61,6 +61,20 @@ function settingCard(title, hint, aside = null) {
 function fillSettings(values) {
   settingsFields.innerHTML = "";
 
+  sectionTitle("Setup");
+  const setupCard = settingCard(
+    "Setup check",
+    "Check the AI engine (Ollama), the models and web search, and fix what's missing."
+  );
+  const openSetupButton = document.createElement("button");
+  openSetupButton.type = "button";
+  openSetupButton.textContent = "Open setup";
+  openSetupButton.addEventListener("click", () => {
+    settingsDialog.close();
+    openSetup(); // setup.js
+  });
+  setupCard.appendChild(openSetupButton);
+
   sectionTitle("Assistant");
   // Object.entries turns { a: 1 } into [["a", 1]], so we get key and info.
   for (const [key, info] of Object.entries(TEXT_SETTINGS)) {

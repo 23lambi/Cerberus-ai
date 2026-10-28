@@ -74,6 +74,11 @@ async function loadInstalledModels() {
 // Opening the panel: the installed models, and the list of the chosen
 // source the first time (after that it's already there).
 function loadModelsPanel() {
+  // Another engine chosen: these models are Ollama's, say so.
+  const note = document.getElementById("models-engine-note");
+  note.hidden = currentEngine.kind === "ollama"; // app.js
+  note.textContent = "Your AI engine is " + currentEngine.name + ": it manages its own models. " +
+    "The models here are Ollama's, for when you switch back (Setup → AI engine).";
   loadInstalledModels();
   if (!document.getElementById("source-huggingface").hidden) {
     if (!hfModels.length && !hfQuery) loadHuggingFace();

@@ -34,13 +34,26 @@
     <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></symbol>
   </svg>
 
-  <!-- ========== Left: the sidebar ========== -->
-  <aside id="sidebar">
+  <!-- ========== Far left: the rail with the features ==========
+       Icons with a short name under each, like many modern apps. Being
+       separate from the chat list, they never take space away from it. -->
+  <nav id="rail" aria-label="Features">
     <!-- A button, so it works with the mouse and the keyboard: back to the home screen -->
-    <button class="brand" id="home-button" title="Home">
+    <button class="rail-logo" id="home-button" title="Cerberus: new chat">
       <svg class="logo"><use href="#i-logo"/></svg>
-      <span>Cerberus</span>
     </button>
+    <button class="rail-item" data-feature="chat" title="Chat"><svg class="icon"><use href="#i-chat"/></svg><span>Chat</span></button>
+    <button class="rail-item" id="open-project-documents" title="Documents"><svg class="icon"><use href="#i-file"/></svg><span>Docs</span></button>
+    <button class="rail-item" data-feature="reverse" title="Reverse"><svg class="icon"><use href="#i-chip"/></svg><span>Reverse</span></button>
+    <button class="rail-item" data-feature="memory" title="Memory"><svg class="icon"><use href="#i-memory"/></svg><span>Memory</span></button>
+    <button class="rail-item" data-feature="models" title="Models"><svg class="icon"><use href="#i-cube"/></svg><span>Models</span></button>
+    <span class="spacer"></span>
+    <button class="rail-item" id="open-settings" title="Settings"><svg class="icon"><use href="#i-settings"/></svg><span>Settings</span></button>
+  </nav>
+
+  <!-- ========== Left: the chats ========== -->
+  <aside id="sidebar">
+    <div class="wordmark">Cerberus</div>
 
     <button class="nav" id="new-chat"><svg class="icon"><use href="#i-plus"/></svg> New chat</button>
 
@@ -76,16 +89,6 @@
       <p id="chat-selection-status" class="hint" role="status"></p>
     </div>
     <ul id="chat-list"></ul>
-
-    <!-- Features: each button opens its own panel on the right -->
-    <nav id="features">
-      <button class="nav" data-feature="chat"><svg class="icon"><use href="#i-chat"/></svg> Chat</button>
-      <button class="nav" id="open-project-documents"><svg class="icon"><use href="#i-file"/></svg> Documents</button>
-      <button class="nav" data-feature="reverse"><svg class="icon"><use href="#i-chip"/></svg> Reverse</button>
-      <button class="nav" data-feature="memory"><svg class="icon"><use href="#i-memory"/></svg> Memory</button>
-      <button class="nav" data-feature="models"><svg class="icon"><use href="#i-cube"/></svg> Models</button>
-      <button class="nav" id="open-settings"><svg class="icon"><use href="#i-settings"/></svg> Settings</button>
-    </nav>
   </aside>
 
   <!-- ========== Right: one panel at a time (features.js switches them) ========== -->
@@ -108,6 +111,8 @@
             <button type="button" id="image" class="icon-button" title="Add an image (or paste one with Ctrl+V)" hidden><svg class="icon"><use href="#i-image"/></svg></button>
             <input type="file" id="image-file" accept="image/*" multiple hidden>
             <select id="model" title="Model"></select>
+            <!-- Which engine answers, when it isn't Ollama; ☁ = a cloud engine (app.js) -->
+            <span id="engine-badge" class="engine-badge" hidden></span>
             <!-- The toggles look like pills: style.css hides the real checkbox
                  and colors the pill when it's ticked. -->
             <!-- Only shown for models that can think (app.js decides) -->
@@ -157,6 +162,7 @@
       <h2>Models</h2>
       <p class="panel-intro">The AI models on this computer, and new ones to download from Ollama.
         Bigger models answer better, but need more memory and are slower.</p>
+      <p id="models-engine-note" class="hint engine-note" hidden></p>
 
       <h3 class="setting-section">Installed</h3>
       <p id="installed-status" class="hint" role="status"></p>
@@ -317,6 +323,21 @@
     </div>
   </dialog>
 
+  <!-- The Setup window (setup.js): engine, models, web search. It opens by
+       itself when something important is missing, and from Settings. -->
+  <dialog id="setup-dialog" aria-labelledby="setup-title">
+    <header class="dialog-header">
+      <h2 id="setup-title">Set up Cerberus</h2>
+      <button type="button" class="dialog-close" id="setup-close" aria-label="Close setup">×</button>
+    </header>
+    <div class="dialog-body" id="setup-body"></div>
+    <footer class="dialog-buttons">
+      <button type="button" id="setup-recheck">Check again</button>
+      <span class="spacer"></span>
+      <button type="button" class="primary" id="setup-done">Done</button>
+    </footer>
+  </dialog>
+
   <!-- <dialog> is a built-in popup. settings.js opens it with showModal(). -->
   <!-- The header and the buttons stay in place; only the middle scrolls. -->
   <dialog id="settings-dialog">
@@ -347,6 +368,7 @@
   <script src="/static/documents.js"></script>
   <script src="/static/reverse.js"></script>
   <script src="/static/models.js"></script>
+  <script src="/static/setup.js"></script>
   <script src="/static/features.js"></script>
   <script src="/static/projects.js"></script>
 </body>

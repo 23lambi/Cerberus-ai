@@ -14,7 +14,8 @@ from cerberus.ollama import (
     can_use_tools,
     list_models,
 )
-from cerberus.ollama import full_name, loaded_models, unload
+from cerberus import openai_api
+from cerberus.ollama import engine, full_name, loaded_models, unload
 
 router = APIRouter()
 
@@ -43,7 +44,13 @@ async def models():
         thinking = [name for name in names if await can_think(name)]
         vision = [name for name in names if await can_see(name)]
         with_tools = [name for name in names if await can_use_tools(name)]
-        return {"models": names, "thinking": thinking, "vision": vision, "tools": with_tools}
+        # Which engine answers, so the page can say when it's a cloud one.
+        if engine() == "openai":
+            chosen = openai_api.current()
+            about = {"kind": "openai", "name": chosen["name"], "cloud": chosen["cloud"]}
+        else:
+            about = {"kind": "ollama", "name": "Ollama", "cloud": False}
+        return {"models": names, "thinking": thinking, "vision": vision, "tools": with_tools, "engine": about}
     except OllamaError as error:
         raise HTTPException(status_code=503, detail=str(error)) from None
 
