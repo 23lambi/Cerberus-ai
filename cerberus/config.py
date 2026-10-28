@@ -52,3 +52,8 @@ CHAT_SEARCH_RESULTS = 4  # memory mode: how many old chat messages to show the m
 # ---------- Projects ----------
 
 PROJECT_NOTES_MAX_CHARS = 6000  # the most project notes that go into one prompt
+
+# ---------- Web search (SearXNG) ----------
+
+WEB_RESULTS = 5  # how many search results to keep
+WEB_SEARCH_TIMEOUT = 15  # seconds; SearXNG waits for several engines
