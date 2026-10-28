@@ -12,17 +12,18 @@ import asyncio
 import re
 from urllib.parse import urlsplit
 
-from cerberus import keeper, webpage, websearch
-from cerberus.config import (
+from cerberus.storage import keeper
+from cerberus.search import webpage, websearch
+from cerberus.core.config import (
     WEB_PAGES,
     WEB_PIECE_CHARS,
     WEB_PIECE_OVERLAP,
     WEB_PIECES,
     WEB_PIECES_PER_PAGE,
 )
-from cerberus.ollama import OllamaError, can_think, stream_chat
-from cerberus.prompts import WEB_PLAN_PROMPT
-from cerberus.websearch import WebError
+from cerberus.engines.ollama import OllamaError, can_think, stream_chat
+from cerberus.chat.prompts import WEB_PLAN_PROMPT
+from cerberus.search.websearch import WebError
 
 # ---------- 0. Is the web needed? ----------
 #

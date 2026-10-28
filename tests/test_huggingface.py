@@ -5,7 +5,7 @@ import asyncio
 
 import pytest
 
-from cerberus import huggingface as hf
+from cerberus.models import huggingface as hf
 
 
 def test_versions_are_read_from_the_file_names():

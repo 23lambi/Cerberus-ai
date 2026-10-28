@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from cerberus import database, keeper
+from cerberus.storage import database, keeper
 
 
 def ask(client, chat_id, route="/chat"):

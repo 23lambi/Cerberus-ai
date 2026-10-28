@@ -3,7 +3,8 @@
 
 from fastapi import APIRouter
 
-from cerberus import prompts, settings
+from cerberus.chat import prompts
+from cerberus.core import settings
 
 router = APIRouter(prefix="/settings")
 

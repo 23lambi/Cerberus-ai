@@ -9,7 +9,7 @@
 
 import httpx
 
-from cerberus.config import WEB_RESULTS, WEB_SEARCH_TIMEOUT
+from cerberus.core.config import WEB_RESULTS, WEB_SEARCH_TIMEOUT
 
 NOT_RUNNING = (
     "SearXNG can't be reached at {url}. Is it running? "

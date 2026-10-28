@@ -3,7 +3,7 @@
 # runs them all. Inside, "assert" checks that something is true; if it
 # isn't, the test fails and pytest shows you both values.
 
-from cerberus import keeper
+from cerberus.storage import keeper
 
 
 def test_wants_to_save_finds_the_fact():

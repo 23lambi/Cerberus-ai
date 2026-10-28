@@ -29,7 +29,7 @@ os.chdir(HERE)
 import uvicorn  # noqa: E402  (imported after chdir on purpose)
 import webview  # noqa: E402
 
-from cerberus.config import system_data_dir  # noqa: E402
+from cerberus.core.config import system_data_dir  # noqa: E402
 
 HOST = "127.0.0.1"  # only this computer can reach it
 PORT = int(os.environ.get("CERBERUS_PORT", "8000"))

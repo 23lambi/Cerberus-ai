@@ -2,10 +2,10 @@
 # short recap of it. Every other chat in the same project then gets these
 # recaps in its system prompt, so the project "remembers" its own work.
 
-from cerberus import database
-from cerberus.config import PROJECT_NOTES_MAX_CHARS
-from cerberus.ollama import OllamaError, stream_chat
-from cerberus.prompts import PROJECT_NOTES, RECAP_PROMPT
+from cerberus.storage import database
+from cerberus.core.config import PROJECT_NOTES_MAX_CHARS
+from cerberus.engines.ollama import OllamaError, stream_chat
+from cerberus.chat.prompts import PROJECT_NOTES, RECAP_PROMPT
 
 MESSAGE_CHARS = 1500  # one long message is cut here
 CHAT_CHARS = 12000  # about 3000 tokens, so prompt and recap fit in NUM_CTX 8192

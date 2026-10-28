@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 import desktop
-from cerberus import config
+from cerberus.core import config
 
 HOME = Path("/home/you")
 

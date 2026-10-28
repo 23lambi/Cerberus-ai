@@ -3,8 +3,8 @@
 
 from fastapi import APIRouter, HTTPException
 
-from cerberus import keeper
-from cerberus.schemas import MemoryIn
+from cerberus.storage import keeper
+from cerberus.core.schemas import MemoryIn
 
 router = APIRouter(prefix="/memories")
 

@@ -12,7 +12,8 @@ import zipfile
 import httpx
 import pytest
 
-from cerberus import database, keys, ollama, openai_api
+from cerberus.storage import database, keys
+from cerberus.engines import ollama, openai_api
 
 # The real functions, kept when this file loads: conftest's fake Ollama
 # replaces them for each test, but some tests here need the real switch.

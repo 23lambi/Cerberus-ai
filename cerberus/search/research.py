@@ -19,18 +19,21 @@ import asyncio
 import re
 from contextlib import aclosing
 
-from cerberus import database, keeper, ollama, settings, web, websearch
-from cerberus.budget import ContextTooLarge, fit
-from cerberus.config import (
+from cerberus.storage import database, keeper
+from cerberus.engines import ollama
+from cerberus.core import settings
+from cerberus.search import web, websearch
+from cerberus.chat.budget import ContextTooLarge, fit
+from cerberus.core.config import (
     RESEARCH_MAX_TOKENS,
     RESEARCH_PAGES_PER_QUERY,
     RESEARCH_PIECES_PER_QUERY,
     RESEARCH_QUERIES,
     THINK_MAX_TOKENS,
 )
-from cerberus.ollama import OllamaError, can_think, stream_chat
-from cerberus.prompts import RESEARCH_PLAN, RESEARCH_WRITE
-from cerberus.websearch import WebError
+from cerberus.engines.ollama import OllamaError, can_think, stream_chat
+from cerberus.chat.prompts import RESEARCH_PLAN, RESEARCH_WRITE
+from cerberus.search.websearch import WebError
 
 
 def progress(text, **extra):

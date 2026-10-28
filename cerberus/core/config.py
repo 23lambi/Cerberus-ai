@@ -9,8 +9,8 @@ from pathlib import Path
 # ---------- Where things are ----------
 
 # The project folder (the one with main.py). Path(__file__) is this file;
-# .parent twice goes up from cerberus/config.py to the project.
-PROJECT_DIR = Path(__file__).resolve().parent.parent
+# Three parents go up from cerberus/core/config.py to the project root.
+PROJECT_DIR = Path(__file__).resolve().parents[2]
 STATIC_DIR = PROJECT_DIR / "static"  # the page: HTML, CSS, JavaScript
 
 

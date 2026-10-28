@@ -1,9 +1,9 @@
 # Settings the user can change in the Settings dialog. They are saved in
 # the database; anything never saved falls back to DEFAULTS.
 
-from cerberus import database, keys
-from cerberus.ollama import OllamaError, list_models
-from cerberus.prompts import SKILLS, SYSTEM_PROMPT
+from cerberus.storage import database, keys
+from cerberus.engines.ollama import OllamaError, list_models
+from cerberus.chat.prompts import SKILLS, SYSTEM_PROMPT
 
 # Only the brain's personality can be edited. Skills are part of the features.
 DEFAULTS = {

@@ -7,7 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from cerberus import database, tools
+from cerberus.storage import database
+from cerberus.chat import tools
 from cerberus.routes.reverse import recent_files
 
 FILES = Path(__file__).parent / "fixtures"

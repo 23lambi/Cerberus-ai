@@ -5,12 +5,14 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from cerberus import reverse, settings, signs, tools
-from cerberus.config import MAX_UPLOAD_MB, THINK_MAX_TOKENS
-from cerberus.ollama import OllamaError, can_think, can_use_tools, trim_history
-from cerberus.prompts import REVERSE_FACTS, REVERSE_TOOLS_NOTE
+from cerberus.analysis import reverse, signs
+from cerberus.core import settings
+from cerberus.chat import tools
+from cerberus.core.config import MAX_UPLOAD_MB, THINK_MAX_TOKENS
+from cerberus.engines.ollama import OllamaError, can_think, can_use_tools, trim_history
+from cerberus.chat.prompts import REVERSE_FACTS, REVERSE_TOOLS_NOTE
 from cerberus.routes.chat import line
-from cerberus.schemas import Message
+from cerberus.core.schemas import Message
 
 REVERSE_MAX_TOKENS = 1200  # explanations are longer than chat answers
 KEEP_FILES = 3

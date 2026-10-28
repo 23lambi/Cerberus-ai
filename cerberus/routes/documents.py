@@ -8,11 +8,12 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from cerberus import database, keeper, turns
-from cerberus.config import MAX_UPLOAD_MB
-from cerberus import ollama
-from cerberus.budget import ContextTooLarge, fit
-from cerberus.schemas import ModelName
+from cerberus.storage import database, keeper
+from cerberus.chat import turns
+from cerberus.core.config import MAX_UPLOAD_MB
+from cerberus.engines import ollama
+from cerberus.chat.budget import ContextTooLarge, fit
+from cerberus.core.schemas import ModelName
 
 router = APIRouter(prefix="/documents")
 

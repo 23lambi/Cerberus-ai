@@ -95,6 +95,15 @@
   <main>
     <!-- Chat panel -->
     <section id="panel-chat" class="panel active">
+      <div id="chat-connection" class="chat-connection" data-state="loading">
+        <span class="connection-dot" aria-hidden="true"></span>
+        <div class="connection-copy" role="status">
+          <strong id="connection-title">Connecting to your AI…</strong>
+          <span id="connection-detail">Checking available models</span>
+        </div>
+        <button type="button" id="connection-retry">Refresh</button>
+        <button type="button" id="connection-setup">Setup</button>
+      </div>
       <div id="messages"></div>
 
       <div id="composer">
@@ -102,7 +111,7 @@
         <form id="chat-form">
           <!-- A textarea instead of an input, so a message can have several
                lines. Enter sends, Shift+Enter makes a new line (see app.js). -->
-          <textarea id="input" rows="1" placeholder="Message Cerberus…"></textarea>
+          <textarea id="input" aria-label="Message Cerberus" rows="1" placeholder="Message Cerberus…"></textarea>
           <div class="composer-bar">
             <!-- type="button": this button must not submit the form -->
             <button type="button" id="attach" class="icon-button" title="Attach a file to this chat only"><svg class="icon"><use href="#i-clip"/></svg></button>
@@ -110,9 +119,14 @@
             <!-- Only shown for models that can see images (app.js decides) -->
             <button type="button" id="image" class="icon-button" title="Add an image (or paste one with Ctrl+V)" hidden><svg class="icon"><use href="#i-image"/></svg></button>
             <input type="file" id="image-file" accept="image/*" multiple hidden>
-            <select id="model" title="Model"></select>
+            <select id="model" title="Model" aria-label="Chat model"></select>
             <!-- Which engine answers, when it isn't Ollama; ☁ = a cloud engine (app.js) -->
             <span id="engine-badge" class="engine-badge" hidden></span>
+            <details id="chat-options" class="composer-options">
+              <summary>Options <span id="chat-options-summary"></span></summary>
+              <div class="chat-options-menu">
+                <strong>How should Cerberus help?</strong>
+                <p class="hint">Choose extra capabilities for your next message.</p>
             <!-- The toggles look like pills: style.css hides the real checkbox
                  and colors the pill when it's ticked. -->
             <!-- Only shown for models that can think (app.js decides) -->
@@ -123,7 +137,7 @@
             <label class="toggle" id="tools-toggle" hidden title="Let the model use tools: a calculator, the time, your memories">
               <input type="checkbox" id="tools" checked><svg class="icon"><use href="#i-tool"/></svg> Tools
             </label>
-            <!-- Works with every model. Off = nothing leaves this computer. -->
+            <!-- Web search is optional; the selected engine still receives chat context. -->
             <label class="toggle" id="web-toggle" title="Let Cerberus search the web (SearXNG) when a message needs it. Then your question is sent to the internet.">
               <input type="checkbox" id="web"><svg class="icon"><use href="#i-globe"/></svg> Web
             </label>
@@ -134,6 +148,8 @@
             <label class="toggle" title="Research agent: plans several web searches, reads the pages and writes a sourced report, saved as a document. Takes a few minutes.">
               <input type="checkbox" id="research"><svg class="icon"><use href="#i-book"/></svg> Research
             </label>
+              </div>
+            </details>
             <span class="spacer"></span>
             <!-- A button in a form submits it; app.js turns it into Stop while an answer runs -->
             <button id="send">Send</button>

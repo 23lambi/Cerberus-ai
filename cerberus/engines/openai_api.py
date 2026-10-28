@@ -18,8 +18,8 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from cerberus import database, keys
-from cerberus.budget import ContextTooLarge, fit
+from cerberus.storage import database, keys
+from cerberus.chat.budget import ContextTooLarge, fit
 
 # The engines to choose from. "cloud": messages leave this computer.
 PRESETS = {

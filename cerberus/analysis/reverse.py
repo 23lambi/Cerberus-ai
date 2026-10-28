@@ -19,7 +19,7 @@ from pathlib import Path
 import pefile  # reads Windows programs (PE)
 from elftools.elf.elffile import ELFFile  # reads Linux programs (ELF)
 
-from cerberus import disasm, signs
+from cerberus.analysis import disasm, signs
 
 MIN_STRING = 6  # shorter runs of letters are mostly noise
 MAX_STRINGS = 300  # the page doesn't need more than this

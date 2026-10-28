@@ -23,8 +23,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable
 
-from cerberus import database, disasm, keeper, ollama
-from cerberus.reverse import find_strings
+from cerberus.storage import database, keeper
+from cerberus.analysis import disasm
+from cerberus.engines import ollama
+from cerberus.analysis.reverse import find_strings
 
 MAX_ROUNDS = 5  # how many times in a row the model may ask for tools
 MAX_RESULT_CHARS = 4000  # a tool result that's too long would fill the context

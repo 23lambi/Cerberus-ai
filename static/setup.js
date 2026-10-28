@@ -1,6 +1,6 @@
 // The Setup window: is everything Cerberus needs ready, and if not, fix it
 // from here. Choose where AI runs, get a model, then add optional features.
-// The server checks (cerberus/setup.py); this file shows the result and
+// The server checks (cerberus/core/setup.py); this file shows the result and
 // the buttons that make sense for it.
 
 const setupDialog = document.getElementById("setup-dialog");

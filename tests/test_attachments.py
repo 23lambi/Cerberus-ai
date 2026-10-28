@@ -1,7 +1,8 @@
 """Chat uploads are private to that chat and included without a search match."""
 from pathlib import Path
 
-from cerberus import database, keeper, turns
+from cerberus.storage import database, keeper
+from cerberus.chat import turns
 
 
 def test_chat_file_is_direct_context_and_not_shared(client, fake, tmp_path, monkeypatch):

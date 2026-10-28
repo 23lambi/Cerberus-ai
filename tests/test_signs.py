@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from elftools.elf.elffile import ELFFile
 
-from cerberus import reverse, signs
+from cerberus.analysis import reverse, signs
 
 FILES = Path(__file__).parent / "fixtures"
 

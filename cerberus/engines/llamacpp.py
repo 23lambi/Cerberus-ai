@@ -9,8 +9,8 @@ from pathlib import Path
 
 import httpx
 
-from cerberus import settings
-from cerberus.config import system_data_dir
+from cerberus.core import settings
+from cerberus.core.config import system_data_dir
 
 process = None
 lock = asyncio.Lock()

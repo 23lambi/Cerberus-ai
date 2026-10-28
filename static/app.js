@@ -273,50 +273,66 @@ function makeBox(className, text) {
 
 // ---------- Models ----------
 
-// Fills the model dropdown with the models installed in Ollama.
-async function loadModels() {
-  const response = await fetch("/models");
-  const data = await response.json();
+let modelListRequest = 0;
 
-  // response.ok is false for errors like 503 (Ollama isn't running).
-  if (!response.ok) {
-    addMessage("Cerberus: " + data.detail);
-    return;
-  }
-
-  if (data.models.length === 0) {
-    addMessage("No models found. Install one with: ollama pull llama3.2");
-    return;
-  }
-
-  // The Models panel calls this again after a download or a delete, so
-  // empty the list first instead of adding everything twice.
-  modelSelect.innerHTML = "";
-  // "None" first: no model at all, so no model takes up RAM.
-  // new Option(text, value) is a short way to make an <option>.
-  modelSelect.appendChild(new Option("None (free all memory)", ""));
-  for (const name of data.models) {
-    modelSelect.appendChild(new Option(name, name));
-  }
-
-  // Pick the model used last time: a model that's still installed, or
-  // None (saved as ""). The first time ever, take the first real model.
-  // getItem gives null when nothing was ever saved.
-  const saved = localStorage.getItem("cerberus-model");
-  if (saved === "" || data.models.includes(saved)) {
-    modelSelect.value = saved;
-  } else {
-    modelSelect.value = data.models[0];
-  }
-
-  showEngine(data.engine);
-
-  // A Set is a list where each value appears once, with a fast .has().
-  thinkingModels = new Set(data.thinking);
-  toolModels = new Set(data.tools);
-  visionModels = new Set(data.vision);
-  updateModelFeatures();
+function setModelStatus(state, title, detail) {
+  document.getElementById("chat-connection").dataset.state = state;
+  document.getElementById("connection-title").textContent = title;
+  document.getElementById("connection-detail").textContent = detail;
+  document.getElementById("connection-retry").textContent = state === "error" ? "Retry" : "Refresh";
 }
+
+function updateSelectedModelStatus() {
+  if (!modelSelect.value) {
+    setModelStatus("idle", "Choose a model", "Select a chat model below, or open Setup to connect an engine.");
+    return;
+  }
+  setModelStatus("ready", "Ready · " + currentEngine.name, modelSelect.value);
+}
+
+// Connection problems belong in the status bar, not the conversation.
+async function loadModels() {
+  const request = ++modelListRequest;
+  modelSelect.disabled = true;
+  setModelStatus("loading", "Connecting to your AI…", "Checking available models");
+  try {
+    const response = await fetch("/models");
+    if (!response.ok) throw new Error(await responseError(response));
+    const data = await response.json();
+    if (request !== modelListRequest) return;
+    modelSelect.innerHTML = "";
+    modelSelect.appendChild(new Option("Choose a model…", ""));
+    if (data.engine) showEngine(data.engine);
+    thinkingModels = new Set(data.thinking || []);
+    toolModels = new Set(data.tools || []);
+    visionModels = new Set(data.vision || []);
+    for (const name of data.models) modelSelect.appendChild(new Option(name, name));
+    let saved = null;
+    try { saved = localStorage.getItem("cerberus-model"); } catch (_) { /* storage may be unavailable */ }
+    modelSelect.value = saved === "" || data.models.includes(saved) ? saved : (data.models[0] || "");
+    updateModelFeatures();
+    if (!data.models.length) {
+      setModelStatus("idle", "No chat models yet", currentEngine.kind === "ollama"
+        ? "Open Models to download your first model."
+        : "Load a chat model in " + currentEngine.name + ", then press Refresh.");
+    } else updateSelectedModelStatus();
+  } catch (error) {
+    if (request !== modelListRequest) return;
+    modelSelect.innerHTML = "";
+    modelSelect.appendChild(new Option("Connect an engine in Setup", ""));
+    modelSelect.value = "";
+    thinkingModels = new Set();
+    toolModels = new Set();
+    visionModels = new Set();
+    updateModelFeatures();
+    setModelStatus("error", "Your AI needs attention", error.message || "Could not connect. Try again or open Setup.");
+  } finally {
+    if (request === modelListRequest) modelSelect.disabled = false;
+  }
+}
+
+document.getElementById("connection-retry").addEventListener("click", () => loadModels());
+document.getElementById("connection-setup").addEventListener("click", () => openSetup());
 
 // Which engine answers. Ollama is the normal case: no badge. Another
 // engine gets its name next to the model list, and a cloud engine a ☁ and
@@ -348,6 +364,7 @@ function updateModelFeatures() {
   thinkToggle.hidden = !thinkingModels.has(modelSelect.value);
   toolsToggle.hidden = !toolModels.has(modelSelect.value);
   imageButton.hidden = !canTakeImages();
+  updateChatOptions();
 }
 
 // A chat model can take images when it can see them itself, or when the
@@ -359,9 +376,14 @@ function canTakeImages() {
 // Asks the server if Eyes is on. Called when the page opens and after
 // the settings are saved.
 async function loadEyes() {
-  const response = await fetch("/settings");
-  const values = await response.json();
-  eyesReady = values.eyes_on === "yes" && values.eyes_model !== "";
+  try {
+    const response = await fetch("/settings");
+    if (!response.ok) throw new Error("Settings unavailable");
+    const values = await response.json();
+    eyesReady = values.eyes_on === "yes" && values.eyes_model !== "";
+  } catch (_) {
+    eyesReady = false;
+  }
   updateModelFeatures();
 }
 
@@ -675,8 +697,8 @@ function newChat() {
 const SUGGESTIONS = [
   "Explain how a hash table works",
   "Help me find the bug in this code:",
-  "What do you remember about me?",
-  "Write a short poem about a three-headed dog",
+  "Help me plan my week",
+  "Help me write a clear, friendly email",
 ];
 
 // The big "Cerberus" in the middle of an empty chat.
@@ -690,13 +712,13 @@ function showHome() {
   logo.innerHTML = '<svg class="logo"><use href="#i-logo"/></svg>';
 
   const title = document.createElement("h1");
-  title.textContent = "Cerberus";
+  title.textContent = "What would you like to work on?"
 
   const tagline = document.createElement("p");
   tagline.className = "tagline";
   tagline.textContent = currentProject
     ? "Project: " + currentProject.name
-    : "Your private AI. Everything stays on this computer.";
+    : "Ask a question, write something, or work through an idea.";
 
   const suggestions = document.createElement("div");
   suggestions.className = "suggestions";
@@ -1266,7 +1288,8 @@ form.addEventListener("submit", async (event) => {
 
   const model = modelSelect.value;
   if (!model) {
-    addMessage("Please pick a model first. With None, no model is loaded.");
+    attachStatus.textContent = "Choose a chat model below, or open Setup to connect your AI.";
+    modelSelect.focus();
     return;
   }
 
@@ -1350,8 +1373,9 @@ modelSelect.addEventListener("change", freeOtherModels);
 
 // Remember the chosen model for the next visit.
 modelSelect.addEventListener("change", () => {
-  localStorage.setItem("cerberus-model", modelSelect.value);
+  try { localStorage.setItem("cerberus-model", modelSelect.value); } catch (_) { /* storage may be unavailable */ }
   updateModelFeatures();
+  updateSelectedModelStatus();
 });
 
 // Research and Deep think can't both run: ticking one unticks the other.
@@ -1567,6 +1591,33 @@ input.addEventListener("paste", (event) => {
     addImages(files);
   }
 });
+
+// Keep active options visible even when their controls are tucked away.
+function updateChatOptions() {
+  const options = [];
+  if (researchCheck.checked) options.push("Research");
+  else if (threeHeads.checked) options.push("Deep think");
+  if (webCheck.checked) options.push("Web");
+  if (!thinkToggle.hidden && thinkCheck.checked) options.push("Think");
+  if (!toolsToggle.hidden && toolsCheck.checked) options.push("Tools");
+  document.getElementById("chat-options-summary").textContent = options.length ? options.join(" · ") : "Standard";
+}
+for (const checkbox of [researchCheck, threeHeads, webCheck, thinkCheck, toolsCheck]) {
+  checkbox.addEventListener("change", updateChatOptions);
+}
+const chatOptions = document.getElementById("chat-options");
+document.addEventListener("click", event => {
+  if (chatOptions.open && !chatOptions.contains(event.target)) chatOptions.open = false;
+});
+chatOptions.addEventListener("keydown", event => {
+  if (event.key === "Escape" && chatOptions.open) {
+    chatOptions.open = false;
+    chatOptions.querySelector("summary").focus();
+    event.preventDefault();
+    event.stopPropagation();
+  }
+});
+updateChatOptions();
 
 // ---------- Start ----------
 

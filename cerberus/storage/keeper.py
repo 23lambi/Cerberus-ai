@@ -15,8 +15,8 @@ import re
 from pathlib import Path
 from uuid import uuid4
 
-from cerberus import database
-from cerberus.config import (
+from cerberus.storage import database
+from cerberus.core.config import (
     CHAT_SEARCH_RESULTS,
     CHUNK_OVERLAP,
     CHUNK_SIZE,
@@ -30,7 +30,7 @@ from cerberus.config import (
     MEMORY_MIN_SCORE,
     MEMORY_RESULTS,
 )
-from cerberus.ollama import OllamaError, embed
+from cerberus.engines.ollama import OllamaError, embed
 
 # Matches "remember that ...", "Please remember: ..." and captures the rest.
 # (?:...) is a group that isn't captured, (.+) is the part we keep.

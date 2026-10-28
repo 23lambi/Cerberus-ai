@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-from cerberus.config import DB_PATH
+from cerberus.core.config import DB_PATH
 
 
 # @contextmanager lets us write "with get_db() as conn:". The code before

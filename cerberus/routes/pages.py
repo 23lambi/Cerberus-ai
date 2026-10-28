@@ -7,9 +7,9 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
-from cerberus import settings
-from cerberus.config import DATA_DIR, EMBED_MODEL, STATIC_DIR
-from cerberus.ollama import (
+from cerberus.core import settings
+from cerberus.core.config import DATA_DIR, EMBED_MODEL, STATIC_DIR
+from cerberus.engines.ollama import (
     OllamaError,
     can_chat,
     can_see,
@@ -17,8 +17,8 @@ from cerberus.ollama import (
     can_use_tools,
     list_models,
 )
-from cerberus import openai_api
-from cerberus.ollama import engine, full_name, loaded_models, unload
+from cerberus.engines import openai_api
+from cerberus.engines.ollama import engine, full_name, loaded_models, unload
 
 router = APIRouter()
 

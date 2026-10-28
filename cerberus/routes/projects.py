@@ -2,8 +2,9 @@
 
 from fastapi import APIRouter, HTTPException
 
-from cerberus import database, keeper, turns
-from cerberus.schemas import ProjectIn
+from cerberus.storage import database, keeper
+from cerberus.chat import turns
+from cerberus.core.schemas import ProjectIn
 
 router = APIRouter(prefix="/projects")
 

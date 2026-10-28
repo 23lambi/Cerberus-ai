@@ -8,10 +8,11 @@ from zipfile import ZipFile
 
 import pytest
 
-from cerberus import budget, database, keeper, turns
-from cerberus.ollama import OllamaError
+from cerberus.chat import budget, turns
+from cerberus.storage import database, keeper
+from cerberus.engines.ollama import OllamaError
 from cerberus.routes import chat, council
-from cerberus.schemas import ChatRequest
+from cerberus.core.schemas import ChatRequest
 
 
 def request(chat_id=None, messages=None, **values):
@@ -134,7 +135,7 @@ def test_disconnect_saves_partial_turn(db, fake):
 
 
 def test_stop_closes_an_in_flight_model_stream(db, fake, monkeypatch):
-    from cerberus import ollama
+    from cerberus.engines import ollama
     async def run():
         waiting = asyncio.Event()
         closed = asyncio.Event()
@@ -160,7 +161,7 @@ def test_stop_closes_an_in_flight_model_stream(db, fake, monkeypatch):
 
 
 def test_asgi_disconnect_commits_partial_and_cleans_up(db, fake, monkeypatch):
-    from cerberus import ollama
+    from cerberus.engines import ollama
     async def run():
         sent = asyncio.Event()
         closed = asyncio.Event()
@@ -190,7 +191,7 @@ def test_generation_failure_keeps_partial_answer(db, fake, monkeypatch):
     async def broken(*args, **kwargs):
         yield "content", "Partial answer"
         raise OllamaError("model disconnected")
-    from cerberus import ollama
+    from cerberus.engines import ollama
     monkeypatch.setattr(ollama, "stream_events", broken)
     async def run():
         chat_id = database.create_chat("Chat")["id"]
@@ -225,7 +226,7 @@ def test_project_retrieval_including_tools_does_not_leak(db, fake, tmp_path, mon
     asyncio.run(keeper.add_document("first.txt", b"projectsecret first", first))
     asyncio.run(keeper.add_document("second.txt", b"projectsecret second", second))
     database.add_memory("projectsecret personal fact", None)
-    from cerberus import tools
+    from cerberus.chat import tools
     for project, label in ((None, "global"), (first, "first"), (second, "second")):
         current = database.create_chat("Current", project)["id"]
         found = asyncio.run(keeper.recall("projectsecret", keeper_mode=True, chat_id=current))

@@ -8,9 +8,10 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from cerberus import database, keeper, settings
-from cerberus import ollama
-from cerberus.ollama import OllamaError
+from cerberus.storage import database, keeper
+from cerberus.core import settings
+from cerberus.engines import ollama
+from cerberus.engines.ollama import OllamaError
 from cerberus.routes import pages
 
 
@@ -18,7 +19,7 @@ from cerberus.routes import pages
 def private_keys(tmp_path, monkeypatch):
     # autouse: every test gets this, without asking for it. API keys then
     # go to a temporary file, never to the real one on your computer.
-    from cerberus import keys
+    from cerberus.storage import keys
     monkeypatch.setattr(keys, "KEYS_FILE", tmp_path / "keys.json")
 
 

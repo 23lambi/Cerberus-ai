@@ -6,7 +6,8 @@ import json
 
 import pytest
 
-from cerberus import library, ollama
+from cerberus.models import library
+from cerberus.engines import ollama
 
 # A small hand-written page shaped like ollama.com/search: a link per
 # model, a description, tags, sizes, and a download count.
@@ -200,7 +201,7 @@ def test_a_failed_browse_is_not_kept(monkeypatch):
 
 
 def test_local_apps_discovery_lists_running_servers_without_keys(client, monkeypatch):
-    from cerberus import openai_api
+    from cerberus.engines import openai_api
     calls = []
 
     async def list_models(engine, timeout):
@@ -221,7 +222,9 @@ def test_local_apps_discovery_lists_running_servers_without_keys(client, monkeyp
 
 
 def test_local_apps_include_configured_local_address_and_keep_its_key_private(client, monkeypatch):
-    from cerberus import keys, openai_api, settings
+    from cerberus.storage import keys
+    from cerberus.engines import openai_api
+    from cerberus.core import settings
     settings.update({"engine": "openai", "openai_preset": "custom", "openai_url": "http://127.0.0.1:9123/v1"})
     keys.set("openai_key", "private-local-key")
     seen = []
@@ -239,7 +242,8 @@ def test_local_apps_include_configured_local_address_and_keep_its_key_private(cl
 
 
 def test_local_discovery_never_probes_cloud_provider(client, monkeypatch):
-    from cerberus import openai_api, settings
+    from cerberus.engines import openai_api
+    from cerberus.core import settings
     settings.update({"engine": "openai", "openai_preset": "openai", "openai_url": ""})
     calls = []
 
@@ -254,7 +258,8 @@ def test_local_discovery_never_probes_cloud_provider(client, monkeypatch):
 
 
 def test_configured_default_local_endpoint_is_probed_once(client, monkeypatch):
-    from cerberus import openai_api, settings
+    from cerberus.engines import openai_api
+    from cerberus.core import settings
     settings.update({"engine": "openai", "openai_preset": "lmstudio", "openai_url": ""})
     calls = []
 
@@ -269,7 +274,7 @@ def test_configured_default_local_endpoint_is_probed_once(client, monkeypatch):
 
 def test_local_discovery_reads_openai_model_lists(client, monkeypatch):
     import httpx
-    from cerberus import openai_api
+    from cerberus.engines import openai_api
 
     def handler(request):
         if request.url.port != 1234:

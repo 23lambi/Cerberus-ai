@@ -5,7 +5,7 @@ import asyncio
 
 import pytest
 
-from cerberus import guard
+from cerberus.chat import guard
 
 
 # parametrize runs the same test once per value in the list, so one

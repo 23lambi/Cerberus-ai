@@ -4,7 +4,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from cerberus import guard
+from cerberus.chat import guard
 
 router = APIRouter()
 

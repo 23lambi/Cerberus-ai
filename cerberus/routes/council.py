@@ -8,11 +8,11 @@ from contextlib import aclosing
 
 from fastapi import APIRouter
 
-from cerberus import turns
-from cerberus.config import HEAD_MAX_TOKENS, JUDGE_MAX_TOKENS
-from cerberus.ollama import stream_chat
-from cerberus.prompts import DEEP_THINK
-from cerberus.schemas import ChatRequest
+from cerberus.chat import turns
+from cerberus.core.config import HEAD_MAX_TOKENS, JUDGE_MAX_TOKENS
+from cerberus.engines.ollama import stream_chat
+from cerberus.chat.prompts import DEEP_THINK
+from cerberus.core.schemas import ChatRequest
 
 router = APIRouter()
 

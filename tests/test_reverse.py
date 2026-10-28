@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from cerberus import reverse
+from cerberus.analysis import reverse
 
 
 def fake_elf(machine=0x3E):

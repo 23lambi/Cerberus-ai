@@ -26,14 +26,14 @@ from html.parser import HTMLParser
 
 import httpx
 
-from cerberus import websearch
-from cerberus.config import (
+from cerberus.search import websearch
+from cerberus.core.config import (
     MAX_PAGE_BYTES,
     MAX_REDIRECTS,
     PAGE_TEXT_CHARS,
     WEB_PAGE_TIMEOUT,
 )
-from cerberus.websearch import WebError
+from cerberus.search.websearch import WebError
 
 # Some sites refuse the default "python-httpx" name, so we say who we are.
 USER_AGENT = "Mozilla/5.0 (compatible; Cerberus; private local assistant)"

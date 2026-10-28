@@ -6,7 +6,8 @@ from zipfile import ZipFile
 
 import pytest
 
-from cerberus import database, keeper, ollama
+from cerberus.storage import database, keeper
+from cerberus.engines import ollama
 
 
 def create(client, **values):

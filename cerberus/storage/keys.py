@@ -9,7 +9,7 @@
 import json
 import os
 
-from cerberus.config import system_data_dir
+from cerberus.core.config import system_data_dir
 
 KEYS_FILE = system_data_dir() / "keys.json"
 

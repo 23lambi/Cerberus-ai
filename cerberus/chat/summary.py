@@ -2,10 +2,10 @@
 # older ones would be forgotten, so instead we keep a short summary of
 # them and add it to the system prompt.
 
-from cerberus import database
-from cerberus.config import SUMMARY_EVERY
-from cerberus.ollama import OllamaError, stream_chat
-from cerberus.prompts import SUMMARY_PROMPT
+from cerberus.storage import database
+from cerberus.core.config import SUMMARY_EVERY
+from cerberus.engines.ollama import OllamaError, stream_chat
+from cerberus.chat.prompts import SUMMARY_PROMPT
 
 
 def as_text(messages):

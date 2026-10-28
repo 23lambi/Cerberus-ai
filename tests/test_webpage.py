@@ -9,8 +9,8 @@ import asyncio
 import httpx
 import pytest
 
-from cerberus import webpage, websearch
-from cerberus.websearch import WebError
+from cerberus.search import webpage, websearch
+from cerberus.search.websearch import WebError
 
 PUBLIC = "93.184.216.34"
 

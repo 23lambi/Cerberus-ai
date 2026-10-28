@@ -7,7 +7,8 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from cerberus import engine, llamacpp, ollama, openai_api, settings, setup
+from cerberus.engines import engine, llamacpp, ollama, openai_api
+from cerberus.core import settings, setup
 
 router = APIRouter(prefix="/setup")
 

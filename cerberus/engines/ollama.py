@@ -7,10 +7,11 @@ from contextlib import aclosing
 import json
 
 import httpx  # an HTTP client like "requests", but it also works with async
-from cerberus import database, openai_api
-from cerberus.budget import ContextTooLarge, fit
+from cerberus.storage import database
+from cerberus.engines import openai_api
+from cerberus.chat.budget import ContextTooLarge, fit
 
-from cerberus.config import (
+from cerberus.core.config import (
     DEFAULT_MAX_TOKENS,
     EMBED_MODEL,
     KEEP_ALIVE,

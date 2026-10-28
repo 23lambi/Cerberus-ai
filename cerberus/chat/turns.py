@@ -11,8 +11,9 @@ from contextlib import suppress
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 
-from cerberus import context, database
-from cerberus.ollama import OllamaError
+from cerberus.chat import context
+from cerberus.storage import database
+from cerberus.engines.ollama import OllamaError
 
 active = {}  # chat id -> stop event; never contains finished runs
 

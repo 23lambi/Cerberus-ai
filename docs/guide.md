@@ -185,7 +185,7 @@ deletion removes them. All chats can also have their own Markdown documents.
 
 ## Web search
 
-Turn on **Web** beside the message box to let Cerberus search the web. It works
+Open **Options** beside the model list and turn on **Web** to let Cerberus search the web. It works
 with every model and in Deep think. With Web off, Cerberus does not search
 the web; cloud engines still receive messages and supplied context.
 Cerberus searches only when a message needs it: not for "hello", thanks,
@@ -259,7 +259,7 @@ name always works, because downloads use Ollama's official API.
 
 ## Research agent
 
-Turn on **Research** beside the message box and ask a bigger question, such as
+Open **Options** beside the model list and turn on **Research** and ask a bigger question, such as
 "Compare Ollama and llama.cpp for running local LLMs". Cerberus plans up to
 four web searches, reads the two best new pages for each, keeps the most
 relevant parts, and writes a structured report with numbered citations. You

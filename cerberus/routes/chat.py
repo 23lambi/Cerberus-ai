@@ -18,11 +18,13 @@ import json
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from cerberus import database, recap, settings, tools, turns
-from cerberus.config import DEFAULT_MAX_TOKENS, THINK_MAX_TOKENS
-from cerberus.ollama import OllamaError, can_think, can_use_tools, stream_chat
-from cerberus.prompts import TOOLS_NOTE
-from cerberus.schemas import ChatRequest
+from cerberus.storage import database
+from cerberus.chat import recap, tools, turns
+from cerberus.core import settings
+from cerberus.core.config import DEFAULT_MAX_TOKENS, THINK_MAX_TOKENS
+from cerberus.engines.ollama import OllamaError, can_think, can_use_tools, stream_chat
+from cerberus.chat.prompts import TOOLS_NOTE
+from cerberus.core.schemas import ChatRequest
 
 # A router is a group of URLs that main.py plugs into the app.
 router = APIRouter()

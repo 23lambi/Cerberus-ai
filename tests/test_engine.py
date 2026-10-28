@@ -10,7 +10,8 @@ import zipfile
 import httpx
 import pytest
 
-from cerberus import engine, setup
+from cerberus.engines import engine
+from cerberus.core import setup
 
 
 def make_tar_zst(path, files):

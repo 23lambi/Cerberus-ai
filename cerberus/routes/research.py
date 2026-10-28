@@ -6,9 +6,9 @@ from contextlib import aclosing
 
 from fastapi import APIRouter
 
-from cerberus import research as agent
-from cerberus import turns
-from cerberus.schemas import ChatRequest
+from cerberus.search import research as agent
+from cerberus.chat import turns
+from cerberus.core.schemas import ChatRequest
 
 router = APIRouter()
 

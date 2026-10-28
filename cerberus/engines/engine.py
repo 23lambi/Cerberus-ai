@@ -22,7 +22,7 @@ from pathlib import Path
 
 import httpx
 
-from cerberus.config import OLLAMA_URL, system_data_dir
+from cerberus.core.config import OLLAMA_URL, system_data_dir
 
 # Where the downloaded Ollama lives: the system's app folder, not your
 # project or data folder. It's a program, and must never end up in git.

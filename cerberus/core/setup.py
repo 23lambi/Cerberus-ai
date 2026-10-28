@@ -9,8 +9,10 @@ from pathlib import Path
 
 import httpx
 
-from cerberus import engine, ollama, openai_api, settings, websearch
-from cerberus.config import EMBED_MODEL
+from cerberus.engines import engine, ollama, openai_api
+from cerberus.core import settings
+from cerberus.search import websearch
+from cerberus.core.config import EMBED_MODEL
 
 SEARXNG_DIR = Path.home() / "searxng"
 

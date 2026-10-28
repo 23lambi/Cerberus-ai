@@ -18,12 +18,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from fastapi import HTTPException
 
-from cerberus import guard, keeper, recap, settings, summary, database, web
-from cerberus.budget import ContextTooLarge, fit
-from cerberus.config import DEFAULT_MAX_TOKENS, THINK_MAX_TOKENS
-from cerberus.eyes import describe
-from cerberus.ollama import can_see, trim_history
-from cerberus.prompts import (
+from cerberus.chat import guard, recap, summary
+from cerberus.storage import keeper, database
+from cerberus.core import settings
+from cerberus.search import web
+from cerberus.chat.budget import ContextTooLarge, fit
+from cerberus.core.config import DEFAULT_MAX_TOKENS, THINK_MAX_TOKENS
+from cerberus.chat.eyes import describe
+from cerberus.engines.ollama import can_see, trim_history
+from cerberus.chat.prompts import (
     CONTEXT_NOTE,
     KEEPER_NOTHING,
     KEEPER_RECALL,
@@ -34,7 +37,7 @@ from cerberus.prompts import (
     WEB_FAILED,
     WEB_NOTE,
 )
-from cerberus.websearch import WebError
+from cerberus.search.websearch import WebError
 
 
 # A dataclass is a class that only holds data. Python writes the __init__

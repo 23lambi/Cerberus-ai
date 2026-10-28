@@ -731,3 +731,75 @@ test("local model selection connects its engine before selecting the model, and 
   assert.equal(selected, "chat");
   assert.equal(use.disabled, false);
 });
+
+function modelStatusHarness(fetch) {
+  const elements = new Map();
+  function get(id) {
+    if (!elements.has(id)) elements.set(id, { textContent: "", dataset: {}, addEventListener() {} });
+    return elements.get(id);
+  }
+  const select = { options: [], value: "old-model", disabled: false,
+    set innerHTML(value) { this.options = []; this.value = ""; },
+    appendChild(option) { this.options.push(option); },
+  };
+  const context = vm.createContext({
+    document: { getElementById: get }, modelSelect: select, fetch,
+    Option: function(text, value) { this.text = text; this.value = value; },
+    currentEngine: { kind: "ollama", name: "Ollama" },
+    localStorage: { getItem: () => null }, updateModelFeatures() {},
+    showEngine: engine => { context.currentEngine = engine; },
+    responseError: async response => (await response.json()).detail,
+  });
+  vm.runInContext(section("let modelListRequest =", "// Which engine answers."), context);
+  return { context, get, select };
+}
+
+test("model connection errors clear stale selections and are shown outside conversation history", async () => {
+  const { context, get, select } = modelStatusHarness(async () => { throw new Error("Connection refused"); });
+  await context.loadModels();
+  assert.equal(select.value, "");
+  assert.equal(select.options.length, 1);
+  assert.equal(select.disabled, false);
+  assert.equal(get("chat-connection").dataset.state, "error");
+  assert.equal(get("connection-detail").textContent, "Connection refused");
+  assert.equal(get("connection-retry").textContent, "Retry");
+  // No addMessage/history API is supplied: failures must stay in the status bar.
+});
+
+test("an empty cloud model list gives engine-specific setup guidance and no obsolete choices", async () => {
+  const { context, get, select } = modelStatusHarness(async () => ({ ok: true, json: async () => ({ models: [], engine: { kind: "openai", name: "LM Studio" } }) }));
+  await context.loadModels();
+  assert.equal(select.value, "");
+  assert.equal(get("chat-connection").dataset.state, "idle");
+  assert(get("connection-detail").textContent.includes("LM Studio"));
+  assert(!get("connection-detail").textContent.includes("ollama pull"));
+});
+
+test("only the newest model refresh may update connection status and model selection", async () => {
+  let first;
+  let calls = 0;
+  const response = name => ({ ok: true, json: async () => ({ models: [name], engine: { kind: "ollama", name: "Ollama" } }) });
+  const { context, get, select } = modelStatusHarness(() => ++calls === 1 ? new Promise(resolve => { first = resolve; }) : Promise.resolve(response("new-model")));
+  const earlier = context.loadModels();
+  await context.loadModels();
+  first(response("old-model"));
+  await earlier;
+  assert.equal(select.value, "new-model");
+  assert.equal(get("connection-detail").textContent, "new-model");
+  assert.equal(get("chat-connection").dataset.state, "ready");
+});
+
+test("collapsed chat options still show enabled modes and ignore unsupported model switches", () => {
+  const summary = {};
+  const context = vm.createContext({
+    document: { getElementById: () => summary },
+    researchCheck: { checked: true }, threeHeads: { checked: false }, webCheck: { checked: true },
+    thinkToggle: { hidden: true }, thinkCheck: { checked: true }, toolsToggle: { hidden: false }, toolsCheck: { checked: true },
+  });
+  vm.runInContext(section("function updateChatOptions()", "for (const checkbox of"), context);
+  context.updateChatOptions();
+  assert.equal(summary.textContent, "Research · Web · Tools");
+  context.researchCheck.checked = context.webCheck.checked = context.toolsCheck.checked = false;
+  context.updateChatOptions();
+  assert.equal(summary.textContent, "Standard");
+});

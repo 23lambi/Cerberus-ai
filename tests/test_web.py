@@ -7,9 +7,10 @@ import json
 
 import pytest
 
-from cerberus import database, web, webpage, websearch
-from cerberus.prompts import WEB_NOTE
-from cerberus.websearch import WebError
+from cerberus.storage import database
+from cerberus.search import web, webpage, websearch
+from cerberus.chat.prompts import WEB_NOTE
+from cerberus.search.websearch import WebError
 
 ZEBRA = "Zebras have black and white stripes. Every zebra's stripes are unique."
 FILLER = "This paragraph is about something else entirely, like cooking pasta. " * 30
@@ -115,7 +116,7 @@ def test_searxng_down_still_gives_an_answer_and_says_why(client, fake, monkeypat
 
 def test_web_pages_are_dropped_before_your_message_is_refused(client, fake, monkeypatch, tmp_path):
     # A big attached file that only fits WITHOUT the web pieces.
-    from cerberus import keeper
+    from cerberus.storage import keeper
     monkeypatch.setattr(keeper, "DOCUMENTS_DIR", str(tmp_path))
     fake_internet(monkeypatch, {"https://animals.example/zebra": ("Zebra facts", (ZEBRA + " ") * 40)})
     chat_id = client.post("/chats", json={}).json()["id"]
@@ -200,7 +201,7 @@ def test_words_about_now_win_over_a_helper_that_says_no(fake):
 
 
 def test_a_failing_helper_leaves_it_to_the_rules(fake, monkeypatch):
-    from cerberus import ollama
+    from cerberus.engines import ollama
 
     async def broken(*args, **kwargs):
         raise ollama.OllamaError("helper crashed")

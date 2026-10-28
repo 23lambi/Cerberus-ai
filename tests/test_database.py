@@ -1,7 +1,7 @@
 # Tests for database.py. Every test asks for the "db" fixture from
 # conftest.py, so it gets its own empty database in a temporary folder.
 
-from cerberus import database
+from cerberus.storage import database
 
 
 def test_new_chat_is_listed(db):

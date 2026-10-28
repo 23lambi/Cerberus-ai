@@ -3,7 +3,8 @@ import subprocess
 
 import pytest
 
-from cerberus import llamacpp, settings
+from cerberus.engines import llamacpp
+from cerberus.core import settings
 
 
 class Child:

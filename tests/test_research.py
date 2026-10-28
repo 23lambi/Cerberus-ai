@@ -6,8 +6,9 @@ import json
 
 import pytest
 
-from cerberus import database, research, webpage, websearch
-from cerberus.websearch import WebError
+from cerberus.storage import database
+from cerberus.search import research, webpage, websearch
+from cerberus.search.websearch import WebError
 
 PAGES = {
     "https://a.example/stripes": ("Why zebras have stripes", "Stripes keep biting flies away from zebras."),

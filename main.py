@@ -6,8 +6,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from cerberus.config import STATIC_DIR
-from cerberus.database import init_db
+from cerberus.core.config import STATIC_DIR
+from cerberus.storage.database import init_db
 
 # Each route file is one group of URLs, for example everything under /chats.
 from cerberus.routes import (
@@ -26,7 +26,7 @@ from cerberus.routes import (
     settings,
     setup,
 )
-from cerberus import engine, llamacpp
+from cerberus.engines import engine, llamacpp
 
 # Create the tables in cerberus.db if they don't exist yet.
 # This runs once, when the server starts.

@@ -5,8 +5,8 @@
 # So you can chat with your favourite model (even one without vision) and
 # still ask about pictures.
 
-from cerberus.ollama import OllamaError, stream_chat
-from cerberus.prompts import EYES_PROMPT
+from cerberus.engines.ollama import OllamaError, stream_chat
+from cerberus.chat.prompts import EYES_PROMPT
 
 EYES_MAX_TOKENS = 500  # a description, not an essay
 

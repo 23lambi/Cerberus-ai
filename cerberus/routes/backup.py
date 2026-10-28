@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
 
-from cerberus import database
+from cerberus.storage import database
 
 router = APIRouter()
 

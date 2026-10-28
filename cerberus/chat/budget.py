@@ -7,7 +7,7 @@ reported counts remain the source of truth displayed below an answer.
 import json
 import math
 
-from cerberus.config import NUM_CTX
+from cerberus.core.config import NUM_CTX
 
 
 class ContextTooLarge(ValueError):

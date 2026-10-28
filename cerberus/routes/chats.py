@@ -3,8 +3,9 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse, Response
 
-from cerberus import database, turns, keeper
-from cerberus.schemas import ChatTitle, NewChat
+from cerberus.storage import database, keeper
+from cerberus.chat import turns
+from cerberus.core.schemas import ChatTitle, NewChat
 
 # prefix="/chats": every URL below starts with /chats.
 router = APIRouter(prefix="/chats")

@@ -7,7 +7,7 @@ import asyncio
 import httpx
 import pytest
 
-from cerberus import websearch
+from cerberus.search import websearch
 
 URL = "http://127.0.0.1:8888"
 

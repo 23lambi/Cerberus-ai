@@ -4,7 +4,7 @@
 
 import json
 
-from cerberus import database
+from cerberus.storage import database
 
 
 def chat_body(text, model="small:3b", chat_id=None, think=False):

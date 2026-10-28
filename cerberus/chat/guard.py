@@ -5,9 +5,9 @@
 
 import re  # regular expressions: patterns for finding text
 
-from cerberus.config import GUARD_USE_MODEL
-from cerberus.ollama import OllamaError, can_think, stream_chat
-from cerberus.prompts import GUARD_PROMPT
+from cerberus.core.config import GUARD_USE_MODEL
+from cerberus.engines.ollama import OllamaError, can_think, stream_chat
+from cerberus.chat.prompts import GUARD_PROMPT
 
 MODES = ("chat", "memory")
 SHORT_REPLY_WORDS = 3
