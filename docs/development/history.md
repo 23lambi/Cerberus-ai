@@ -1,4 +1,7 @@
-# Cerberus — roadmap and session handoff
+# Historical development notes
+
+Archived from `PLAN.md`. Status statements and suggested next steps below may
+be outdated. See the [current roadmap](../roadmap.md) and [user guide](../guide.md).
 
 Last updated: 2026-10-28.
 

@@ -1,0 +1,36 @@
+name: Bug report
+description: Help improve Cerberus by reporting something that does not work.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: Remove API keys, personal conversations, and private files from screenshots and logs.
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Operating system
+      options: [Linux, macOS, Windows]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: Settings → Your data, or the commit you downloaded
+  - type: input
+    id: engine
+    attributes:
+      label: AI engine and model
+      placeholder: "For example: Ollama / llama3.2:3b"
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: What happened?
+      description: Include the steps to reproduce, expected result, and actual result.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Screenshots or relevant logs
+      description: Optional. Include only information you are comfortable sharing publicly.

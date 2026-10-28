@@ -13,7 +13,7 @@ from elftools.elf.elffile import ELFFile
 
 from cerberus import reverse, signs
 
-FILES = Path(__file__).parent / "files"
+FILES = Path(__file__).parent / "fixtures"
 
 
 def warnings_for(name, data):

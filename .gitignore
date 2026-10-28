@@ -1,7 +1,37 @@
+# Python environments and generated files
 venv/
-cerberus.db
-cerberus.db-wal
-cerberus.db-shm
+.venv/
 __pycache__/
-documents/
+*.py[cod]
 .pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Private app data and model files
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+/documents/
+/backups/
+keys.json
+*.gguf
+*.log
+
+# Local credentials and agent configuration
+.env
+.env.*
+!.env.example
+.aws/
+.codex/
+.agents/
+*.pem
+*.key
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

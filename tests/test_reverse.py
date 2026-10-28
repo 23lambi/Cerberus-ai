@@ -166,10 +166,10 @@ def test_asking_about_a_file(client, fake):
 
 
 # ---------- R3: disassembly ----------
-# tests/files has two small crackmes, compiled and stripped (no function
+# tests/fixtures has two small crackmes, compiled and stripped (no function
 # names), with their C source next to them.
 
-FILES = Path(__file__).parent / "files"
+FILES = Path(__file__).parent / "fixtures"
 
 
 def test_main_is_found_in_a_stripped_program():

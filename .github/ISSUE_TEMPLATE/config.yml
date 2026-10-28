@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: User guide
+    url: https://github.com/23lambi/Cerberus-ai/blob/main/docs/guide.md
+    about: Setup, local engines, documents, backups, and troubleshooting.
+  - name: Security issue
+    url: https://github.com/23lambi/Cerberus-ai/security/advisories/new
+    about: Report vulnerabilities privately instead of opening a public issue.

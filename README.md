@@ -1,10 +1,14 @@
 <div align="center">
-  <img src="static/cerberus.svg" alt="Cerberus logo" width="88">
-  <h1>Cerberus</h1>
-  <p><strong>Your AI workspace. Your choice of engine.</strong></p>
+  <img src="docs/assets/banner.svg" alt="Cerberus — your AI workspace, your choice of engine" width="100%">
   <p>Chat, work with documents, and research—all in one desktop app.</p>
   <p><a href="#get-started">Get started</a> · <a href="#ai-engines">AI engines</a> · <a href="docs/guide.md">User guide</a></p>
 </div>
+
+<p align="center">
+  <a href="https://github.com/23lambi/Cerberus-ai/actions/workflows/checks.yml"><img src="https://github.com/23lambi/Cerberus-ai/actions/workflows/checks.yml/badge.svg" alt="Automated checks"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-e8707e" alt="MIT license"></a>
+  <img src="https://img.shields.io/badge/Python-3.14-3776AB" alt="Python 3.14">
+</p>
 
 ---
 
@@ -19,7 +23,12 @@
 
 ## Get started
 
-Requires **Python 3.14**. Run these commands from the project folder.
+Requires **Python 3.14**. Clone the project first:
+
+```bash
+git clone https://github.com/23lambi/Cerberus-ai.git
+cd Cerberus-ai
+```
 
 **Linux & macOS**
 
@@ -77,5 +86,10 @@ venv/bin/python -m pytest -q
 node tests/frontend.test.cjs
 ```
 
-See the [user guide](docs/guide.md) for configuration, model management,
-data locations, backup and restore, and browser-based development.
+[User guide](docs/guide.md) · [Contributing](CONTRIBUTING.md) · [Project layout](docs/development/architecture.md) · [Roadmap](docs/roadmap.md)
+
+## Feedback & license
+
+Found a bug or have an idea? [Open an issue](https://github.com/23lambi/Cerberus-ai/issues/new/choose).
+
+[MIT licensed](LICENSE). Bundled libraries retain their [own licenses](static/vendor/README.md).

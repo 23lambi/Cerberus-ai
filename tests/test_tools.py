@@ -10,7 +10,7 @@ import pytest
 from cerberus import database, tools
 from cerberus.routes.reverse import recent_files
 
-FILES = Path(__file__).parent / "files"
+FILES = Path(__file__).parent / "fixtures"
 
 
 def ask_tool(name, **arguments):
