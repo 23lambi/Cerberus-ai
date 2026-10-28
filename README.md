@@ -6,9 +6,31 @@ A desktop workspace for chat, documents, and research with local or cloud AI.
 
 [![Checks](https://github.com/23lambi/Cerberus-ai/actions/workflows/checks.yml/badge.svg)](https://github.com/23lambi/Cerberus-ai/actions/workflows/checks.yml)
 [![MIT license](https://img.shields.io/badge/license-MIT-737373)](LICENSE)
-![Python 3.14](https://img.shields.io/badge/python-3.14-737373)
 
 [Get started](#get-started) · [AI engines](#ai-engines) · [User guide](docs/guide.md)
+
+## Get started
+
+Download the launcher for your computer. **No Python, Git, or terminal setup is required.**
+
+| Your computer | Download | Open after extracting the ZIP |
+| --- | --- | --- |
+| Windows · 64-bit | [Windows launcher](https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-windows-x86_64.zip) | `CerberusLauncher.exe` |
+| macOS · Apple Silicon | [Mac launcher · Apple Silicon](https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-macos-arm64.zip) | `CerberusLauncher.app` |
+| macOS · Intel | [Mac launcher · Intel](https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-macos-x86_64.zip) | `CerberusLauncher.app` |
+| Linux · 64-bit | [Linux launcher](https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-linux-x86_64.zip) | `CerberusLauncher` |
+
+1. Download and extract your launcher ZIP.
+2. Open the launcher and choose **Install Cerberus**, then **Open Cerberus**.
+3. Choose your AI engine and model in **Settings → Setup check**.
+
+The launcher detects your platform and handles app downloads, updates, and repairs.
+Your chats and settings are kept separately from the application.
+
+Downloads require a published stable release. Check [Releases](https://github.com/23lambi/Cerberus-ai/releases)
+for availability. Linux is tested locally; Windows and macOS still need native
+release testing. Initial packages are unsigned.
+[Platform requirements and help →](docs/launcher.md)
 
 ## Built for everyday work
 
@@ -18,47 +40,6 @@ A desktop workspace for chat, documents, and research with local or cloud AI.
 - **Remember what matters** — saved facts available across your chats.
 - **Research with sources** — web search and reports with numbered citations.
 - **Own your data** — local storage, full backups, and Markdown or JSON exports.
-
-## Desktop downloads
-
-A launcher for Linux, macOS, and Windows is being prepared. It installs, updates,
-repairs, and launches Cerberus without requiring Python on the user's computer.
-The first packaged release still needs to be published.
-[Launcher and release guide →](docs/launcher.md)
-
-## Get started
-
-Requires **Python 3.14**. Clone the project first:
-
-```bash
-git clone https://github.com/23lambi/Cerberus-ai.git
-cd Cerberus-ai
-```
-
-**Linux & macOS**
-
-```bash
-python3 -m venv venv
-venv/bin/pip install -r requirements.txt
-sh install-desktop.sh
-```
-
-<details>
-<summary>Windows · PowerShell</summary>
-
-```powershell
-py -3.14 -m venv venv
-venv\Scripts\pip install -r requirements.txt
-powershell -ExecutionPolicy Bypass -File install-desktop.ps1
-```
-
-</details>
-
-Launch **Cerberus** from your app menu. Open **Settings → Setup check**, choose
-an engine and a model, then start chatting. The app handles its local server;
-no browser tab is needed.
-
-Linux is tested by the author. macOS and Windows support is prepared but untested.
 
 ## AI engines
 
@@ -86,12 +67,40 @@ API keys are stored separately from the database and excluded from backups.
 
 Built with **FastAPI**, **SQLite**, **plain JavaScript**, and **pywebview**.
 
+<details>
+<summary>Run from source · Python 3.14</summary>
+
+```bash
+git clone https://github.com/23lambi/Cerberus-ai.git
+cd Cerberus-ai
+```
+
+**Linux & macOS**
+
+```bash
+python3 -m venv venv
+venv/bin/pip install -r requirements.txt
+sh install-desktop.sh
+```
+
+**Windows · PowerShell**
+
+```powershell
+py -3.14 -m venv venv
+venv\Scripts\pip install -r requirements.txt
+powershell -ExecutionPolicy Bypass -File install-desktop.ps1
+```
+
+**Checks**
+
 ```bash
 venv/bin/python -m pytest -q
 node tests/frontend.test.cjs
 ```
 
-[User guide](docs/guide.md) · [Contributing](CONTRIBUTING.md) · [Project layout](docs/development/architecture.md) · [Roadmap](docs/roadmap.md)
+</details>
+
+[User guide](docs/guide.md) · [Contributing](CONTRIBUTING.md) · [Project layout](docs/development/architecture.md) · [Build releases](docs/launcher.md#build-and-publish)
 
 ## Feedback & license
 

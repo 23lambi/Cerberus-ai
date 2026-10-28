@@ -254,3 +254,25 @@ def test_macos_launcher_is_copied_as_a_complete_app_bundle(tmp_path, monkeypatch
     monkeypatch.setattr(shortcuts.Path, "home", lambda: tmp_path / "home")
     shortcuts.register(tmp_path / "installation")
     assert (tmp_path / "home/Applications/CerberusLauncher.app/Contents/MacOS/CerberusLauncher").read_bytes() == b"launcher"
+
+
+@pytest.mark.parametrize("installed,latest,label,enabled", [
+    (None, None, "Install Cerberus", False),
+    (None, "v0.4.0", "Install Cerberus", True),
+    ("v0.4.0", None, "Check for updates", False),
+    ("v0.4.0", "v0.5.0", "Update Cerberus", True),
+    ("v0.5.0", "v0.5.0", "Up to date", False),
+    ("v0.5.0", "v0.4.0", "Up to date", False),
+    ("v0.9.0", "v0.10.0", "Update Cerberus", True),
+])
+def test_launcher_actions_explain_install_and_update_state(installed, latest, label, enabled):
+    from launcher.presentation import install_action
+    assert install_action(installed, latest) == (label, enabled)
+
+
+def test_readme_downloads_match_every_launcher_build():
+    from launcher.presentation import PLATFORM_LABELS
+    readme = Path('README.md').read_text()
+    assert set(PLATFORM_LABELS) == launcher.TARGETS
+    for target in launcher.TARGETS:
+        assert f"cerberus-launcher-{target}.zip" in readme

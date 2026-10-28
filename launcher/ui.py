@@ -2,11 +2,13 @@
 
 import queue
 import threading
+import webbrowser
 import tkinter as tk
 from tkinter import messagebox, ttk
 
 from launcher.manager import LauncherError, Manager, app_data_directory, latest_release
 from launcher.shortcuts import register
+from launcher.presentation import PLATFORM_LABELS, install_action, ready_message
 
 
 class Window:
@@ -35,10 +37,10 @@ class Window:
         body = tk.Frame(root, bg="#17181d", padx=30, pady=26)
         body.pack(fill="both", expand=True)
         self.label(body, "CERBERUS", size=24, color="#e6e8ed", bold=True).pack(anchor="w")
-        self.label(body, "Your AI workspace, ready when you are.", size=11).pack(anchor="w", pady=(5, 24))
+        self.label(body, "Install and update Cerberus. No Python or Git setup needed.", size=11).pack(anchor="w", pady=(5, 24))
         self.installed = self.label(body, "Checking installation…", size=13, color="#e6e8ed")
         self.installed.pack(anchor="w")
-        self.latest = self.label(body, "Checking for updates…", size=11)
+        self.latest = self.label(body, PLATFORM_LABELS[self.manager.target] + " · Checking updates…", size=11)
         self.latest.pack(anchor="w", pady=(6, 16))
         self.progress = ttk.Progressbar(body, mode="determinate")
         self.progress.pack(fill="x", pady=(0, 12))
@@ -49,7 +51,7 @@ class Window:
         self.actions.pack(fill="x", pady=(22, 10))
         self.install_button = ttk.Button(self.actions, text="Install Cerberus", style="Primary.TButton", command=self.install)
         self.install_button.pack(side="left")
-        self.launch_button = ttk.Button(self.actions, text="Launch", command=self.launch)
+        self.launch_button = ttk.Button(self.actions, text="Open Cerberus", command=self.launch)
         self.launch_button.pack(side="left", padx=8)
         self.cancel_button = ttk.Button(self.actions, text="Cancel", command=self.cancel.set)
         self.secondary = tk.Frame(body, bg="#17181d")
@@ -60,6 +62,9 @@ class Window:
         self.repair_button.pack(side="left", padx=8)
         self.uninstall_button = ttk.Button(self.secondary, text="Uninstall app", command=self.uninstall)
         self.uninstall_button.pack(side="left")
+        self.help_button = ttk.Button(self.secondary, text="Help", command=lambda: webbrowser.open(
+            "https://github.com/23lambi/Cerberus-ai/blob/main/docs/launcher.md"))
+        self.help_button.pack(side="left", padx=(8, 0))
         self.label(body, "Your chats, API keys and models are kept separately.", size=10).pack(anchor="w", pady=(18, 0))
         root.after(100, self.poll)
         self.refresh()
@@ -76,19 +81,15 @@ class Window:
         except LauncherError as error:
             state = None
             self.status.configure(text=str(error))
-        self.installed.configure(text="Installed · " + state["version"] if state else "Cerberus is not installed")
-        self.install_button.configure(text="Update" if state else "Install Cerberus")
+        self.installed.configure(text="Cerberus " + state["version"] + " is installed" if state else "Ready for your first install")
+        action, available = install_action(state["version"] if state else None,
+                                           self.release["version"] if self.release else None)
+        self.install_button.configure(text=action)
         self.launch_button.configure(state="normal" if state and not self.busy else "disabled")
         self.repair_button.configure(state="normal" if self.release and state and not self.busy else "disabled")
         self.uninstall_button.configure(state="normal" if state and not self.busy else "disabled")
-        # Do not offer an automatic downgrade if a newer/local build is installed.
-        newer = self.release and (not state or self.version(self.release["version"]) > self.version(state["version"]))
-        self.install_button.configure(state="normal" if newer and not self.busy else "disabled")
+        self.install_button.configure(state="normal" if available and not self.busy else "disabled")
         self.check_button.configure(state="disabled" if self.busy or self.checking else "normal")
-
-    @staticmethod
-    def version(value):
-        return tuple(int(part) for part in value.lstrip("v").split("-")[0].split(".")[:3])
 
     def work(self, function, checking=False):
         if self.busy or (checking and self.checking):
@@ -107,11 +108,12 @@ class Window:
         threading.Thread(target=worker, daemon=True).start()
 
     def check(self):
-        self.status.configure(text="Checking GitHub releases…")
+        self.status.configure(text="Checking for updates…")
         def task():
             release = latest_release(self.manager.target)
             self.events.put(("release", release))
-            return "Ready. Install, update, or launch Cerberus."
+            state = self.manager.state()
+            return ready_message(state["version"] if state else None, release["version"])
         self.work(task, checking=True)
 
     def install(self, repair=False):
@@ -127,8 +129,8 @@ class Window:
             try:
                 register(self.manager.root)
             except Exception:
-                return "Cerberus is installed. Choose Launch to open it. A menu shortcut could not be created; keep this launcher to open it later."
-            return "Cerberus is installed. Choose Launch to open it."
+                return "Cerberus is installed. Choose Open Cerberus to get started. A menu shortcut could not be created; keep this launcher to open it later."
+            return "Cerberus is installed. Choose Open Cerberus to get started."
         self.work(task)
 
     def launch(self):
@@ -148,7 +150,7 @@ class Window:
                 kind, value = self.events.get_nowait()
                 if kind == "release":
                     self.release = value
-                    self.latest.configure(text="Latest release · " + value["version"])
+                    self.latest.configure(text=PLATFORM_LABELS[self.manager.target] + " · Latest " + value["version"])
                 elif kind == "progress":
                     text, done, total = value
                     self.status.configure(text=text + (f" · {done / total:.0%}" if total else ""))
@@ -161,6 +163,14 @@ class Window:
                 elif kind in ("checked", "check-error"):
                     self.checking = False
                     if not self.busy:
+                        if kind == "check-error":
+                            self.latest.configure(text=PLATFORM_LABELS[self.manager.target] + " · Updates unavailable")
+                            try:
+                                installed = self.manager.state()
+                            except LauncherError:
+                                installed = None
+                            if installed:
+                                value += " You can still open your installed app."
                         self.status.configure(text=value)
                     self.refresh()
                 else:

@@ -6,8 +6,8 @@ The launcher installs and updates Cerberus from this repository's published
 GitHub releases. The launcher and application include their Python runtimes;
 users do not install Python, Git, or pip.
 
-The first downloadable release still needs to be built and published. Until
-then, the launcher shows that no release is available.
+Downloads become available when a stable release is published. Draft releases
+and build artifacts do not appear in the launcher's download list.
 
 ## Using the launcher
 
@@ -15,7 +15,7 @@ then, the launcher shows that no release is available.
    [Releases](https://github.com/23lambi/Cerberus-ai/releases).
 2. Extract it. Open `CerberusLauncher.exe` on Windows, `CerberusLauncher.app`
    on macOS, or `CerberusLauncher` on Linux.
-3. Choose **Install Cerberus**, wait for verification, then choose **Launch**.
+3. Choose **Install Cerberus**, wait for verification, then choose **Open Cerberus**.
 4. After installation, **Cerberus Launcher** is also available in your app menu
    (Start menu on Windows, `~/Applications` on macOS).
 5. In Cerberus, open **Settings → Setup check** to choose an AI engine and model.
@@ -23,12 +23,15 @@ then, the launcher shows that no release is available.
 **Check updates** checks the latest stable release. **Update** installs a newer
 application. **Repair** downloads the latest release again. **Uninstall app**
 removes installed application versions while preserving chats, keys, settings,
-and separately installed AI engines/models. The launcher itself remains where
-you extracted it.
+and separately installed AI engines/models. The extracted launcher remains available, and the installed menu shortcut uses
+its own copy of the launcher.
 
 Close Cerberus before updating, repairing, or uninstalling. A cancelled or
 failed download leaves the current installation selected. Previous versions
 remain on disk until uninstall, allowing manual recovery if needed.
+
+The launcher chooses the correct app package automatically. **Help** opens this
+guide. An installed app can still be opened when the update server is unavailable.
 
 ## Supported builds
 
