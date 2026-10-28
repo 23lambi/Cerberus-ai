@@ -45,7 +45,7 @@ function sendingContext(overrides = {}) {
     controller: null, AbortController, sendButton: {}, lastUserEl: previousUser, history,
     attachChips: {children: []}, attachStatus: {},
     ensureChat: async () => {}, regenButton: { remove() {} },
-    document: { getElementById: () => null }, addMessage: () => ({ name: "new question" }),
+    document: { getElementById: () => null }, addUserMessage: () => ({ name: "new question" }),
     addImagesTo() {}, threeHeads: { checked: false }, sendNormal: async () => null,
     committedChat: async () => ({ messages: history.slice(0, 2) }),
     showRegenerate() {}, makeTitle: async () => {}, loadChats() {}, ...overrides,

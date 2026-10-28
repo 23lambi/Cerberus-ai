@@ -310,8 +310,8 @@ async function askAboutFile(text, log, send) {
   }
 
   const asked = document.createElement("div");
-  asked.className = "message";
-  asked.textContent = "You: " + text;
+  asked.className = "message user"; // a bubble on the right, like in the chat
+  asked.textContent = text;
   const bubble = document.createElement("div");
   bubble.className = "message";
   bubble.textContent = "Cerberus is reading the facts...";

@@ -1,7 +1,8 @@
-// The Settings dialog. Text settings are built from TEXT_SETTINGS, so a
-// new one only needs one entry here (and a default in cerberus/settings.py).
-// The on/off features with a model (Helper, Eyes) are built from MODEL_FEATURES.
-// At the bottom, the built-in prompts can be read (not changed).
+// The Settings dialog: one card per setting, in groups. Text settings are
+// built from TEXT_SETTINGS, so a new one only needs one entry here (and a
+// default in cerberus/settings.py). The on/off features with a model
+// (Helper, Eyes) are built from MODEL_FEATURES. At the bottom, the
+// built-in prompts can be read (not changed).
 
 const settingsDialog = document.getElementById("settings-dialog");
 const settingsForm = document.getElementById("settings-form");
@@ -16,27 +17,54 @@ const TEXT_SETTINGS = {
   system_prompt: {
     title: "Personality",
     hint:
-      "The system prompt: the first thing the model reads in every chat, before " +
-      "your messages. Write it like instructions to a person. Memories, " +
-      "documents and project notes are added after it by Cerberus.",
+      "What the model reads first in every chat. Write it like you'd brief a " +
+      "person. Cerberus adds memories, documents and project notes after it.",
   },
 };
 
-// Builds one section per setting, filled with the current values.
+// ---------- Building blocks ----------
+
+// A small heading between groups of cards, like "Helper models".
+function sectionTitle(text) {
+  const title = document.createElement("h3");
+  title.className = "setting-section";
+  title.textContent = text;
+  settingsFields.appendChild(title);
+}
+
+// One card: a title and a short explanation, and optionally a switch on
+// the right. Returns the card, so the caller can add its own fields.
+function settingCard(title, hint, aside = null) {
+  const card = document.createElement("section");
+  card.className = "setting-card";
+
+  const head = document.createElement("div");
+  head.className = "setting-head";
+  const text = document.createElement("div");
+  const heading = document.createElement("h3");
+  heading.textContent = title;
+  const about = document.createElement("p");
+  about.className = "hint";
+  about.textContent = hint;
+  text.append(heading, about);
+  head.appendChild(text);
+  if (aside) head.appendChild(aside);
+
+  card.appendChild(head);
+  settingsFields.appendChild(card);
+  return card;
+}
+
+// ---------- The whole dialog ----------
+
+// Builds every card, filled with the current values.
 function fillSettings(values) {
   settingsFields.innerHTML = "";
 
+  sectionTitle("Assistant");
   // Object.entries turns { a: 1 } into [["a", 1]], so we get key and info.
   for (const [key, info] of Object.entries(TEXT_SETTINGS)) {
-    const section = document.createElement("fieldset");
-    section.className = "setting-group";
-
-    const legend = document.createElement("legend");
-    legend.textContent = info.title;
-
-    const hint = document.createElement("p");
-    hint.className = "hint";
-    hint.textContent = info.hint;
+    const card = settingCard(info.title, info.hint);
 
     const textarea = document.createElement("textarea");
     textarea.name = key;
@@ -51,52 +79,42 @@ function fillSettings(values) {
     function update() {
       growTextarea(textarea);
       const chars = textarea.value.length;
-      counter.textContent = chars + " characters, about " + Math.round(chars / 4) + " tokens";
+      counter.textContent = chars + " characters · about " + Math.round(chars / 4) + " tokens";
     }
     textarea.addEventListener("input", update);
     textarea.dataset.grow = "yes"; // openSettings grows it once it's visible
     update();
 
-    section.append(legend, hint, textarea, counter);
-    settingsFields.appendChild(section);
+    card.append(textarea, counter);
   }
 
+  sectionTitle("Helper models");
   for (const feature of MODEL_FEATURES) {
     addModelFeature(values, feature);
   }
+
+  sectionTitle("Web");
   addWebSetting(values);
-  settingsFields.appendChild(builtInPrompts());
-  const downloads = document.createElement("fieldset");
-  downloads.className = "setting-group";
-  const legend = document.createElement("legend");
-  legend.textContent = "Backup and export";
-  const note = document.createElement("p");
-  note.className = "hint";
-  note.textContent = "Download all chats, memories, settings and original documents. The ZIP includes restore instructions. Personal memories are shared across projects; documents and past-chat search stay within their project. Existing documents belong to All chats.";
-  const backup = document.createElement("a");
-  backup.href = "/backup";
-  backup.textContent = "Download full backup (.zip)";
-  downloads.append(legend, note, backup);
-  if (currentChatId) {
-    for (const [format, label] of [["markdown", "Markdown"], ["json", "JSON"]]) {
-      const link = document.createElement("a");
-      link.href = "/chats/" + currentChatId + "/export?format=" + format;
-      link.textContent = "Export current chat (" + label + ")";
-      link.style.display = "block";
-      downloads.appendChild(link);
-    }
-  }
-  settingsFields.appendChild(downloads);
+
+  sectionTitle("Your data");
+  addBackupCard();
+  const prompts = settingCard(
+    "Built-in prompts",
+    "Everything else Cerberus tells the model, read only. Words in {curly braces} " +
+      "are filled in by Cerberus. To change them, edit cerberus/prompts.py."
+  );
+  prompts.appendChild(builtInPrompts());
 }
 
-// Web search: where SearXNG listens. The 🌐 Web box in the chat turns it
+// Web search: where SearXNG listens. The Web pill in the chat turns it
 // on per message; here is only the address.
 function addWebSetting(values) {
-  const section = document.createElement("fieldset");
-  section.className = "setting-group";
-
-  const legend = document.createElement("legend");
-  legend.textContent = "Web search";
+  const card = settingCard(
+    "Web search",
+    "The address of your SearXNG. Only messages sent with Web on go online. " +
+      "Cerberus never opens pages on this computer or your home network. " +
+      "Offline? Run: sudo docker start searxng"
+  );
 
   const field = document.createElement("input");
   field.type = "url"; // the browser checks it looks like an address
@@ -104,17 +122,36 @@ function addWebSetting(values) {
   field.className = "setting-input";
   field.value = values.web_url;
   field.placeholder = "http://127.0.0.1:8888";
+  card.appendChild(field);
+}
 
-  const hint = document.createElement("p");
-  hint.className = "hint";
-  hint.textContent =
-    "The address of your SearXNG. With the 🌐 Web box ticked, your question is " +
-    "sent to it, and SearXNG asks search engines on the internet. Cerberus then " +
-    "reads the best pages, but never pages on this computer or your home network. " +
-    "Not running? Start it with: sudo docker start searxng";
+// Backup and export: plain links, the server sends the files.
+function addBackupCard() {
+  const card = settingCard(
+    "Backup and export",
+    "A ZIP with all chats, memories, settings and files, plus restore steps. " +
+      "Keep it private: it holds your data."
+  );
+  const links = document.createElement("div");
+  links.className = "setting-links";
 
-  section.append(legend, field, hint);
-  settingsFields.appendChild(section);
+  const backup = document.createElement("a");
+  backup.className = "button-link";
+  backup.href = "/backup";
+  backup.textContent = "Download full backup (.zip)";
+  links.appendChild(backup);
+
+  // The current chat only when one is open.
+  if (currentChatId) {
+    for (const [format, label] of [["markdown", "Markdown"], ["json", "JSON"]]) {
+      const link = document.createElement("a");
+      link.className = "button-link";
+      link.href = "/chats/" + currentChatId + "/export?format=" + format;
+      link.textContent = "Export this chat (" + label + ")";
+      links.appendChild(link);
+    }
+  }
+  card.appendChild(links);
 }
 
 // Makes a textarea exactly as tall as its text, so you see all of it
@@ -133,16 +170,10 @@ function builtInPrompts() {
   details.className = "built-in";
 
   const summary = document.createElement("summary");
-  summary.textContent = "Built-in prompts (read only)";
-
-  const intro = document.createElement("p");
-  intro.className = "hint";
-  intro.textContent =
-    "Everything else Cerberus tells the model, for each feature. Words in " +
-    "{curly braces} are filled in by Cerberus. To change these, edit cerberus/prompts.py.";
+  summary.textContent = "Show the prompts";
 
   const list = document.createElement("div");
-  details.append(summary, intro, list);
+  details.append(summary, list);
 
   // "toggle" fires when a <details> opens or closes.
   details.addEventListener("toggle", async () => {
@@ -165,60 +196,51 @@ function builtInPrompts() {
   return details;
 }
 
+// ---------- Features with their own model ----------
+
 // The on/off features that use a second model. Each one is saved as two
 // settings, "<key>_on" and "<key>_model" (see cerberus/settings.py), and
-// gets the same kind of section in the dialog. A new feature = one more
-// object in this list.
+// gets the same kind of card. A new feature = one more object in this list.
 const MODEL_FEATURES = [
   {
     key: "helper",
     title: "Helper",
-    label: "Use a Helper model for background jobs",
     // Any chat model can be the Helper. filter(Boolean) drops the "None"
     // choice of the chat dropdown, whose value is "" (and "" counts as false).
     models: () => [...modelSelect.options].map((option) => option.value).filter(Boolean),
     hint:
-      "The Helper sorts your messages, writes chat titles, summaries and project " +
-      "notes, so your chat model only has to answer. Pick a small, fast model " +
-      "without thinking, like llama3.2:3b. Answers always come from the model " +
-      "you choose in the chat. When it's off, the chat model does everything.",
+      "A small, fast model for the jobs in the background: sorting messages, " +
+      "chat titles, summaries and project notes. Your chat model then only has " +
+      "to answer. Try llama3.2:3b. Off: the chat model does everything.",
   },
   {
     key: "eyes",
     title: "Eyes",
-    label: "Let a vision model describe images for the chat model",
     // Only models that can see. visionModels comes from app.js.
     models: () => [...visionModels],
     hint:
-      "When your chat model can't see images, the Eyes model looks at them " +
-      "and tells it what they show, so you can ask about pictures with any " +
-      "model. Pick a vision model, like gemma3:4b. Chat models that can see " +
-      "get the images themselves.",
+      "A vision model that describes your images for chat models that can't " +
+      "see. Try gemma3:4b. Models that can see get the images themselves.",
   },
 ];
 
-// One section of the dialog: an on/off switch and the model it uses.
+// One card: its switch on the right, and the model it uses below.
 function addModelFeature(values, feature) {
-  const section = document.createElement("fieldset");
-  section.className = "setting-group";
-
-  // <legend> is the title of a <fieldset>, drawn in its border.
-  const legend = document.createElement("legend");
-  legend.textContent = feature.title;
-
-  // The switch. Settings are saved as text, so it becomes "yes" or "no".
-  const toggle = document.createElement("label");
-  toggle.className = "toggle";
+  // The switch: a checkbox that style.css draws as a sliding knob.
+  // Settings are saved as text, so it becomes "yes" or "no".
   const on = document.createElement("input");
   on.type = "checkbox";
+  on.className = "switch";
   on.name = feature.key + "_on";
   on.checked = values[on.name] === "yes";
-  toggle.append(on, " " + feature.label);
+  on.setAttribute("aria-label", "Use " + feature.title);
+
+  const card = settingCard(feature.title, feature.hint, on);
 
   const select = document.createElement("select");
   select.name = feature.key + "_model";
   const models = feature.models();
-  select.appendChild(new Option(models.length ? "Pick a model..." : "No fitting models installed", ""));
+  select.appendChild(new Option(models.length ? "Pick a model…" : "No fitting models installed", ""));
   for (const name of models) {
     select.appendChild(new Option(name, name));
   }
@@ -231,13 +253,7 @@ function addModelFeature(values, feature) {
   on.addEventListener("change", () => {
     select.disabled = !on.checked;
   });
-
-  const hint = document.createElement("p");
-  hint.className = "hint";
-  hint.textContent = feature.hint;
-
-  section.append(legend, toggle, select, hint);
-  settingsFields.appendChild(section);
+  card.appendChild(select);
 }
 
 async function openSettings() {

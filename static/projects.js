@@ -5,7 +5,7 @@ const projectList = document.getElementById("project-list");
 const projectBar = document.getElementById("project-bar");
 const projectName = document.getElementById("project-name");
 const projectsLabel = document.getElementById("projects-label");
-const chatsLabel = document.getElementById("chats-label");
+const chatsLabel = document.getElementById("chats-label-text"); // the text only, not the Select button
 
 // currentProject lives in app.js, because loadChats and ensureChat need it.
 

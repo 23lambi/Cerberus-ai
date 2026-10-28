@@ -123,14 +123,39 @@ function addMessage(text) {
   return div;
 }
 
+// Your own message: a bubble on the right (see .message.user in style.css).
+function addUserMessage(text) {
+  const div = addMessage(text);
+  div.classList.add("user");
+  return div;
+}
+
+// The line above an answer: the logo, "Cerberus", and the details in grey.
+// "Cerberus (Chat, Web: 2 pages):" -> Cerberus  Chat · Web: 2 pages
+function replyHead(label) {
+  const match = /^(.*?)(?: \((.*)\))?:$/.exec(label) || [label, label, ""];
+  const head = document.createElement("div");
+  head.className = "reply-head";
+  // innerHTML is fine here: a fixed piece of HTML, nothing from the model.
+  head.innerHTML = '<svg class="avatar"><use href="#i-logo"/></svg>';
+  const name = document.createElement("strong");
+  name.textContent = match[1];
+  head.appendChild(name);
+  if (match[2]) {
+    const meta = document.createElement("span");
+    meta.className = "reply-meta";
+    meta.textContent = match[2].replaceAll(", ", " · ");
+    head.appendChild(meta);
+  }
+  return head;
+}
+
 // Shows a reply from Cerberus. The model writes Markdown, so marked turns it
 // into HTML. Model text is never put in innerHTML without DOMPurify: it
 // removes anything that could run, like <script> or onerror="...".
 function showReply(el, label, text) {
-  const who = document.createElement("strong");
-  who.textContent = label;
   el.innerHTML = DOMPurify.sanitize(marked.parse(text));
-  el.prepend(who);
+  el.prepend(replyHead(label));
   el.classList.add("reply");
   renderDocumentSources(el, el.documentSources || []);
   if (currentProject && text.trim()) {
@@ -311,7 +336,7 @@ const selectedChatIds = new Set();
 let chatListRequest = 0;
 
 function updateChatSelection() {
-  document.getElementById("select-chats").textContent = selectingChats ? "Cancel selection" : "Select chats";
+  document.getElementById("select-chats").textContent = selectingChats ? "Cancel" : "Select";
   document.getElementById("select-chats").disabled = deletingChats;
   document.getElementById("select-all-chats-label").hidden = !selectingChats;
   const all = document.getElementById("select-all-chats");
@@ -571,7 +596,7 @@ async function openChat(id) {
   lastUserEl = null;
   for (const [index, message] of history.entries()) {
     if (message.role === "user") {
-      lastUserEl = addMessage("You: " + message.content);
+      lastUserEl = addUserMessage(message.content);
       addImagesTo(lastUserEl, message.images);
       if (message.seen) showSeen(lastUserEl, message.seen);
     } else {
@@ -621,6 +646,11 @@ function showHome() {
   const home = document.createElement("div");
   home.id = "home";
 
+  // The logo above the name. A fixed piece of HTML, so innerHTML is safe.
+  const logo = document.createElement("div");
+  logo.className = "home-logo";
+  logo.innerHTML = '<svg class="logo"><use href="#i-logo"/></svg>';
+
   const title = document.createElement("h1");
   title.textContent = "Cerberus";
 
@@ -644,7 +674,7 @@ function showHome() {
     suggestions.appendChild(button);
   }
 
-  home.append(title, tagline, suggestions);
+  home.append(logo, title, tagline, suggestions);
   messagesEl.appendChild(home);
 }
 
@@ -1084,7 +1114,7 @@ async function send(text, model, images = [], seen = "") {
     await ensureChat();
     regenButton.remove();
     document.getElementById("home")?.remove();
-    lastUserEl = addMessage("You: " + text);
+    lastUserEl = addUserMessage(text);
     addImagesTo(lastUserEl, images);
     // Sent attachments belong in the conversation, leaving the composer clear.
     for (const chip of [...attachChips.children]) {
