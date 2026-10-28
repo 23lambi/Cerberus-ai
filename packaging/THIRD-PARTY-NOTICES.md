@@ -1,6 +1,6 @@
 # Packaged runtime notices
 
-Cerberus project code is MIT licensed. Bundled runtimes and dependencies retain
+Cerberus project code is licensed under Apache 2.0. Bundled runtimes and dependencies retain
 their own copyrights and licenses. This document is included in both downloads.
 
 - **Python 3.14:** [source](https://github.com/python/cpython/tree/3.14),

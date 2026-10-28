@@ -22,6 +22,10 @@ def register(root):
     destination = root / ("CerberusLauncher.exe" if sys.platform == "win32" else "CerberusLauncher")
     if source != destination.resolve():
         shutil.copy2(source, destination)
+    resources = Path(__file__).resolve().parents[1]
+    for name in ("LICENSE", "NOTICE"):
+        if (resources / name).is_file():
+            shutil.copy2(resources / name, root / name)
     if sys.platform == "win32":
         script = '''
 $folder = Join-Path ([Environment]::GetFolderPath('Programs')) 'Cerberus'

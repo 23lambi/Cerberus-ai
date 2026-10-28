@@ -5,7 +5,7 @@
 A desktop workspace for chat, documents, and research with local or cloud AI.
 
 [![Checks](https://github.com/23lambi/Cerberus-ai/actions/workflows/checks.yml/badge.svg)](https://github.com/23lambi/Cerberus-ai/actions/workflows/checks.yml)
-[![MIT license](https://img.shields.io/badge/license-MIT-737373)](LICENSE)
+[![Apache 2.0 license](https://img.shields.io/badge/license-Apache_2.0-737373)](LICENSE)
 
 [Downloads](#download) · [Features](#features) · [User guide](docs/guide.md) · [Report a bug](https://github.com/23lambi/Cerberus-ai/issues/new/choose)
 
@@ -122,4 +122,4 @@ node tests/frontend.test.cjs
 
 Found a bug or have an idea? [Open an issue](https://github.com/23lambi/Cerberus-ai/issues/new/choose).
 
-[MIT licensed](LICENSE). Bundled libraries retain their [own licenses](static/vendor/README.md).
+[Apache 2.0 licensed](LICENSE). Bundled libraries retain their [own licenses](static/vendor/README.md).

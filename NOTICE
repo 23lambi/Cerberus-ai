@@ -1,0 +1,8 @@
+Cerberus
+Copyright 2026 23lambi
+
+Cerberus project-owned code is licensed under the Apache License, Version 2.0.
+See LICENSE for the complete terms.
+
+Third-party libraries and bundled runtimes retain their own copyright notices
+and license terms. See static/vendor/README.md and packaging/THIRD-PARTY-NOTICES.md.

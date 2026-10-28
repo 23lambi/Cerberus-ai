@@ -29,5 +29,5 @@ platform and screenshots when changing the interface.
 
 See [architecture](docs/development/architecture.md) for the file layout and
 [roadmap](docs/roadmap.md) for areas to improve. Contributions to project-owned
-code are provided under the [MIT license](LICENSE). Bundled libraries retain
+code are provided under the [Apache License 2.0](LICENSE). Bundled libraries retain
 their own licenses.

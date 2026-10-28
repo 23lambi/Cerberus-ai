@@ -53,3 +53,18 @@ Choose a new version and repeat the build/review/publish flow. Use a new version
 if a tag already exists for different code; do not move an existing release tag.
 Installed launchers find the latest published stable version through GitHub.
 The launcher executable itself is updated by downloading its newer ZIP.
+
+## “This version tag already points to another commit”
+
+The chosen version already names older code. A manual run on `main` builds the
+selected branch's current commit, so it cannot reuse a tag belonging to a
+different commit. This check prevents a release from offering binaries that do
+not match its source tag.
+
+Keep the existing tag. After committing and pushing your fixes, open **Actions →
+Build desktop releases → Run workflow**, select `main`, and enter an **unused**
+version (for example `v0.4.1` if `v0.4.0` is taken). Start a new workflow run;
+**Re-run jobs** on the old run retains its original version and commit.
+
+The workflow checks this before the four platform builds and checks again before
+creating the draft, in case the tag changes while builds are running.

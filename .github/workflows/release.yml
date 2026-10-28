@@ -18,8 +18,40 @@ permissions:
   contents: read
 
 jobs:
+  validate:
+    name: Validate release version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ inputs.version || github.ref_name }}
+      RELEASE_COMMIT: ${{ github.sha }}
+      CREATE_DRAFT: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.create_draft }}
+    steps:
+      - name: Check version and existing tag before building
+        shell: bash
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Use a version such as v0.4.1."
+            exit 1
+          fi
+          if [ "$CREATE_DRAFT" != "true" ]; then
+            exit 0
+          fi
+          # A missing tag is expected; authentication/network errors must still fail.
+          refs="$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$RELEASE_TAG")"
+          exists="$(printf '%s' "$refs" | jq --arg ref "refs/tags/$RELEASE_TAG" '[.[] | select(.ref == $ref)] | length')"
+          if [ "$exists" != "0" ]; then
+            existing_commit="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq .sha)"
+            if [ "$existing_commit" != "$RELEASE_COMMIT" ]; then
+              echo "::error::Tag $RELEASE_TAG belongs to commit $existing_commit, but this run builds $RELEASE_COMMIT. Run this workflow again with an unused version (for example the next patch version). Do not move the existing tag."
+              exit 1
+            fi
+          fi
+
   build:
     name: Build ${{ matrix.target }}
+    needs: validate
     strategy:
       fail-fast: false
       matrix:
@@ -132,7 +164,7 @@ jobs:
         run: |
           existing_commit="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq .sha 2>/dev/null || true)"
           if [ -n "$existing_commit" ] && [ "$existing_commit" != "$RELEASE_COMMIT" ]; then
-            echo "This version tag already points to another commit. Choose a new version." >&2
+            echo "::error::Tag $RELEASE_TAG now points to $existing_commit instead of this build ($RELEASE_COMMIT). Run the workflow with an unused version."
             exit 1
           fi
           gh release create "$RELEASE_TAG" dist/release/* \

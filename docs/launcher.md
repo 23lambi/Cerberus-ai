@@ -106,4 +106,4 @@ staging with path/link checks; an atomic installation record switches the
 selected version only after extraction succeeds.
 
 The bundled GUI libraries, Python runtime, and other dependencies retain their
-own licenses. Project-owned launcher and application code remains MIT licensed.
+own licenses. Project-owned launcher and application code is licensed under Apache 2.0.

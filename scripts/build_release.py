@@ -21,6 +21,7 @@ def runtime_notices(work):
     notices.mkdir(parents=True, exist_ok=True)
     shutil.copytree(ROOT / "packaging/licenses", notices / "licenses", dirs_exist_ok=True)
     shutil.copy2(ROOT / "packaging/THIRD-PARTY-NOTICES.md", notices / "THIRD-PARTY-NOTICES.md")
+    shutil.copy2(ROOT / "NOTICE", notices / "NOTICE")
     versions = {}
     for distribution in importlib.metadata.distributions():
         name = distribution.metadata.get("Name", "unknown")
@@ -63,7 +64,8 @@ def build(component, version):
             "--paths", str(ROOT), "--distpath", str(dist), "--workpath", str(work / "work"),
             "--specpath", str(work), "--noconfirm", "--windowed", "--noupx"]
     if component == "launcher":
-        args += ["--add-data", f"{ROOT / 'static/cerberus.svg'}:."]
+        args += ["--add-data", f"{ROOT / 'static/cerberus.svg'}:.",
+                 "--add-data", f"{ROOT / 'LICENSE'}:.", "--add-data", f"{ROOT / 'NOTICE'}:."]
     if component == "launcher" and sys.platform != "darwin":
         args += ["--onefile"]
     else:
@@ -75,7 +77,7 @@ def build(component, version):
     if component == "app":
         version_file = work / "release-version.txt"
         version_file.write_text(version)
-        args += ["--add-data", f"{ROOT / 'static'}:static", "--add-data", f"{ROOT / 'LICENSE'}:.",
+        args += ["--add-data", f"{ROOT / 'static'}:static", "--add-data", f"{ROOT / 'LICENSE'}:.", "--add-data", f"{ROOT / 'NOTICE'}:.",
                  "--add-data", f"{version_file}:.", "--collect-all", "capstone", "--collect-all", "webview", "--collect-submodules", "uvicorn"]
         if sys.platform.startswith("linux"):
             os.environ["QT_API"] = "pyside6"
