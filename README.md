@@ -8,7 +8,24 @@ source venv/bin/activate
 uvicorn main:app --reload
 ```
 
-Open http://127.0.0.1:8000. Ollama must be running separately. The embedding
+Open http://127.0.0.1:8000. Ollama must be running separately.
+
+## Desktop app
+
+Cerberus can also run in its own window, with an icon in your app menu:
+
+```bash
+venv/bin/pip install -r requirements.txt   # once: pywebview and Qt (about 540 MB)
+sh install-desktop.sh                      # once: adds Cerberus to the app menu
+```
+
+Then start **Cerberus** from the app menu, or run `venv/bin/python desktop.py`.
+The app starts the server in the background and stops it when you close the
+window. If Cerberus is already running (for example with uvicorn), the window
+uses that server and leaves it running. Backups and chat exports are saved to
+`~/Downloads`; links to websites open in your normal browser. Set
+`CERBERUS_PORT` to use another port than 8000. Remove the menu entry with
+`rm ~/.local/share/applications/cerberus.desktop`. The embedding
 model is `nomic-embed-text`; without it, retrieval falls back to keywords.
 Use one server worker: active answers and Stop are managed within that process.
 

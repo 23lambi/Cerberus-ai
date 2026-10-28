@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- The Cerberus logo as an app icon: the pink mark on a dark rounded square. -->
+  <rect width="64" height="64" rx="14" fill="#17181d"/>
+  <g transform="translate(8 14) scale(1.5)">
+    <path d="M22 6.5A8 8 0 1 0 22 17.5" fill="none" stroke="#e8707e" stroke-width="3.6" stroke-linecap="round"/>
+    <circle cx="26.5" cy="12" r="2.2" fill="#e8707e"/>
+  </g>
+</svg>

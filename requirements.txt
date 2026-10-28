@@ -27,3 +27,12 @@ pytest==9.1.1
 pefile==2024.8.26
 pyelftools==0.33
 capstone==5.0.7
+bottle==0.13.4
+proxy_tools==0.1.0
+PyQt6==6.11.0
+PyQt6-Qt6==6.11.2
+PyQt6-WebEngine==6.11.0
+PyQt6-WebEngine-Qt6==6.11.2
+PyQt6_sip==13.13.0
+pywebview==6.2.1
+QtPy==2.4.3
