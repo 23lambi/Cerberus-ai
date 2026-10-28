@@ -187,8 +187,8 @@ def by_words(question_words, pieces):
     return ranked[:WEB_PIECES_PER_PAGE]
 
 
-async def pick(question, pages):
-    """The best pieces of all pages, as (page number, position, text)."""
+async def pick(question, pages, limit=WEB_PIECES):
+    """The best `limit` pieces of all pages, as (page number, position, text)."""
     question_words = keeper.words(question)
     candidates = []
     for page_number, page in enumerate(pages):
@@ -211,7 +211,7 @@ async def pick(question, pages):
         range(len(candidates)),
         key=lambda k: (-scores[k], candidates[k][0], candidates[k][1]),
     )
-    return [candidates[k] for k in order[:WEB_PIECES]]
+    return [candidates[k] for k in order[:limit]]
 
 
 async def research(base_url, question):
@@ -223,7 +223,11 @@ async def research(base_url, question):
     # gather runs the downloads at the same time: 3 pages take as long as the slowest.
     pages = await asyncio.gather(*(read(result) for result in results[:WEB_PAGES]))
     chosen = await pick(question, pages)
+    return as_sources(pages, chosen, question)
 
+
+def as_sources(pages, chosen, query):
+    """The chosen pieces as sources: one per page, the better search result first."""
     # One source per page, its pieces in the order they appear on the page.
     by_page = {}
     for page_number, position, text in chosen:
@@ -242,6 +246,6 @@ async def research(base_url, question):
             "kind": "web",
             # What was searched for, saved with the answer, so you can see
             # it again when you reopen the chat.
-            "query": question,
+            "query": query,
         })
     return sources

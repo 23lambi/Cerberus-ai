@@ -10,6 +10,7 @@ const input = document.getElementById("input");
 const messagesEl = document.getElementById("messages");
 const modelSelect = document.getElementById("model");
 const threeHeads = document.getElementById("three-heads");
+const researchCheck = document.getElementById("research");
 const thinkToggle = document.getElementById("think-toggle");
 const thinkCheck = document.getElementById("think");
 const toolsToggle = document.getElementById("tools-toggle");
@@ -287,6 +288,9 @@ async function loadModels() {
     return;
   }
 
+  // The Models panel calls this again after a download or a delete, so
+  // empty the list first instead of adding everything twice.
+  modelSelect.innerHTML = "";
   // "None" first: no model at all, so no model takes up RAM.
   // new Option(text, value) is a short way to make an <option>.
   modelSelect.appendChild(new Option("None (free all memory)", ""));
@@ -749,15 +753,21 @@ function recapChat(chatId) {
 
 // A normal answer. Returns the reply text, or null when there is no reply
 // (an error, or stopped before the first word).
-async function sendNormal(model) {
+// url: "/chat" for a normal answer, "/research" for the research agent.
+// Both stream the same kind of events, so one function reads both.
+async function sendNormal(model, url = "/chat") {
+  const researching = url === "/research";
   // When the Eyes have to look at an image first, say so: it takes a while.
   const last = history[history.length - 1];
   const looking = last.images && last.images.length > 0 && !last.seen && !visionModels.has(model);
-  const bubble = addMessage(looking ? "Cerberus is looking at the image..." : "Cerberus is thinking...");
+  const bubble = addMessage(
+    researching ? "Cerberus is starting the research..." :
+    looking ? "Cerberus is looking at the image..." : "Cerberus is thinking..."
+  );
 
   let response;
   try {
-    response = await fetch("/chat", {
+    response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -783,12 +793,14 @@ async function sendNormal(model) {
     return null;
   }
 
-  const who = "Cerberus (" + replyLabel(response.headers) + "):";
-  bubble.textContent = who + " ...";
+  const who = researching ? "Cerberus (Research):" : "Cerberus (" + replyLabel(response.headers) + "):";
+  bubble.textContent = researching ? "Cerberus is researching..." : who + " ...";
   showWebError(response.headers, bubble);
 
   const result = await readReply(response, bubble, who, (ev) => {
-    if (ev.type === "seen") {
+    if (ev.type === "progress") {
+      showProgress(bubble, ev);
+    } else if (ev.type === "seen") {
       // What the Eyes saw: keep it with the question, so they never
       // have to look at this picture again, and show it.
       history[history.length - 1].seen = ev.text;
@@ -798,6 +810,36 @@ async function sendNormal(model) {
   messagesEl.scrollTop = messagesEl.scrollHeight;
   // The server saves a stopped answer too, so we keep it here as well.
   return finishReply(result, bubble, who);
+}
+
+// The research agent's steps, in a box above its report. Each new step
+// marks the one before as done (✓). The last step names the saved
+// document, with a button that opens it in the editor.
+function showProgress(bubble, ev) {
+  if (!bubble.progressBox) {
+    const details = document.createElement("details");
+    details.className = "research-steps";
+    details.open = true;
+    const summary = document.createElement("summary");
+    summary.textContent = "Research steps";
+    details.append(summary, document.createElement("ol"));
+    bubble.before(details);
+    bubble.progressBox = details;
+  }
+  const list = bubble.progressBox.querySelector("ol");
+  list.lastElementChild?.classList.add("done");
+  const step = document.createElement("li");
+  step.textContent = ev.text; // textContent: a page title can never become code
+  if (ev.document_id) {
+    step.classList.add("done");
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "mini";
+    open.textContent = "Open report";
+    open.addEventListener("click", () => openDocumentEditor(ev.document_id));
+    step.append(" ", open);
+  }
+  list.appendChild(step);
 }
 
 // Reads a streamed answer (NDJSON like /chat sends it) into bubble: the
@@ -1131,7 +1173,8 @@ async function send(text, model, images = [], seen = "") {
     attachStatus.textContent = "";
     history.push({ role: "user", content: text, images, seen });
     sent = true;
-    const reply = threeHeads.checked ? await sendCouncil(model) : await sendNormal(model);
+    const reply = researchCheck.checked ? await sendNormal(model, "/research")
+      : threeHeads.checked ? await sendCouncil(model) : await sendNormal(model);
     // Read the committed history, including partial answers, rather than guessing
     // what the server saved after Stop or an upstream error.
     history = (await committedChat()).messages;
@@ -1277,6 +1320,10 @@ modelSelect.addEventListener("change", () => {
   localStorage.setItem("cerberus-model", modelSelect.value);
   updateModelFeatures();
 });
+
+// Research and Deep think can't both run: ticking one unticks the other.
+researchCheck.addEventListener("change", () => { if (researchCheck.checked) threeHeads.checked = false; });
+threeHeads.addEventListener("change", () => { if (threeHeads.checked) researchCheck.checked = false; });
 
 // Remember the Web box too. The very first time it's off: searching
 // sends your question to the internet, so that must be your choice.

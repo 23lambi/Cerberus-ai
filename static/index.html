@@ -29,6 +29,8 @@
     <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
     <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></symbol>
     <symbol id="i-tool" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.5-.5-.5-2.5z"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M9 7h6M9 11h6"/></symbol>
+    <symbol id="i-cube" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></symbol>
     <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></symbol>
   </svg>
 
@@ -81,6 +83,7 @@
       <button class="nav" id="open-project-documents"><svg class="icon"><use href="#i-file"/></svg> Documents</button>
       <button class="nav" data-feature="reverse"><svg class="icon"><use href="#i-chip"/></svg> Reverse</button>
       <button class="nav" data-feature="memory"><svg class="icon"><use href="#i-memory"/></svg> Memory</button>
+      <button class="nav" data-feature="models"><svg class="icon"><use href="#i-cube"/></svg> Models</button>
       <button class="nav" id="open-settings"><svg class="icon"><use href="#i-settings"/></svg> Settings</button>
     </nav>
   </aside>
@@ -122,12 +125,16 @@
             <label class="toggle" title="Draft, review, then a final answer: slower, often better">
               <input type="checkbox" id="three-heads"><svg class="icon"><use href="#i-layers"/></svg> Deep think
             </label>
+            <!-- The research agent: several searches, then a report saved as a document. -->
+            <label class="toggle" title="Research agent: plans several web searches, reads the pages and writes a sourced report, saved as a document. Takes a few minutes.">
+              <input type="checkbox" id="research"><svg class="icon"><use href="#i-book"/></svg> Research
+            </label>
             <span class="spacer"></span>
             <!-- A button in a form submits it; app.js turns it into Stop while an answer runs -->
             <button id="send">Send</button>
           </div>
         </form>
-        <p class="composer-hint">Enter to send · Shift+Enter for a new line · Everything stays on this computer unless Web is on</p>
+        <p class="composer-hint">Enter to send · Shift+Enter for a new line · Everything stays on this computer unless Web or Research is on</p>
       </div>
     </section>
 
@@ -143,6 +150,59 @@
       <input type="file" id="reverse-file" hidden>
       <p id="reverse-status" class="hint"></p>
       <div id="reverse-result"></div>
+    </section>
+
+    <!-- Models panel: installed models, search and download (models.js) -->
+    <section id="panel-models" class="panel">
+      <h2>Models</h2>
+      <p class="panel-intro">The AI models on this computer, and new ones to download from Ollama.
+        Bigger models answer better, but need more memory and are slower.</p>
+
+      <h3 class="setting-section">Installed</h3>
+      <p id="installed-status" class="hint" role="status"></p>
+      <ul id="installed-models" class="model-list"></ul>
+
+      <h3 class="setting-section">Get a model</h3>
+      <form id="library-search" class="model-form">
+        <input type="search" id="library-query" placeholder="Search the Ollama library, like: qwen, coder, embed" autocomplete="off">
+        <button class="primary">Search</button>
+      </form>
+      <form id="pull-form" class="model-form">
+        <input id="pull-name" placeholder="Or type an exact name, like qwen3:4b" autocomplete="off">
+        <button>Download</button>
+      </form>
+      <p class="hint">Searching asks ollama.com: only your search words are sent. Rough memory
+        guide: a 3b model needs about 3 GB of RAM, 8b about 6 GB, 14b about 10 GB.</p>
+
+      <!-- Shown while a model downloads -->
+      <div id="model-download" class="model-download" hidden>
+        <div class="download-head">
+          <strong id="download-name"></strong>
+          <button type="button" id="download-cancel">Cancel</button>
+        </div>
+        <progress id="download-progress" max="1" value="0"></progress>
+        <p id="download-status" class="hint" role="status"></p>
+      </div>
+
+      <!-- Browse without searching: sort and filter the list below -->
+      <div class="library-controls">
+        <div class="tabs" id="library-order">
+          <button type="button" class="tab active" data-order="popular">Popular</button>
+          <button type="button" class="tab" data-order="newest">Newest</button>
+        </div>
+        <div class="filter-chips" id="library-filter">
+          <button type="button" class="active" data-filter="all">All</button>
+          <button type="button" data-filter="chat">Chat</button>
+          <button type="button" data-filter="vision">Vision</button>
+          <button type="button" data-filter="tools">Tools</button>
+          <button type="button" data-filter="thinking">Thinking</button>
+          <button type="button" data-filter="embedding">Embedding</button>
+        </div>
+      </div>
+
+      <p id="library-status" class="hint" role="status"></p>
+      <ul id="library-results" class="model-list"></ul>
+      <button type="button" id="library-more" hidden>Show more</button>
     </section>
 
     <!-- Memory panel: memories and documents in two tabs -->
@@ -250,6 +310,7 @@
   <script src="/static/memory.js"></script>
   <script src="/static/documents.js"></script>
   <script src="/static/reverse.js"></script>
+  <script src="/static/models.js"></script>
   <script src="/static/features.js"></script>
   <script src="/static/projects.js"></script>
 </body>

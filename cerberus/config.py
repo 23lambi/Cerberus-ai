@@ -114,3 +114,10 @@ WEB_PIECE_CHARS = 500
 WEB_PIECE_OVERLAP = 60
 WEB_PIECES_PER_PAGE = 4  # round 1, by words: the best pieces of each page
 WEB_PIECES = 4  # round 2, by meaning: the pieces the model gets
+
+# ---------- Research agent (research.py) ----------
+
+RESEARCH_QUERIES = 4  # the most searches in a plan
+RESEARCH_PAGES_PER_QUERY = 2  # new pages read per search
+RESEARCH_PIECES_PER_QUERY = 2  # pieces kept per search (~500 chars each)
+RESEARCH_MAX_TOKENS = 1500  # the report: about 700 words

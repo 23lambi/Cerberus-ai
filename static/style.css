@@ -1803,3 +1803,235 @@ dialog .dialog-close:hover {
   line-height: 1.6;
   color: var(--text);
 }
+
+/* ---------- Research agent: its steps above the report ---------- */
+
+.research-steps {
+  margin: 0 0 10px;
+  font-size: 13px;
+}
+
+.research-steps ol {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 2px 0 2px 12px;
+  border-left: 2px solid var(--accent);
+}
+
+.research-steps li {
+  margin: 4px 0;
+  color: var(--text);
+}
+
+/* Steps that are finished: grey, with a check mark. */
+.research-steps li.done {
+  color: var(--muted);
+}
+
+.research-steps li.done::before {
+  content: "✓ ";
+  color: var(--accent);
+}
+
+/* ---------- Models panel ---------- */
+
+#panel-models button:not(.primary) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+#panel-models button:not(.primary):hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+#panel-models > * {
+  max-width: 820px;
+}
+
+/* One card per model, like the memories. */
+.model-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+}
+
+.model-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.model-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.model-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+/* Model names are technical ("qwen3:4b"), so they get the code font. */
+.model-name {
+  font-family: var(--font-mono);
+  font-size: 14.5px;
+}
+
+.model-info .hint,
+.model-head .hint {
+  margin: 2px 0 0;
+}
+
+.model-description {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* Small rounded labels: "vision", "tools", "in memory". */
+.tags,
+.sizes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.tag {
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 1px 9px;
+}
+
+.tag.live {
+  background: var(--accent-bg);
+  border-color: rgba(232, 112, 126, 0.4);
+  color: var(--accent);
+}
+
+#panel-models .sizes button {
+  border-radius: 999px;
+  padding: 3px 11px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.model-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.model-form input {
+  flex: 1;
+}
+
+/* The download that is running: name, Cancel, a progress bar. */
+.model-download {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin: 12px 0;
+}
+
+.download-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+/* The progress bar. Browsers draw it themselves, so both kinds of
+   engines get their own rule: ::-webkit- (Chrome, Qt, Edge, Safari)
+   and ::-moz- (Firefox). */
+#download-progress {
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border: none;
+  border-radius: 999px;
+  background: var(--raised);
+  overflow: hidden;
+}
+
+#download-progress::-webkit-progress-bar {
+  background: var(--raised);
+}
+
+#download-progress::-webkit-progress-value {
+  background: var(--accent);
+}
+
+#download-progress::-moz-progress-bar {
+  background: var(--accent);
+}
+
+#download-status {
+  margin: 8px 0 0;
+}
+
+/* The library list: Popular / Newest, and the filter buttons. */
+.library-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 18px 0 6px;
+}
+
+.library-controls .tabs {
+  margin-bottom: 0;
+}
+
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+#panel-models .filter-chips button {
+  border-radius: 999px;
+  padding: 4px 12px;
+  color: var(--muted);
+}
+
+#panel-models .filter-chips button.active {
+  background: var(--accent-bg);
+  border-color: rgba(232, 112, 126, 0.5);
+  color: var(--accent);
+}
+
+/* A size you already have: a quiet check mark instead of a download. */
+#panel-models .sizes button.installed {
+  background: none;
+  border-style: dashed;
+  color: var(--faint);
+  opacity: 1;
+}
+
+#library-more {
+  align-self: flex-start;
+  margin: 4px 0 24px;
+}

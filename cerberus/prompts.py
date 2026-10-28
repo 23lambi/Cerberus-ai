@@ -195,6 +195,28 @@ numbers that are not in the messages. Good: "Eiffel Tower height".
 Bad: "Eiffel Tower is 300 meters tall".
 """
 
+# ---------- Research agent (research.py) ----------
+
+# Step 1: the plan. One search per line, so the code can read it.
+RESEARCH_PLAN = """
+You plan web research. Split the user's question into 2 to 4 web searches
+that together cover it: the main topic, then the parts or comparisons it
+asks about. Reply with only the searches, one per line, each at most 8 words,
+in the language of the question. No numbering, no explanations, and never
+an answer: no facts, dates or numbers that are not in the question.
+"""
+
+# Step 4: the report. Added to the system prompt; the sources come with
+# the question, like for Web.
+RESEARCH_WRITE = """
+Research mode: write a report that answers the user's last message from the
+web sources supplied with it. Use Markdown: a short summary first, then
+sections with ## headings, then a conclusion. Cite the source number for
+every fact you take from a source, like [1] or [2][3]. When sources disagree,
+seem out of date, or don't cover a part of the question, say so plainly
+instead of guessing. Keep it under 700 words.
+"""
+
 # When the search itself failed (SearXNG not running, no internet...).
 WEB_FAILED = """
 The user asked for a web search, but it failed: {error}

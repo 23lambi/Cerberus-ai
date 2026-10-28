@@ -22,6 +22,7 @@ function showFeature(name) {
     loadMemories();
     loadDocuments();
   }
+  if (name === "models") loadModelsPanel();
 }
 
 function showTab(name) {

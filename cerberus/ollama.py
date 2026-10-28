@@ -246,3 +246,77 @@ async def unload(model):
             )
     except httpx.HTTPError:
         pass  # if Ollama can't be reached, there's nothing to free anyway
+
+
+# ---------- Managing models (the Models panel) ----------
+
+
+async def installed():
+    """The installed models with their details: size, parameters, quantization."""
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.get(f"{OLLAMA_URL}/api/tags")
+    except httpx.ConnectError:
+        raise OllamaError(NOT_RUNNING) from None
+    models = []
+    for m in response.json().get("models", []):
+        details = m.get("details") or {}
+        models.append({
+            "name": m["name"],
+            "size": m.get("size", 0),  # bytes on disk
+            "parameters": details.get("parameter_size", ""),  # like "3.2B"
+            "quantization": details.get("quantization_level", ""),  # like "Q4_K_M"
+            "family": details.get("family", ""),
+        })
+    return models
+
+
+async def running():
+    """The models in memory right now, with how much memory each one uses."""
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.get(f"{OLLAMA_URL}/api/ps")
+        return {m["name"]: m.get("size", 0) for m in response.json()["models"]}
+    except (httpx.HTTPError, ValueError, KeyError):
+        return {}
+
+
+async def pull(model):
+    """Download a model, as a stream of steps like Ollama sends them:
+    {"status": "pulling 6a0746a1ec1a", "completed": 123, "total": 456}.
+
+    If the caller stops reading (Cancel), the connection closes and Ollama
+    stops downloading; what it already has is reused next time.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=None) as client:
+            async with client.stream(
+                "POST", f"{OLLAMA_URL}/api/pull", json={"model": model, "stream": True}
+            ) as response:
+                if response.status_code != 200:
+                    raise OllamaError(error_message(await response.aread()))
+                async for line in response.aiter_lines():
+                    if not line:
+                        continue
+                    step = json.loads(line)
+                    if "error" in step:
+                        raise OllamaError(step["error"])
+                    yield step
+    except httpx.ConnectError:
+        raise OllamaError(NOT_RUNNING) from None
+    except (httpx.HTTPError, ValueError) as error:
+        raise OllamaError(f"The download stopped: {error}") from None
+    capabilities_cache.pop(model, None)  # a new version may do new things
+
+
+async def delete(model):
+    """Remove an installed model from the disk."""
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            # DELETE with a body: httpx's request() allows it, .delete() doesn't.
+            response = await client.request("DELETE", f"{OLLAMA_URL}/api/delete", json={"model": model})
+    except httpx.ConnectError:
+        raise OllamaError(NOT_RUNNING) from None
+    if response.status_code != 200:
+        raise OllamaError(error_message(response.content))
+    capabilities_cache.pop(model, None)

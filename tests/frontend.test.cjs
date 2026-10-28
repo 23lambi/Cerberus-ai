@@ -46,7 +46,7 @@ function sendingContext(overrides = {}) {
     attachChips: {children: []}, attachStatus: {},
     ensureChat: async () => {}, regenButton: { remove() {} },
     document: { getElementById: () => null }, addUserMessage: () => ({ name: "new question" }),
-    addImagesTo() {}, threeHeads: { checked: false }, sendNormal: async () => null,
+    addImagesTo() {}, threeHeads: { checked: false }, researchCheck: { checked: false }, sendNormal: async () => null,
     committedChat: async () => ({ messages: history.slice(0, 2) }),
     showRegenerate() {}, makeTitle: async () => {}, loadChats() {}, ...overrides,
   });
@@ -308,4 +308,72 @@ test("a saved source can never turn a link into code", async () => {
     url: "javascript:alert(document.cookie)"});
   assert.equal(elements.get("file-preview-link").hidden, true);
   assert.equal(elements.get("file-preview-link").href, "#");
+});
+
+test("the Research pill sends the question to the research agent", async () => {
+  const calls = [];
+  const context = sendingContext({
+    researchCheck: { checked: true }, threeHeads: { checked: true }, // Research wins
+    sendNormal: async (model, url) => { calls.push(url); return null; },
+    sendCouncil: async () => { calls.push("council"); return null; },
+  });
+  vm.runInContext(section("async function send(text,", "// Regenerate: forget"), context);
+  await context.send("Compare local LLM runtimes", "model");
+  assert.deepEqual(calls, ["/research"]);
+});
+
+test("research steps are listed, earlier ones marked done, the report can be opened", () => {
+  const made = [];
+  function element(tag) {
+    const el = { tag, children: [], classList: new Set(), listeners: {},
+      get lastElementChild() { return this.children[this.children.length - 1]; },
+      append(...items) { this.children.push(...items); }, appendChild(item) { this.children.push(item); },
+      before(item) { this.placedBefore = item; },
+      querySelector(selector) { return this.children.find(child => child.tag === selector); },
+      addEventListener(name, listener) { this.listeners[name] = listener; } };
+    el.classList.add = el.classList.add.bind(el.classList);
+    made.push(el);
+    return el;
+  }
+  const opened = [];
+  const context = vm.createContext({ document: { createElement: element }, openDocumentEditor: id => opened.push(id) });
+  vm.runInContext(section("function showProgress(", "// Reads a streamed answer"), context);
+  const bubble = { before(box) { this.box = box; } };
+  context.showProgress(bubble, { text: "Planning the research…" });
+  context.showProgress(bubble, { text: "Reading 3 pages…" });
+  context.showProgress(bubble, { text: "Report saved as research-x.md", document_id: 7 });
+  const steps = bubble.box.querySelector("ol").children;
+  assert.deepEqual(steps.map(step => step.classList.has("done")), [true, true, true]);
+  steps[2].children.find(child => child.tag === "button").listeners.click();
+  assert.deepEqual(opened, [7]);
+});
+
+test("model sizes and download steps are shown in plain words", () => {
+  const models = fs.readFileSync("static/models.js", "utf8");
+  const context = vm.createContext({});
+  const piece = (start, end) => models.slice(models.indexOf(start), models.indexOf(end, models.indexOf(start)));
+  vm.runInContext(piece("function formatBytes(", "function tag(") + piece("function downloadStepText(", "async function startDownload("), context);
+  assert.equal(context.formatBytes(2013265920), "1.9 GB");
+  assert.equal(context.formatBytes(512), "512 bytes");
+  assert.equal(context.formatBytes(0), "");
+  assert.equal(context.downloadStepText({ status: "pulling manifest" }), "Getting the list of files");
+  assert.equal(context.downloadStepText({ status: "pulling 6a0746a1ec1a", completed: 1073741824, total: 2147483648 }),
+    "Downloading: 1.0 GB of 2.0 GB (50%)");
+  assert.equal(context.downloadStepText({ status: "success" }), "Done");
+});
+
+test("library filters and installed sizes", () => {
+  const models = fs.readFileSync("static/models.js", "utf8");
+  const piece = (start, end) => models.slice(models.indexOf(start), models.indexOf(end, models.indexOf(start)));
+  const context = vm.createContext({});
+  vm.runInContext(piece("function matchesFilter(", "// Draws the list") + piece("function fullName(", "// One search result") , context);
+  const chat = { capabilities: ["tools", "thinking"] };
+  const embed = { capabilities: ["embedding"] };
+  assert.equal(context.matchesFilter(chat, "all"), true);
+  assert.equal(context.matchesFilter(chat, "chat"), true);
+  assert.equal(context.matchesFilter(embed, "chat"), false);
+  assert.equal(context.matchesFilter(chat, "thinking"), true);
+  assert.equal(context.matchesFilter(chat, "vision"), false);
+  assert.equal(context.fullName("qwen3", "4b"), "qwen3:4b");
+  assert.equal(context.fullName("nomic-embed-text", null), "nomic-embed-text:latest");
 });

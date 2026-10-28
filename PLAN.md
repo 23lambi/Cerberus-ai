@@ -256,8 +256,26 @@ Follow-ups on 2026-10-28 (all committed):
 
 ### Stage 4 — research mode
 
-- Plan → search → read sources → generate a sourced report.
-- Visible progress, bounded work, cancellation, and saving reports to projects.
+Status: implemented on 2026-10-28 (the user commits changes themselves).
+
+- [x] Plan → search → read sources → generate a sourced report.
+- [x] Visible progress, bounded work, cancellation, and saving reports to projects.
+
+Implementation notes:
+- `cerberus/research.py` runs fixed steps; the model only writes the plan and
+  the report and has no tools. Bounds: 4 searches, 2 new pages each, 2 pieces
+  per search (~500 chars), 1500 report tokens. Searches run one after another
+  (many at once risk a DuckDuckGo CAPTCHA); pages are read in parallel.
+- Plan lines are cleaned, deduplicated, and dropped if they contain numbers
+  not found in the conversation (guessed answers); an empty plan searches
+  the question itself.
+- `POST /research` uses `turns.respond`: Stop, atomic turn saves and sources.
+  Only a finished report is saved as a workspace document, with a Sources list.
+- `web.pick(limit=)` and `web.as_sources()` are shared with normal Web search.
+- Browser: Research pill (exclusive with Deep think), live steps with ✓, and
+  an Open report button.
+- Real run with `llama3.2:3b`: 4 searches, 8 pages read, 4 sources, report
+  saved, about 75 s. Its plan was imprecise and it cited sparingly.
 
 ### Stage 5 — agent mode
 
@@ -277,6 +295,14 @@ Follow-ups on 2026-10-28 (all committed):
 - Calendar and email integrations later, after the core workflow is reliable.
 
 ### Stage 8 — model controls
+
+Part A (Ollama) implemented on 2026-10-28: the Models panel lists installed
+models (size, quantization, capabilities, memory use), searches ollama.com
+(`cerberus/library.py` reads the search page; there is no official API),
+downloads with streamed progress and Cancel (`ollama.pull`), and deletes.
+Verified by really downloading and deleting `all-minilm`.
+Part B planned: llama.cpp as an alternative engine, managed by Cerberus,
+with GGUF models searched and downloaded from Hugging Face (official API).
 
 - Model downloads and local hardware information.
 - Side-by-side comparisons of model outputs.

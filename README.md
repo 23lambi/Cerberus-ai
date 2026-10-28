@@ -154,6 +154,37 @@ redirect, and limits each page to 10 seconds and 2 MB. Web pages can be wrong
 or contain hidden instructions: the model is told to treat them as information
 only, but check important facts with the source.
 
+## Models
+
+Open **Models** in the sidebar to manage Ollama's models. It lists the
+installed models with their size and abilities (vision, tools, thinking), and
+which ones are in memory now. Below them is the Ollama library: all models,
+**Popular** or **Newest** first, with filters (Chat, Vision, Tools, Thinking,
+Embedding). Click a size to download it; sizes you already have show a check
+mark. You can also **Search** (only your search words are sent to ollama.com)
+or type an exact name such as `qwen3:4b`. The list is kept for an hour. A download shows its progress and can
+be cancelled; downloading again continues where it stopped. **Delete** frees
+the disk space. New models appear in the chat's model list right away.
+
+The search reads ollama.com's normal search page, because Ollama has no
+search API. If that page changes, search may find nothing; typing an exact
+name always works, because downloads use Ollama's official API.
+
+## Research agent
+
+Turn on **Research** beside the message box and ask a bigger question, such as
+"Compare Ollama and llama.cpp for running local LLMs". Cerberus plans up to
+four web searches, reads the two best new pages for each, keeps the most
+relevant parts, and writes a structured report with numbered citations. You
+see each step while it works, and Stop works at every step. The finished
+report is saved as a Markdown document (with a Sources list of links) in the
+chat's project, or in All chats; **Open report** opens it in the editor.
+
+It needs SearXNG (see Web search). The model you selected plans and writes,
+so a larger model plans better searches and cites more reliably. On a CPU a
+report takes one to a few minutes. The model gets no tools that change
+anything: the code runs the steps, the model only writes the plan and report.
+
 ## Backup and export
 
 Open Settings → Backup and export. Download a full ZIP backup or export the

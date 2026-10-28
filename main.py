@@ -16,8 +16,10 @@ from cerberus.routes import (
     documents,
     guard,
     memories,
+    models,
     pages,
     projects,
+    research,
     reverse,
     settings,
 )
@@ -48,11 +50,13 @@ app.include_router(pages.router)
 app.include_router(backup.router)
 app.include_router(chat.router)
 app.include_router(council.router)
+app.include_router(research.router)
 app.include_router(chats.router)
 app.include_router(projects.router)
 app.include_router(settings.router)
 app.include_router(guard.router)
 app.include_router(memories.router)
+app.include_router(models.router)
 app.include_router(documents.router)
 app.include_router(reverse.router)
 
