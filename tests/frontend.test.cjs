@@ -241,3 +241,37 @@ test("bulk delete protects the current answering chat before deleting anything",
   assert.match(status.textContent, /Stop the answer/);
   assert.equal(context.selectedChatIds.size, 2);
 });
+
+function memoryContext(fetch) {
+  const elements = new Map();
+  const context = vm.createContext({
+    fetch,
+    responseError: async response => (await response.json()).detail,
+    document: {
+      getElementById(id) {
+        if (!elements.has(id)) elements.set(id, {value: "", textContent: "", listeners: {},
+          addEventListener(name, listener) { this.listeners[name] = listener; }});
+        return elements.get(id);
+      },
+    },
+  });
+  vm.runInContext(fs.readFileSync("static/memory.js", "utf8"), context);
+  const submit = () => elements.get("memory-add").listeners.submit({preventDefault() {}});
+  return {elements, submit};
+}
+
+test("a failed memory save keeps the typed text and explains why", async () => {
+  const {elements, submit} = memoryContext(async () => ({ok: false, json: async () => ({detail: "Server error"})}));
+  elements.get("memory-input").value = "I like tea";
+  await submit();
+  assert.equal(elements.get("memory-input").value, "I like tea");
+  assert.equal(elements.get("memory-status").textContent, "Server error");
+});
+
+test("an unreachable server is reported instead of failing silently", async () => {
+  const {elements, submit} = memoryContext(async () => { throw new TypeError("Failed to fetch"); });
+  elements.get("memory-input").value = "I like tea";
+  await submit();
+  assert.equal(elements.get("memory-input").value, "I like tea");
+  assert.match(elements.get("memory-status").textContent, /Could not reach Cerberus/);
+});

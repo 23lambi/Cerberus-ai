@@ -5,10 +5,32 @@
 const memoryList = document.getElementById("memory-list");
 const memoryAddForm = document.getElementById("memory-add");
 const memoryInput = document.getElementById("memory-input");
+const memoryStatus = document.getElementById("memory-status");
+
+// Every action goes through here. It returns the server's answer, or null
+// when something went wrong; then the reason is shown under the form, so
+// a failed change never just silently does nothing.
+async function memoryRequest(url, options = {}) {
+  let response;
+  try {
+    response = await fetch(url, options);
+  } catch (error) {
+    // fetch itself fails when the server can't be reached at all.
+    memoryStatus.textContent = "Could not reach Cerberus. Is the server running?";
+    return null;
+  }
+  if (!response.ok) {
+    // responseError (app.js) turns the server's error into a sentence.
+    memoryStatus.textContent = await responseError(response);
+    return null;
+  }
+  memoryStatus.textContent = "";
+  return response.json();
+}
 
 async function loadMemories() {
-  const response = await fetch("/memories");
-  const data = await response.json();
+  const data = await memoryRequest("/memories");
+  if (!data) return; // keep the old list on screen; the status says why
 
   memoryList.innerHTML = "";
 
@@ -48,19 +70,19 @@ async function editMemory(memory) {
   const text = prompt("Edit memory:", memory.text);
   if (text === null || !text.trim()) return;
 
-  await fetch("/memories/" + memory.id, {
+  const saved = await memoryRequest("/memories/" + memory.id, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text: text }),
   });
-  loadMemories();
+  if (saved) loadMemories();
 }
 
 async function forgetMemory(memory) {
   if (!confirm("Forget this?\n\n" + memory.text)) return;
 
-  await fetch("/memories/" + memory.id, { method: "DELETE" });
-  loadMemories();
+  const forgotten = await memoryRequest("/memories/" + memory.id, { method: "DELETE" });
+  if (forgotten) loadMemories();
 }
 
 memoryAddForm.addEventListener("submit", async (event) => {
@@ -68,11 +90,13 @@ memoryAddForm.addEventListener("submit", async (event) => {
   const text = memoryInput.value.trim();
   if (!text) return;
 
-  memoryInput.value = "";
-  await fetch("/memories", {
+  const added = await memoryRequest("/memories", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text: text }),
   });
+  if (!added) return; // keep what was typed, so it can be sent again
+  // Only now, after the save worked, empty the box.
+  memoryInput.value = "";
   loadMemories();
 });
