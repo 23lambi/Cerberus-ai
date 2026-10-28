@@ -116,12 +116,63 @@ function showReply(el, label, text) {
   el.innerHTML = DOMPurify.sanitize(marked.parse(text));
   el.prepend(who);
   el.classList.add("reply");
+  renderDocumentSources(el, el.documentSources || []);
+  if (currentProject && text.trim()) {
+    const save = document.createElement("button");
+    save.className = "save-document";
+    save.textContent = "Save as document";
+    save.addEventListener("click", () => openDocumentEditor(null, text));
+    el.appendChild(save);
+  }
   // highlight.js colors the code blocks.
   for (const block of el.querySelectorAll("pre code")) {
     hljs.highlightElement(block);
     addCopyButton(block);
   }
   messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+// Only numbers in the server's source list become clickable citations.
+function renderDocumentSources(el, sources) {
+  el.querySelector(".answer-sources")?.remove();
+  if (!sources.length) return;
+  const byNumber = new Map(sources.map(source => [String(source.number), source]));
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) {
+    if (!walker.currentNode.parentElement.closest("a, button, pre, code")) nodes.push(walker.currentNode);
+  }
+  for (const node of nodes) {
+    const matches = [...node.textContent.matchAll(/\[(\d+)\]/g)].filter(match => byNumber.has(match[1]));
+    if (!matches.length) continue;
+    const fragment = document.createDocumentFragment();
+    let offset = 0;
+    for (const match of matches) {
+      fragment.append(node.textContent.slice(offset, match.index));
+      fragment.append(sourceButton(byNumber.get(match[1]), match[0]));
+      offset = match.index + match[0].length;
+    }
+    fragment.append(node.textContent.slice(offset));
+    node.replaceWith(fragment);
+  }
+  const list = document.createElement("div");
+  list.className = "answer-sources";
+  const label = document.createElement("p");
+  label.className = "hint";
+  label.textContent = "Document sources supplied to the model — click to inspect:";
+  list.appendChild(label);
+  for (const source of sources) list.appendChild(sourceButton(source, "[" + source.number + "] " + source.name));
+  el.appendChild(list);
+}
+
+function sourceButton(source, label) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "document-citation";
+  button.textContent = label;
+  button.title = "View source text: " + source.name;
+  button.addEventListener("click", () => openFilePreview(source.document_id, source));
+  return button;
 }
 
 // Puts a Copy button on a code block. The <pre> goes into a wrapper box,
@@ -233,10 +284,90 @@ async function loadEyes() {
 
 // ---------- Chat list ----------
 
+let selectingChats = false;
+let deletingChats = false;
+let visibleChatIds = [];
+const selectedChatIds = new Set();
+let chatListRequest = 0;
+
+function updateChatSelection() {
+  document.getElementById("select-chats").textContent = selectingChats ? "Cancel selection" : "Select chats";
+  document.getElementById("select-chats").disabled = deletingChats;
+  document.getElementById("select-all-chats-label").hidden = !selectingChats;
+  const all = document.getElementById("select-all-chats");
+  all.checked = visibleChatIds.length > 0 && selectedChatIds.size === visibleChatIds.length;
+  all.indeterminate = selectedChatIds.size > 0 && !all.checked;
+  all.disabled = deletingChats || !visibleChatIds.length;
+  const remove = document.getElementById("delete-selected-chats");
+  remove.hidden = !selectingChats;
+  remove.disabled = deletingChats || !selectedChatIds.size;
+  remove.textContent = deletingChats ? "Deleting…" : "Delete selected (" + selectedChatIds.size + ")";
+  for (const box of chatList.querySelectorAll(".chat-select")) {
+    box.checked = selectedChatIds.has(Number(box.value));
+    box.disabled = deletingChats;
+  }
+}
+
+function toggleChatSelection(id) {
+  if (deletingChats) return;
+  if (selectedChatIds.has(id)) selectedChatIds.delete(id);
+  else selectedChatIds.add(id);
+  updateChatSelection();
+}
+
+document.getElementById("select-chats").addEventListener("click", () => {
+  if (deletingChats) return;
+  selectingChats = !selectingChats;
+  selectedChatIds.clear();
+  document.getElementById("chat-selection-status").textContent = "";
+  loadChats();
+});
+document.getElementById("select-all-chats").addEventListener("change", event => {
+  if (deletingChats) return;
+  selectedChatIds.clear();
+  if (event.target.checked) for (const id of visibleChatIds) selectedChatIds.add(id);
+  updateChatSelection();
+});
+document.getElementById("delete-selected-chats").addEventListener("click", deleteSelectedChats);
+
+async function deleteSelectedChats() {
+  if (deletingChats || !selectedChatIds.size) return;
+  const ids = [...selectedChatIds];
+  const status = document.getElementById("chat-selection-status");
+  if (ids.includes(currentChatId) && (controller || attachmentUploads)) {
+    status.textContent = "Stop the answer or wait for the upload before deleting the current chat.";
+    return;
+  }
+  if (!confirm("Delete " + ids.length + " selected chat(s) and their attachments? This cannot be undone.")) return;
+  deletingChats = true;
+  updateChatSelection();
+  let removed = 0;
+  const failed = [];
+  try {
+    for (const id of ids) {
+      try {
+        const response = await fetch("/chats/" + id, {method: "DELETE"});
+        if (!response.ok) throw new Error(await responseError(response));
+        selectedChatIds.delete(id);
+        removed++;
+        if (id === currentChatId) newChat();
+      } catch (error) { failed.push(error.message); }
+    }
+    status.textContent = "Deleted " + removed + " chat(s)." + (failed.length ? " " + failed.length + " failed: " + [...new Set(failed)].join(" ") : "");
+    if (!failed.length) selectingChats = false;
+  } finally {
+    deletingChats = false;
+    updateChatSelection();
+    await loadChats();
+    await loadProjects();
+  }
+}
+
 // Draws the chat list in the sidebar: the project's chats inside a
 // project, the normal chats everywhere else. With text in the search
 // box, only the chats that contain it.
 async function loadChats() {
+  const requestId = ++chatListRequest;
   // URLSearchParams builds "project_id=3&q=hello" and encodes special
   // characters (spaces, &, ...) so they can't break the URL.
   const params = new URLSearchParams();
@@ -246,8 +377,12 @@ async function loadChats() {
 
   const response = await fetch("/chats?" + params);
   const data = await response.json();
+  if (requestId !== chatListRequest) return;
+  visibleChatIds = data.chats.map(chat => chat.id);
+  for (const id of selectedChatIds) if (!visibleChatIds.includes(id)) selectedChatIds.delete(id);
 
   chatList.innerHTML = ""; // empty the list, then build it again
+  updateChatSelection();
 
   if (query && data.chats.length === 0) {
     const li = document.createElement("li");
@@ -289,7 +424,7 @@ async function loadChats() {
     del.textContent = "x";
     del.title = "Delete chat";
 
-    li.addEventListener("click", () => openChat(chat.id));
+    li.addEventListener("click", () => selectingChats ? toggleChatSelection(chat.id) : openChat(chat.id));
     edit.addEventListener("click", (event) => {
       event.stopPropagation(); // rename only, don't open the chat
       renameChat(chat, title);
@@ -301,9 +436,23 @@ async function loadChats() {
       deleteChat(chat.id);
     });
 
+    if (selectingChats) {
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      box.className = "chat-select";
+      box.value = chat.id;
+      box.checked = selectedChatIds.has(chat.id);
+      box.disabled = deletingChats;
+      box.setAttribute("aria-label", "Select " + chat.title);
+      box.addEventListener("click", event => event.stopPropagation());
+      box.addEventListener("change", () => toggleChatSelection(chat.id));
+      li.appendChild(box);
+    }
     li.appendChild(title);
-    li.appendChild(edit);
-    li.appendChild(del);
+    if (!selectingChats) {
+      li.appendChild(edit);
+      li.appendChild(del);
+    }
     chatList.appendChild(li);
   }
 }
@@ -364,9 +513,25 @@ function renameChat(chat, titleEl) {
 
 // Loads a saved chat from the server and shows all its messages.
 async function openChat(id) {
+  // Returning to the chat panel must work even while an answer/upload is running.
+  showFeature("chat");
+  if (controller || (typeof attachmentUploads !== "undefined" && attachmentUploads)) {
+    if (id !== currentChatId) attachStatus.textContent = "Stop the current answer or wait for the upload before switching chats.";
+    return;
+  }
   if (id !== currentChatId) recapChat(currentChatId); // NEW (projects step 2)
 
-  const response = await fetch("/chats/" + id);
+  let response;
+  try {
+    response = await fetch("/chats/" + id);
+  } catch (_) {
+    attachStatus.textContent = "Could not open the chat. Check that Cerberus is running and try again.";
+    return;
+  }
+  if (!response.ok) {
+    attachStatus.textContent = await responseError(response);
+    return;
+  }
   const chat = await response.json();
 
   currentChatId = chat.id;
@@ -374,14 +539,25 @@ async function openChat(id) {
 
   messagesEl.innerHTML = "";
   attachChips.innerHTML = ""; // NEW
+  if (chat.documents?.length) {
+    const files = addMessage("");
+    for (const doc of chat.documents) {
+      const chip = document.createElement("span");
+      chip.className = "chip";
+      chip.appendChild(filePreviewButton(doc));
+      files.appendChild(chip);
+    }
+  }
   lastUserEl = null;
-  for (const message of history) {
+  for (const [index, message] of history.entries()) {
     if (message.role === "user") {
       lastUserEl = addMessage("You: " + message.content);
       addImagesTo(lastUserEl, message.images);
       if (message.seen) showSeen(lastUserEl, message.seen);
     } else {
-      showReply(addMessage(""), "Cerberus:", message.content);
+      const bubble = addMessage("");
+      bubble.documentSources = chat.sources?.[String(index)] || [];
+      showReply(bubble, "Cerberus:", message.content);
     }
   }
   showRegenerate();
@@ -392,6 +568,8 @@ async function openChat(id) {
 
 // An empty chat. It's only saved on the server when the first message is sent.
 function newChat() {
+  showFeature("chat");
+  if (controller || (typeof attachmentUploads !== "undefined" && attachmentUploads)) return;
   recapChat(currentChatId); // NEW (projects step 2)
   currentChatId = null;
   history = [];
@@ -454,9 +632,11 @@ function showHome() {
 document.getElementById("home-button").addEventListener("click", newChat);
 
 async function deleteChat(id) {
+  if ((controller || attachmentUploads) && id === currentChatId) return;
   if (!confirm("Delete this chat?")) return;
 
-  await fetch("/chats/" + id, { method: "DELETE" });
+  const response = await fetch("/chats/" + id, { method: "DELETE" });
+  if (!response.ok) { alert(await responseError(response)); return; }
 
   if (id === currentChatId) {
     newChat(); // we deleted the open chat, so start a fresh one
@@ -474,6 +654,7 @@ async function ensureChat() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ project_id: currentProject ? currentProject.id : null }),
   });
+  if (!response.ok) throw new Error(await responseError(response));
   const chat = await response.json();
   currentChatId = chat.id;
 }
@@ -494,7 +675,8 @@ async function makeTitle(model) {
 // NEW (projects step 2): when you leave a chat inside a project, the server
 // writes a short recap of it into the project's notes. We don't wait for it.
 function recapChat(chatId) {
-  if (!currentProject || !chatId || !modelSelect.value) return;
+  // The server checks project membership. The UI may already have left it.
+  if (!chatId || !modelSelect.value) return;
 
   fetch("/chats/" + chatId + "/recap", {
     method: "POST",
@@ -539,7 +721,7 @@ async function sendNormal(model) {
   }
 
   if (!response.ok) {
-    bubble.textContent = "Cerberus: the server answered with error " + response.status + ".";
+    bubble.textContent = "Cerberus: " + await responseError(response);
     return null;
   }
 
@@ -553,7 +735,7 @@ async function sendNormal(model) {
       history[history.length - 1].seen = ev.text;
       showSeen(lastUserEl, ev.text, ev.model);
     }
-  });
+  }, true);
   messagesEl.scrollTop = messagesEl.scrollHeight;
   // The server saves a stopped answer too, so we keep it here as well.
   return finishReply(result, bubble, who);
@@ -563,13 +745,20 @@ async function sendNormal(model) {
 // thinking, the answer, the stats and errors. Event types it doesn't know
 // (like "seen") go to onOther. The main chat and the Reverse panel both
 // use it. Returns { reply, stats, failure, stopped }.
-async function readReply(response, bubble, who, onOther) {
-  const result = { reply: "", stats: null, failure: null, stopped: false };
+async function readReply(response, bubble, who, onOther, requireDone = false) {
+  const result = { reply: "", stats: null, failure: null, stopped: false, done: false };
   let thinkBox = null; // the fold-out box, made when the first thought arrives
 
   try {
     await readEvents(response, (ev) => {
-      if (ev.type === "thinking") {
+      if (ev.type === "done") {
+        result.done = true;
+        result.stopped = ev.stopped;
+        if (ev.error) result.failure = ev.error;
+        if (ev.saved === false && result.reply) result.failure = ev.error || "This answer was not saved.";
+      } else if (ev.type === "sources") {
+        bubble.documentSources = ev.sources;
+      } else if (ev.type === "thinking") {
         thinkBox = thinkBox || makeThinkingBox(bubble);
         thinkBox.lastChild.textContent += ev.text;
       } else if (ev.type === "content") {
@@ -596,23 +785,28 @@ async function readReply(response, bubble, who, onOther) {
     if (error.name !== "AbortError") throw error;
     result.stopped = true;
   }
+  if (requireDone && !result.done && !result.stopped && !result.failure) {
+    result.failure = "The connection ended before saving was confirmed. Reopen the chat to check its saved messages.";
+  }
   return result;
 }
 
 // Shows how an answer ended, and returns its text (null = no answer).
 function finishReply(result, bubble, who) {
+  if (result.failure) {
+    if (result.reply) showReply(bubble, who, result.reply);
+    else bubble.textContent = "Cerberus: no answer.";
+    bubble.after(makeBox("hint", result.failure));
+    return null;
+  }
   if (result.stopped) {
     if (!result.reply) {
-      bubble.textContent = "Cerberus: (stopped)";
+      bubble.textContent = "Cerberus: (stopped before an answer)";
       return null;
     }
-    // Stopped halfway: keep what we have.
-    showReply(bubble, who, result.reply + "\n\n*(stopped)*");
+    showReply(bubble, who, result.reply);
+    bubble.after(makeBox("hint", result.done ? "Stopped. Partial answer saved." : "Stopped."));
     return result.reply;
-  }
-  if (result.failure) {
-    bubble.textContent = "Cerberus: " + result.failure;
-    return null;
   }
   if (!result.reply) {
     // This happens when a thinking model uses up all its tokens on thinking.
@@ -634,7 +828,11 @@ async function readEvents(response, onEvent) {
 
   while (true) {
     const { done, value } = await reader.read();
-    if (done) break;
+    if (done) {
+      buffer += decoder.decode();
+      if (buffer.trim()) onEvent(JSON.parse(buffer));
+      break;
+    }
     // stream: true = a letter split over two pieces (like "é") isn't broken.
     buffer += decoder.decode(value, { stream: true });
 
@@ -738,6 +936,7 @@ async function sendCouncil(model) {
 
   const texts = { draft: "", review: "", final: "" };
   let failed = false;
+  let completed = false;
 
   try {
     const response = await fetch("/council", {
@@ -752,13 +951,24 @@ async function sendCouncil(model) {
     });
 
     if (!response.ok) {
-      answer.textContent = "Cerberus: the server answered with error " + response.status + ".";
+      answer.textContent = "Cerberus: " + await responseError(response);
       return null;
     }
 
     const label = replyLabel(response.headers);
 
     await readEvents(response, (ev) => {
+      if (ev.step === "sources") {
+        answer.documentSources = ev.sources;
+        return;
+      }
+      if (ev.step === "done") {
+        completed = true;
+        if (ev.stopped) answer.after(makeBox("hint", texts.final ? "Stopped. Partial answer saved." : "Stopped before the final answer."));
+        if (ev.error) { answer.after(makeBox("hint", ev.error)); failed = true; }
+        if (!texts.final) answer.textContent = "Cerberus: no final answer.";
+        return;
+      }
       if (ev.step === "seen") {
         history[history.length - 1].seen = ev.text;
         showSeen(lastUserEl, ev.text);
@@ -786,51 +996,100 @@ async function sendCouncil(model) {
     return null;
   }
 
-  return failed ? null : texts.final;
+  if (!completed) answer.after(makeBox("hint", "Saving was not confirmed. Reopen the chat to check."));
+  return failed || !completed || !texts.final ? null : texts.final;
 }
 
 // Sends one question and shows the answer. The form uses it, and so does
 // Regenerate, which is why it's a function of its own.
-async function send(text, model, images = [], seen = "") {
-  await ensureChat();
-
-  regenButton.remove(); // no Regenerate while an answer is running
-  // The first message of a new chat: the home screen makes room for it.
-  // "?." = only call remove() if the element exists.
-  document.getElementById("home")?.remove();
-  lastUserEl = addMessage("You: " + text);
-  addImagesTo(lastUserEl, images);
-  history.push({ role: "user", content: text, images: images, seen: seen });
-
-  controller = new AbortController();
-  sendButton.textContent = "Stop";
-
+async function responseError(response) {
   try {
-    const reply = threeHeads.checked
-      ? await sendCouncil(model)
-      : await sendNormal(model);
+    const data = await response.json();
+    if (typeof data.detail === "string") return data.detail;
+    if (Array.isArray(data.detail)) return data.detail.map((item) => item.msg).join("; ");
+  } catch (_) { /* A proxy may return a non-JSON error. */ }
+  return "The server answered with error " + response.status + ".";
+}
 
-    if (reply === null) {
-      // No answer, so take the question back out of the history too.
-      history.pop();
-    } else {
-      history.push({ role: "assistant", content: reply });
-      showRegenerate();
-      // First question and answer of this chat, so give it a title.
-      // No await: the button is free again right away, and the
-      // sidebar shows the title when it arrives.
-      if (history.length === 2) makeTitle(model).then(loadChats);
+const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+let stoppingAnswer = false;
+
+async function stopAnswer() {
+  if (!controller || stoppingAnswer) return;
+  const running = controller;
+  stoppingAnswer = true;
+  sendButton.textContent = "Stopping...";
+  try {
+    // A very quick click can arrive while the new chat is still being created,
+    // or before /chat reaches the server. Retry until that run is registered.
+    while (controller === running) {
+      if (currentChatId) {
+        const response = await fetch("/chats/" + currentChatId + "/stop", { method: "POST" });
+        if (!response.ok) throw new Error(await responseError(response));
+        if ((await response.json()).stopping) break;
+      }
+      await pause(200);
     }
   } catch (error) {
-    history.pop();
-    addMessage("Cerberus: could not reach the server. Is it running?");
+    attachStatus.textContent = "Could not stop the answer: " + error.message;
+    if (controller === running) sendButton.textContent = "Stop";
   } finally {
-    // finally always runs: after an answer, an error or a Stop.
+    stoppingAnswer = false;
+  }
+}
+
+async function committedChat() {
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const response = await fetch("/chats/" + currentChatId);
+    if (!response.ok) throw new Error(await responseError(response));
+    const chat = await response.json();
+    if (!chat.answering) return chat;
+    await pause(100);
+  }
+  throw new Error("The server is still answering. Press Stop or reopen this chat shortly.");
+}
+
+async function send(text, model, images = [], seen = "") {
+  if (controller || (typeof attachmentUploads !== "undefined" && attachmentUploads)) return;
+  controller = new AbortController(); // also prevents navigation and double submits
+  sendButton.textContent = "Stop";
+  let sent = false;
+  const previousUserEl = lastUserEl;
+  const previousCount = history.length;
+  try {
+    await ensureChat();
+    regenButton.remove();
+    document.getElementById("home")?.remove();
+    lastUserEl = addMessage("You: " + text);
+    addImagesTo(lastUserEl, images);
+    // Sent attachments belong in the conversation, leaving the composer clear.
+    for (const chip of [...attachChips.children]) {
+      chip.querySelector(".chip-x")?.remove();
+      lastUserEl.appendChild(chip);
+    }
+    attachStatus.textContent = "";
+    history.push({ role: "user", content: text, images, seen });
+    sent = true;
+    const reply = threeHeads.checked ? await sendCouncil(model) : await sendNormal(model);
+    // Read the committed history, including partial answers, rather than guessing
+    // what the server saved after Stop or an upstream error.
+    history = (await committedChat()).messages;
+    if (history.length <= previousCount) lastUserEl = previousUserEl;
+    showRegenerate();
+    if (reply && history.length === 2) makeTitle(model).then(loadChats);
+  } catch (error) {
+    if (sent) {
+      try {
+        history = (await committedChat()).messages;
+        if (history.length <= previousCount) lastUserEl = previousUserEl;
+      } catch (_) { /* A stale history is rejected by the server on the next send. */ }
+    }
+    addMessage("Cerberus: " + error.message + " Reopen the chat to check saved messages.");
+  } finally {
     controller = null;
     sendButton.textContent = "Send";
+    loadChats();
   }
-
-  loadChats();
 }
 
 // Regenerate: forget the last answer and ask the same question again.
@@ -842,7 +1101,8 @@ async function regenerate() {
   // The last two entries in history are the question and its answer.
   // { content, images } = ... takes those two fields out of the object.
   const { content, images, seen } = history[history.length - 2];
-  await fetch("/chats/" + currentChatId + "/last-turn", { method: "DELETE" });
+  const removed = await fetch("/chats/" + currentChatId + "/last-turn", { method: "DELETE" });
+  if (!removed.ok) { attachStatus.textContent = await responseError(removed); return; }
   history.splice(-2); // remove both from the page's history too
 
   // Remove the question and everything after it from the screen.
@@ -859,10 +1119,11 @@ form.addEventListener("submit", async (event) => {
 
   // One button, two jobs. If an answer is running, a click means Stop.
   if (controller) {
-    controller.abort();
+    await stopAnswer();
     return;
   }
 
+  if (attachmentUploads) { attachStatus.textContent = "Please wait for the file upload to finish."; return; }
   const text = input.value.trim();
   if (!text && pendingImages.length === 0) return;
 
@@ -965,7 +1226,20 @@ window.addEventListener("pagehide", () => recapChat(currentChatId));
 // documentFile and documentStatus, and all scripts on a page share one
 // space, so here we look the elements up by id instead of declaring them again.
 attachButton.addEventListener("click", () => {
-  document.getElementById("document-file").click();
+  if (!controller && !attachmentUploads) document.getElementById("chat-document-file").click();
+});
+
+let attachmentUploads = false;
+document.getElementById("chat-document-file").addEventListener("change", async event => {
+  if (controller || attachmentUploads) return;
+  attachmentUploads = true;
+  try {
+    await ensureChat();
+    const chatId = currentChatId;
+    for (const file of event.target.files) await uploadFile(file, chatId);
+    await loadChats();
+  } catch (error) { attachStatus.textContent = error.message; }
+  finally { attachmentUploads = false; event.target.value = ""; }
 });
 
 // Copy the upload messages from the Documents tab to just above the message box.
@@ -983,16 +1257,17 @@ function addChip(doc) {
   const chip = document.createElement("span");
   chip.className = "chip";
 
-  const name = document.createElement("span");
-  name.textContent = "📄 " + doc.name;
+  const name = filePreviewButton(doc);
 
   const remove = document.createElement("button");
   remove.type = "button"; // inside a form, a plain button would submit it
   remove.className = "chip-x";
   remove.textContent = "×";
-  remove.title = "Remove this document from Cerberus";
+  remove.title = "Remove this attachment from the chat";
   remove.addEventListener("click", async () => {
-    await fetch("/documents/" + doc.id, { method: "DELETE" });
+    if (controller || (typeof attachmentUploads !== "undefined" && attachmentUploads)) return;
+    const response = await fetch("/documents/" + doc.id, { method: "DELETE" });
+    if (!response.ok) { attachStatus.textContent = await responseError(response); return; }
     chip.remove();
     attachStatus.textContent = "";
   });
@@ -1001,10 +1276,20 @@ function addChip(doc) {
   attachChips.appendChild(chip);
 }
 
+function filePreviewButton(doc) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "file-preview-link";
+  button.textContent = "📄 " + doc.name;
+  button.title = "Preview " + doc.name;
+  button.addEventListener("click", () => openFilePreview(doc.id));
+  return button;
+}
+
 // NEW: documents.js announces each finished upload. Show a chip only when
 // the upload came from the chat, not from the Memory panel.
 document.addEventListener("document-added", (event) => {
-  if (document.getElementById("panel-chat").classList.contains("active")) {
+  if (event.detail.chat_id === currentChatId) {
     addChip(event.detail);
   }
 });

@@ -35,7 +35,7 @@ def test_chat_streams_the_answer_and_saves_it(client):
     response = client.post("/chat", json=chat_body("Hi there", chat_id=chat_id))
 
     kinds = [event["type"] for event in events(response)]
-    assert kinds == ["content", "stats"]
+    assert kinds == ["content", "stats", "done"]
     saved = database.get_chat(chat_id)["messages"]
     assert [m["content"] for m in saved] == ["Hi there", "Hello from the fake model"]
 
@@ -113,6 +113,7 @@ def test_images_go_only_to_models_that_can_see(client, fake):
 
     # A model that can't see gets only the text.
     body["model"] = "small:3b"
+    body["chat_id"] = None
     client.post("/chat", json=body)
     assert "images" not in fake.calls[-1]["messages"][-1]
 

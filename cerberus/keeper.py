@@ -191,7 +191,7 @@ def split_text(text, size=CHUNK_SIZE, overlap=CHUNK_OVERLAP):
     return chunks
 
 
-async def add_document(name, data):
+async def add_document(name, data, project_id=None, chat_id=None):
     # Path(name).name drops any folders, so "../../x.txt" becomes "x.txt".
     name = Path(name).name
     text = read_text(name, data)
@@ -211,7 +211,7 @@ async def add_document(name, data):
 
     pieces = split_text(text)
     vectors = await embed_texts(pieces, "document")
-    document_id = database.add_document(name, str(path))
+    document_id = database.add_document(name, str(path), project_id, chat_id)
     database.add_chunks(
         document_id,
         # enumerate gives the position, zip pairs each piece with its vector.
@@ -225,22 +225,23 @@ async def add_document(name, data):
     }
 
 
-def list_documents():
-    return database.list_documents()
+def list_documents(project_id=None):
+    return database.list_documents(project_id)
 
 
 def delete_document(document_id):
     path = database.delete_document(document_id)
     if path is None:
         return False
-    Path(path).unlink(missing_ok=True)  # delete the file too
+    if path:
+        Path(path).unlink(missing_ok=True)  # editable documents live in SQLite
     return True
 
 
 # ---------- Old chats ----------
 
 
-def search_chats(question, exclude_chat_id=None):
+def search_chats(question, exclude_chat_id=None, project_id=None):
     # Old chat messages have no embeddings, so this is a keyword search:
     # SQL finds messages that contain any of the words, then we rank them
     # by how many of the words they contain.
@@ -249,7 +250,7 @@ def search_chats(question, exclude_chat_id=None):
         return []
 
     scored = []
-    for row in database.search_messages(sorted(query_words), exclude_chat_id):
+    for row in database.search_messages(sorted(query_words), exclude_chat_id, project_id=project_id):
         hits = len(query_words & words(row["content"]))
         scored.append((hits, row))
     scored.sort(key=lambda pair: pair[0], reverse=True)
@@ -270,8 +271,10 @@ def search_chats(question, exclude_chat_id=None):
 
 
 async def recall(question, keeper_mode=False, chat_id=None):
+    chat = database.get_chat(chat_id) if chat_id else None
+    project_id = chat["project_id"] if chat else None
     memory_rows = database.memories_with_embeddings()
-    chunk_rows = database.all_chunks()
+    chunk_rows = database.all_chunks(project_id)
 
     # Only embed the question when there is something to compare it with.
     query_vector = None
@@ -294,12 +297,13 @@ async def recall(question, keeper_mode=False, chat_id=None):
     )
     documents = best(
         [(score(query_vector, query_words, r["text"], r["embedding"]),
-          {"name": r["name"], "text": r["text"]})
+          {"name": r["name"], "text": r["text"], "document_id": r["document_id"],
+           "revision": r["revision"], "position": r["position"]})
          for r in chunk_rows],
         doc_limit,
         doc_min,
     )
-    chats = search_chats(question, chat_id) if keeper_mode else []
+    chats = search_chats(question, chat_id, project_id) if keeper_mode else []
 
     return {"memories": memories, "documents": documents, "chats": chats}
 

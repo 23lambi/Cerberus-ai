@@ -1181,3 +1181,27 @@ dialog button.primary {
   max-height: 260px;
   overflow-y: auto;
 }
+/* Workspace document editor */
+#document-editor { width: min(960px, 92vw); max-height: 90vh; }
+#document-editor .dialog-body { overflow-y: auto; max-height: 74vh; }
+#document-editor label { display: block; margin: 12px 0; }
+#editor-name, #editor-instruction { width: 100%; box-sizing: border-box; }
+#editor-content { display: block; width: 100%; min-height: 32vh; box-sizing: border-box; font-family: monospace; resize: vertical; }
+.document-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+#editor-diff { white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; border: 1px solid var(--border, #444); max-height: 35vh; overflow-y: auto; }
+.save-document { display: block; margin-top: 12px; font-size: 12px; }
+#file-preview { width: min(960px, 92vw); }
+#file-preview .dialog-body { max-height: 75vh; padding-bottom: 20px; }
+#file-preview-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+.file-preview-link { background: none; color: inherit; border: 0; padding: 0; cursor: pointer; text-align: left; }
+.file-preview-link:hover { text-decoration: underline; }
+.document-citation { background: var(--panel); color: var(--accent); border: 1px solid var(--border); border-radius: 5px; padding: 2px 6px; cursor: pointer; font-size: inherit; }
+.answer-sources { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px; }
+.answer-sources .document-citation { margin: 3px 6px 3px 0; }
+#chat-selection { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 8px; font-size: 11px; }
+#chat-selection button { background: var(--panel); border: 1px solid var(--border); border-radius: 5px; color: var(--text); padding: 4px 7px; cursor: pointer; }
+#chat-selection button:disabled { opacity: .5; cursor: default; }
+#chat-selection label { display: flex; align-items: center; gap: 4px; }
+#chat-selection-status { width: 100%; margin: 0; }
+#chat-selection-status:empty { display: none; }
+#chat-list .chat-select { flex-shrink: 0; margin-right: 7px; }

@@ -1,3 +1,5 @@
+from contextlib import aclosing
+
 # Everything that talks to Ollama goes through this file. The rest of
 # Cerberus never builds an Ollama request itself, so if Ollama's API
 # changes, this is the only file to fix.
@@ -5,6 +7,7 @@
 import json
 
 import httpx  # an HTTP client like "requests", but it also works with async
+from cerberus.budget import ContextTooLarge, fit
 
 from cerberus.config import (
     DEFAULT_MAX_TOKENS,
@@ -30,7 +33,10 @@ class OllamaError(Exception):
 
 def trim_history(history):
     # A negative slice takes from the end: the newest messages.
-    return history[-MAX_HISTORY_MESSAGES:]
+    newest = history[-MAX_HISTORY_MESSAGES:]
+    if newest and (newest[0].get("role") if isinstance(newest[0], dict) else newest[0].role) == "assistant":
+        newest = newest[1:]
+    return newest
 
 
 def error_message(body):
@@ -105,6 +111,10 @@ async def stream_events(
 ):
     # num_predict = the most tokens the model may write (thinking included!);
     # num_ctx = the context window.
+    try:
+        messages = fit(messages, max_tokens, tools)
+    except ContextTooLarge as error:
+        raise OllamaError(str(error)) from None
     options = {"num_predict": max_tokens, "num_ctx": NUM_CTX}
     if temperature is not None:
         # 0 = always the most likely word, higher = more random and creative.
@@ -168,6 +178,8 @@ async def stream_events(
                         break
     except httpx.ConnectError:
         raise OllamaError(NOT_RUNNING) from None
+    except (httpx.HTTPError, ValueError) as error:
+        raise OllamaError(f"Ollama's response could not be read: {error}") from None
 
 
 async def stream_chat(model, messages, max_tokens=DEFAULT_MAX_TOKENS, temperature=None):
@@ -181,9 +193,10 @@ async def stream_chat(model, messages, max_tokens=DEFAULT_MAX_TOKENS, temperatur
     think = await can_think(model)
     if think:
         max_tokens += THINK_MAX_TOKENS
-    async for kind, value in stream_events(model, messages, max_tokens, temperature, think):
-        if kind == "content":
-            yield value
+    async with aclosing(stream_events(model, messages, max_tokens, temperature, think)) as events:
+        async for kind, value in events:
+            if kind == "content":
+                yield value
 
 
 async def embed(texts):

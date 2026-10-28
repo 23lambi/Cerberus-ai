@@ -1,3 +1,5 @@
+from contextlib import aclosing
+
 # POST /chat: the heart of Cerberus. One message comes in, context.py
 # builds the system prompt (personality, project notes, memories, summary),
 # and the answer is streamed back to the browser piece by piece.
@@ -9,15 +11,14 @@
 #                                         a tool the model used
 #   {"type": "stats", "tokens": 312, ...} once, at the end
 #   {"type": "error", "text": "..."}      when Ollama fails
-# Plain text could only carry the answer; JSON lines can carry all four.
+# A final done event confirms that saving has finished.
 
 import json
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from cerberus import context, database, recap, settings, tools
+from cerberus import database, recap, settings, tools, turns
 from cerberus.config import DEFAULT_MAX_TOKENS, THINK_MAX_TOKENS
 from cerberus.ollama import OllamaError, can_think, can_use_tools, stream_chat
 from cerberus.prompts import TOOLS_NOTE
@@ -35,54 +36,20 @@ def line(**fields):
 
 @router.post("/chat")
 async def chat(req: ChatRequest):
-    ctx = await context.prepare(req)
-    question = ctx.question
-
-    # Tools only when the user wants them AND the model can use them.
-    toolbox = tools.CHAT_TOOLS if req.tools and await can_use_tools(req.model) else []
-    messages = ctx.messages(extra=TOOLS_NOTE if toolbox else "")
-
-    # Only think when the user asked for it AND the model can do it.
-    # Thinking uses tokens too, so it gets its own budget on top.
-    think = req.think and await can_think(req.model)
-    max_tokens = DEFAULT_MAX_TOKENS + (THINK_MAX_TOKENS if think else 0)
-
-    # A generator: StreamingResponse sends each piece it yields to the
-    # browser right away, so the user sees the answer being written.
-    async def generate():
-        reply = ""
-        failed = False
+    async def produce(ctx):
+        toolbox = tools.CHAT_TOOLS if req.tools and await can_use_tools(req.model) else []
+        messages = ctx.messages(extra=TOOLS_NOTE if toolbox else "")
+        think = req.think and await can_think(req.model)
+        max_tokens = DEFAULT_MAX_TOKENS + (THINK_MAX_TOKENS if think else 0)
         if ctx.seen:
-            # First, what the Eyes saw, so the page can show it and keep it.
-            yield line(type="seen", text=ctx.seen, model=ctx.eyes)
-        try:
-            # The agent loop: when the model asks for a tool, tools.py runs
-            # it and asks the model again (see stream_with_tools).
-            events = tools.stream_with_tools(
-                req.model, messages, max_tokens, think, toolbox, tools.Context(chat_id=req.chat_id)
-            )
+            yield {"type": "seen", "text": ctx.seen, "model": ctx.eyes}
+        async with aclosing(tools.stream_with_tools(
+            req.model, messages, max_tokens, think, toolbox, tools.Context(chat_id=req.chat_id)
+        )) as events:
             async for kind, value in events:
-                if kind in ("stats", "tool"):
-                    # **value spreads the dict into the line's fields.
-                    yield line(type=kind, **value)
-                    continue
-                if kind == "content":
-                    reply += value  # only the answer is saved, not the thinking
-                yield line(type=kind, text=value)
-        except OllamaError as error:
-            failed = True
-            yield line(type="error", text=str(error))
-        finally:
-            # Runs at the end, and also when the user presses Stop.
-            # Question and answer are saved together, so a chat never has
-            # a question without its answer.
-            if req.chat_id and reply and not failed:
-                database.save_message(req.chat_id, "user", question, ctx.images, ctx.seen)
-                database.save_message(req.chat_id, "assistant", reply)
+                yield {"type": kind, **value} if kind in ("stats", "tool") else {"type": kind, "text": value}
 
-    return StreamingResponse(
-        generate(), media_type="application/x-ndjson", headers=ctx.headers()
-    )
+    return await turns.respond(req, produce)
 
 
 class TitleRequest(BaseModel):

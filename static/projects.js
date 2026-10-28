@@ -52,12 +52,14 @@ function showProjectMode() {
 }
 
 function enterProject(project) {
+  if (controller || attachmentUploads) return;
   currentProject = project;
   showProjectMode();
   newChat(); // newChat also reloads the chat list, now with this project's chats
 }
 
 async function leaveProject() {
+  if (controller || attachmentUploads) return;
   currentProject = null;
   showProjectMode();
   newChat(); // back to the normal chats
@@ -65,6 +67,7 @@ async function leaveProject() {
 }
 
 async function createProject() {
+  if (controller || attachmentUploads) return;
   const name = prompt("Project name:");
   if (name === null || !name.trim()) return;
 
@@ -86,7 +89,7 @@ async function createProject() {
 }
 
 async function renameProject() {
-  if (currentProject === null) return;
+  if (controller || attachmentUploads || currentProject === null) return;
 
   const name = prompt("Rename project:", currentProject.name);
   if (name === null || !name.trim()) return;
@@ -112,7 +115,8 @@ async function deleteProject(project) {
   const count = project.chats + (project.chats === 1 ? " chat" : " chats");
   if (!confirm('Delete "' + project.name + '" and its ' + count + "?")) return;
 
-  await fetch("/projects/" + project.id, { method: "DELETE" });
+  const response = await fetch("/projects/" + project.id, { method: "DELETE" });
+  if (!response.ok) { alert(await responseError(response)); return; }
   loadProjects();
 }
 

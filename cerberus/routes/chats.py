@@ -1,8 +1,9 @@
 # The chat list in the sidebar: create, list, open and delete chats.
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse, Response
 
-from cerberus import database
+from cerberus import database, turns, keeper
 from cerberus.schemas import ChatTitle, NewChat
 
 # prefix="/chats": every URL below starts with /chats.
@@ -11,6 +12,8 @@ router = APIRouter(prefix="/chats")
 
 @router.post("")
 def create_chat(body: NewChat):
+    if body.project_id and database.get_project(body.project_id) is None:
+        raise HTTPException(404, "Project not found")
     return database.create_chat(body.title, body.project_id)
 
 
@@ -28,6 +31,8 @@ def get_chat(chat_id: int):
     chat = database.get_chat(chat_id)
     if chat is None:
         raise HTTPException(status_code=404, detail="Chat not found")
+    chat["documents"] = [{"id": d["id"], "name": d["name"]} for d in database.chat_documents(chat_id)]
+    chat["answering"] = chat_id in turns.active
     return chat
 
 
@@ -44,6 +49,9 @@ def rename_chat(chat_id: int, body: ChatTitle):
 
 @router.delete("/{chat_id}")
 def delete_chat(chat_id: int):
+    turns.require_idle(chat_id)
+    for doc in database.chat_documents(chat_id):
+        keeper.delete_document(doc["id"])
     database.delete_chat(chat_id)
     return {"deleted": chat_id}
 
@@ -52,6 +60,35 @@ def delete_chat(chat_id: int):
 # the same question again. The new answer is saved like any other.
 @router.delete("/{chat_id}/last-turn")
 def delete_last_turn(chat_id: int):
+    turns.require_idle(chat_id)
     if not database.delete_last_turn(chat_id):
         raise HTTPException(status_code=404, detail="Nothing to delete")
     return {"deleted": chat_id}
+
+
+@router.post("/{chat_id}/stop")
+async def stop_chat(chat_id: int):
+    if chat_id in turns.active:
+        turns.active[chat_id].set()
+    return {"stopping": chat_id in turns.active}
+
+
+@router.get("/{chat_id}/export")
+def export_chat(chat_id: int, format: str = "markdown"):
+    chat = database.get_chat(chat_id)
+    if chat is None:
+        raise HTTPException(404, "Chat not found")
+    if format == "json":
+        return JSONResponse(chat, headers={"Content-Disposition": f'attachment; filename="cerberus-chat-{chat_id}.json"'})
+    if format != "markdown":
+        raise HTTPException(400, "Choose markdown or json.")
+    parts = ["# " + chat["title"]]
+    for message in chat["messages"]:
+        parts.append("## " + ("You" if message["role"] == "user" else "Cerberus"))
+        parts.append(message["content"])
+        if message["seen"]:
+            parts.append("Image description:\n\n" + message["seen"])
+        for image in message["images"]:
+            parts.append(f"![Attached image](data:image/jpeg;base64,{image})")
+    return Response("\n\n".join(parts) + "\n", media_type="text/markdown",
+                    headers={"Content-Disposition": f'attachment; filename="cerberus-chat-{chat_id}.md"'})

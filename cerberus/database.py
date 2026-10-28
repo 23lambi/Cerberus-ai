@@ -28,6 +28,14 @@ def get_db():
         conn.close()  # always close, even after an error
 
 
+def snapshot(path):
+    """SQLite's backup API makes a consistent copy, including WAL changes."""
+    with get_db() as source, sqlite3.connect(path) as target:
+        source.backup(target)
+        target.row_factory = sqlite3.Row
+        return [dict(row) for row in target.execute("SELECT id, path FROM documents")]
+
+
 def init_db():
     # CREATE TABLE IF NOT EXISTS does nothing when the table is already there,
     # so this is safe to run every time the server starts.
@@ -111,6 +119,25 @@ CREATE TABLE IF NOT EXISTS project_notes (
             conn.execute("ALTER TABLE messages ADD COLUMN images TEXT")
         if "seen" not in columns:
             conn.execute("ALTER TABLE messages ADD COLUMN seen TEXT")
+        if "sources" not in columns:
+            conn.execute("ALTER TABLE messages ADD COLUMN sources TEXT")
+        columns = [row["name"] for row in conn.execute("PRAGMA table_info(documents)")]
+        if "project_id" not in columns:
+            conn.execute("ALTER TABLE documents ADD COLUMN project_id INTEGER")
+        for column, definition in (("content", "TEXT"), ("revision", "INTEGER NOT NULL DEFAULT 0"), ("chat_id", "INTEGER")):
+            if column not in columns:
+                conn.execute(f"ALTER TABLE documents ADD COLUMN {column} {definition}")
+        conn.executescript("""
+CREATE TABLE IF NOT EXISTS document_versions (
+    document_id INTEGER NOT NULL, revision INTEGER NOT NULL,
+    name TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT NOT NULL,
+    PRIMARY KEY (document_id, revision)
+);
+CREATE TABLE IF NOT EXISTS document_proposals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, document_id INTEGER NOT NULL,
+    revision INTEGER NOT NULL, content TEXT NOT NULL, created_at TEXT NOT NULL
+);
+""")
 
 
 def now():
@@ -178,13 +205,14 @@ def get_chat(chat_id):
         if chat is None:
             return None
         rows = conn.execute(
-            "SELECT role, content, images, seen FROM messages WHERE chat_id = ? ORDER BY id",
+            "SELECT role, content, images, seen, sources FROM messages WHERE chat_id = ? ORDER BY id",
             (chat_id,),
         ).fetchall()
     return {
         "id": chat["id"],
         "title": chat["title"],
         "project_id": chat["project_id"],
+        "sources": {str(i): json.loads(row["sources"]) for i, row in enumerate(rows) if row["sources"]},
         # Images are stored as JSON text; turn them back into a list.
         "messages": [
             {
@@ -217,6 +245,8 @@ def delete_last_turn(chat_id):
             "SELECT id FROM messages WHERE chat_id = ? ORDER BY id DESC LIMIT 2)",
             (chat_id,),
         )
+        conn.execute("DELETE FROM summaries WHERE chat_id = ?", (chat_id,))
+        conn.execute("DELETE FROM project_notes WHERE chat_id = ?", (chat_id,))
     return cursor.rowcount > 0
 
 
@@ -269,6 +299,27 @@ def save_message(chat_id, role, content, images=None, seen=""):
                 "UPDATE chats SET title = ? WHERE id = ? AND title = 'New chat'",
                 (content[:40], chat_id),
             )
+
+
+def save_turn(chat_id, question, reply, images=None, seen="", expected_count=0, sources=None):
+    """Commit both messages together, only if the chat still has the same history."""
+    with get_db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        if conn.execute("SELECT 1 FROM chats WHERE id = ?", (chat_id,)).fetchone() is None:
+            return False
+        count = conn.execute("SELECT COUNT(*) FROM messages WHERE chat_id = ?", (chat_id,)).fetchone()[0]
+        if count != expected_count:
+            return False
+        conn.executemany(
+            "INSERT INTO messages (chat_id, role, content, images, seen, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            [(chat_id, "user", question, json.dumps(images) if images else None, seen or None, now()),
+             (chat_id, "assistant", reply, None, None, now())],
+        )
+        if sources:
+            conn.execute("UPDATE messages SET sources = ? WHERE id = (SELECT MAX(id) FROM messages WHERE chat_id = ?)",
+                         (json.dumps(sources), chat_id))
+        conn.execute("UPDATE chats SET title = ? WHERE id = ? AND title = 'New chat'", (question[:40], chat_id))
+    return True
 
 
 # ---------- Projects ----------
@@ -438,11 +489,11 @@ def delete_memory(memory_id):
 # ---------- Documents ----------
 
 
-def add_document(name, path):
+def add_document(name, path, project_id=None, chat_id=None):
     with get_db() as conn:
         cursor = conn.execute(
-            "INSERT INTO documents (name, path, created_at) VALUES (?, ?, ?)",
-            (name, path, now()),
+            "INSERT INTO documents (name, path, created_at, project_id, chat_id) VALUES (?, ?, ?, ?, ?)",
+            (name, path, now(), project_id, chat_id),
         )
     return cursor.lastrowid
 
@@ -457,22 +508,23 @@ def add_chunks(document_id, chunks):
         )
 
 
-def list_documents():
+def list_documents(project_id=None):
     with get_db() as conn:
         rows = conn.execute(
-            "SELECT d.id, d.name, d.created_at, COUNT(c.id) AS chunks "
+            "SELECT d.id, d.name, d.created_at, d.project_id, d.revision, "
+            "(d.content IS NOT NULL) AS editable, COUNT(c.id) AS chunks "
             "FROM documents d LEFT JOIN chunks c ON c.document_id = d.id "
-            "GROUP BY d.id ORDER BY d.id DESC"
+            "WHERE d.project_id IS ? AND d.chat_id IS NULL GROUP BY d.id ORDER BY d.id DESC", (project_id,)
         ).fetchall()
     return [dict(row) for row in rows]
 
 
-def all_chunks():
+def all_chunks(project_id=None):
     # Every chunk, with the name of the document it came from.
     with get_db() as conn:
         rows = conn.execute(
-            "SELECT c.text, c.embedding, d.name FROM chunks c "
-            "JOIN documents d ON d.id = c.document_id"
+            "SELECT c.text, c.embedding, d.name, d.id AS document_id, d.revision, c.position FROM chunks c "
+            "JOIN documents d ON d.id = c.document_id WHERE d.project_id IS ? AND d.chat_id IS NULL", (project_id,)
         ).fetchall()
     return [dict(row) for row in rows]
 
@@ -486,24 +538,87 @@ def delete_document(document_id):
         if row is None:
             return None
         conn.execute("DELETE FROM chunks WHERE document_id = ?", (document_id,))
+        conn.execute("DELETE FROM document_versions WHERE document_id = ?", (document_id,))
+        conn.execute("DELETE FROM document_proposals WHERE document_id = ?", (document_id,))
         conn.execute("DELETE FROM documents WHERE id = ?", (document_id,))
     return row["path"]
+
+
+def get_document(document_id):
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM documents WHERE id = ?", (document_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def write_document(name, content, project_id, chunks, document_id=None, revision=None):
+    """Save content, history and retrieval chunks together; reject stale edits."""
+    with get_db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        if document_id is None:
+            if project_id is not None and not conn.execute("SELECT 1 FROM projects WHERE id = ?", (project_id,)).fetchone():
+                raise ValueError("Project no longer exists")
+            cursor = conn.execute(
+                "INSERT INTO documents (name, path, created_at, project_id, content, revision) VALUES (?, '', ?, ?, ?, 1)",
+                (name, now(), project_id, content))
+            document_id, next_revision = cursor.lastrowid, 1
+        else:
+            next_revision = revision + 1
+            cursor = conn.execute(
+                "UPDATE documents SET name = ?, content = ?, revision = ? "
+                "WHERE id = ? AND revision = ? AND content IS NOT NULL",
+                (name, content, next_revision, document_id, revision))
+            if not cursor.rowcount:
+                raise ValueError("Document changed or was removed. Reopen it before saving.")
+        conn.execute("INSERT INTO document_versions VALUES (?, ?, ?, ?, ?)",
+                     (document_id, next_revision, name, content, now()))
+        conn.execute("DELETE FROM chunks WHERE document_id = ?", (document_id,))
+        conn.executemany("INSERT INTO chunks (document_id, position, text, embedding) VALUES (?, ?, ?, ?)",
+                         [(document_id, *chunk) for chunk in chunks])
+    return get_document(document_id)
+
+
+def document_versions(document_id):
+    with get_db() as conn:
+        return [dict(row) for row in conn.execute(
+            "SELECT revision, name, content, created_at FROM document_versions WHERE document_id = ? ORDER BY revision DESC",
+            (document_id,))]
+
+
+def add_proposal(document_id, revision, content):
+    with get_db() as conn:
+        cursor = conn.execute(
+            "INSERT INTO document_proposals (document_id, revision, content, created_at) "
+            "SELECT id, revision, ?, ? FROM documents WHERE id = ? AND revision = ? AND content IS NOT NULL",
+            (content, now(), document_id, revision))
+        if not cursor.rowcount:
+            raise ValueError("Document changed or was removed. Reopen it before proposing edits.")
+        return cursor.lastrowid
+
+
+def get_proposal(document_id, proposal_id):
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM document_proposals WHERE id = ? AND document_id = ?",
+                           (proposal_id, document_id)).fetchone()
+    return dict(row) if row else None
 
 
 # ---------- Searching old chats ----------
 
 
-def search_messages(words, exclude_chat_id=None, limit=200):
+def search_messages(words, exclude_chat_id=None, limit=200, project_id=None):
     # Only the structure of the SQL is built here; every value
     # still goes through a ? placeholder.
     # For ["python", "loop"] this builds: m.content LIKE ? OR m.content LIKE ?
     # and "%python%" means "python anywhere in the text".
-    conditions = " OR ".join("m.content LIKE ?" for _ in words)
-    params = [f"%{word}%" for word in words]
+    if not words:
+        return []
+    conditions = " OR ".join("m.content LIKE ? ESCAPE '\\'" for _ in words)
+    params = [like_pattern(word) for word in words]
     sql = (
         "SELECT m.role, m.content, m.created_at, c.title FROM messages m "
-        f"JOIN chats c ON c.id = m.chat_id WHERE ({conditions})"
+        f"JOIN chats c ON c.id = m.chat_id WHERE ({conditions}) AND c.project_id IS ?"
     )
+    params.append(project_id)
     if exclude_chat_id:
         sql += " AND m.chat_id != ?"
         params.append(exclude_chat_id)
@@ -513,3 +628,8 @@ def search_messages(words, exclude_chat_id=None, limit=200):
     with get_db() as conn:
         rows = conn.execute(sql, params).fetchall()
     return [dict(row) for row in rows]
+
+
+def chat_documents(chat_id):
+    with get_db() as conn:
+        return [dict(row) for row in conn.execute("SELECT * FROM documents WHERE chat_id = ? ORDER BY id", (chat_id,))]

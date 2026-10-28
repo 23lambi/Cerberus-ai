@@ -1,3 +1,5 @@
+from contextlib import aclosing
+
 # Tools: things the model can ask Cerberus to do, like calculating exactly
 # or searching your memories.
 #
@@ -271,15 +273,16 @@ async def stream_with_tools(model, messages, max_tokens, think=False, tools=(), 
     for _ in range(MAX_ROUNDS):
         calls = []
         text = ""
-        async for kind, value in ollama.stream_events(
+        async with aclosing(ollama.stream_events(
             model, messages, max_tokens, think=think, tools=definitions
-        ):
-            if kind == "tool_calls":
-                calls += value
-            else:
-                if kind == "content":
-                    text += value
-                yield kind, value
+        )) as events:
+            async for kind, value in events:
+                if kind == "tool_calls":
+                    calls += value
+                else:
+                    if kind == "content":
+                        text += value
+                    yield kind, value
         if not calls:
             return  # a normal answer: we're done
 
@@ -295,5 +298,6 @@ async def stream_with_tools(model, messages, max_tokens, think=False, tools=(), 
 
     # Still asking for tools after MAX_ROUNDS: one last time WITHOUT tools,
     # so it has to answer with what it has. No endless loops.
-    async for kind, value in ollama.stream_events(model, messages, max_tokens, think=think):
-        yield kind, value
+    async with aclosing(ollama.stream_events(model, messages, max_tokens, think=think)) as events:
+        async for kind, value in events:
+            yield kind, value

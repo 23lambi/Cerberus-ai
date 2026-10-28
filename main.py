@@ -8,6 +8,7 @@ from cerberus.database import init_db
 
 # Each route file is one group of URLs, for example everything under /chats.
 from cerberus.routes import (
+    backup,
     chat,
     chats,
     council,
@@ -43,6 +44,7 @@ async def always_fresh(request, call_next):
 
 # Plug every group of URLs into the app.
 app.include_router(pages.router)
+app.include_router(backup.router)
 app.include_router(chat.router)
 app.include_router(council.router)
 app.include_router(chats.router)

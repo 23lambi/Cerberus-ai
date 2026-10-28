@@ -77,7 +77,7 @@ def test_the_model_uses_a_tool_and_then_answers(client, fake):
     response = client.post("/chat", json=chat_body("What is 1234 * 5678?"))
 
     kinds = [event["type"] for event in events(response)]
-    assert kinds == ["stats", "tool", "content", "stats"]
+    assert kinds == ["stats", "tool", "content", "stats", "done"]
     tool = events(response)[1]
     assert tool["name"] == "calculate" and tool["result"] == "7006652"
     # The second time, the model gets its own request and the tool's result.

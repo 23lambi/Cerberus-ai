@@ -65,6 +65,27 @@ function fillSettings(values) {
     addModelFeature(values, feature);
   }
   settingsFields.appendChild(builtInPrompts());
+  const downloads = document.createElement("fieldset");
+  downloads.className = "setting-group";
+  const legend = document.createElement("legend");
+  legend.textContent = "Backup and export";
+  const note = document.createElement("p");
+  note.className = "hint";
+  note.textContent = "Download all chats, memories, settings and original documents. The ZIP includes restore instructions. Personal memories are shared across projects; documents and past-chat search stay within their project. Existing documents belong to All chats.";
+  const backup = document.createElement("a");
+  backup.href = "/backup";
+  backup.textContent = "Download full backup (.zip)";
+  downloads.append(legend, note, backup);
+  if (currentChatId) {
+    for (const [format, label] of [["markdown", "Markdown"], ["json", "JSON"]]) {
+      const link = document.createElement("a");
+      link.href = "/chats/" + currentChatId + "/export?format=" + format;
+      link.textContent = "Export current chat (" + label + ")";
+      link.style.display = "block";
+      downloads.appendChild(link);
+    }
+  }
+  settingsFields.appendChild(downloads);
 }
 
 // Makes a textarea exactly as tall as its text, so you see all of it

@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException
 
-from cerberus import database
+from cerberus import database, keeper, turns
 from cerberus.schemas import ProjectIn
 
 router = APIRouter(prefix="/projects")
@@ -36,6 +36,13 @@ def rename_project(project_id: int, body: ProjectIn):
 
 @router.delete("/{project_id}")
 def delete_project(project_id: int):
+    for chat in database.list_chats(project_id):
+        turns.require_idle(chat["id"])
+    for chat in database.list_chats(project_id):
+        for doc in database.chat_documents(chat["id"]):
+            keeper.delete_document(doc["id"])
+    for doc in database.list_documents(project_id):
+        keeper.delete_document(doc["id"])
     if not database.delete_project(project_id):
         raise HTTPException(status_code=404, detail="Project not found")
     return {"deleted": project_id}
