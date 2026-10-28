@@ -1835,7 +1835,9 @@ dialog .dialog-close:hover {
 
 /* ---------- Models panel ---------- */
 
-#panel-models button:not(.primary) {
+/* Plain buttons in the panel. Not the tabs: those keep their own look,
+   so the chosen tab stays visible. */
+#panel-models button:not(.primary):not(.tab) {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1849,7 +1851,7 @@ dialog .dialog-close:hover {
   transition: border-color 0.15s, color 0.15s;
 }
 
-#panel-models button:not(.primary):hover {
+#panel-models button:not(.primary):not(.tab):hover {
   border-color: var(--accent);
   color: var(--accent);
 }
@@ -2034,4 +2036,14 @@ dialog .dialog-close:hover {
 #library-more {
   align-self: flex-start;
   margin: 4px 0 24px;
+}
+
+/* Hugging Face: the suggested version (Q4_K_M) stands out a little. */
+#panel-models .sizes button.suggested {
+  border-color: rgba(232, 112, 126, 0.5);
+  color: var(--accent);
+}
+
+#model-source {
+  margin-bottom: 8px;
 }

@@ -163,16 +163,13 @@
       <ul id="installed-models" class="model-list"></ul>
 
       <h3 class="setting-section">Get a model</h3>
-      <form id="library-search" class="model-form">
-        <input type="search" id="library-query" placeholder="Search the Ollama library, like: qwen, coder, embed" autocomplete="off">
-        <button class="primary">Search</button>
-      </form>
-      <form id="pull-form" class="model-form">
-        <input id="pull-name" placeholder="Or type an exact name, like qwen3:4b" autocomplete="off">
-        <button>Download</button>
-      </form>
-      <p class="hint">Searching asks ollama.com: only your search words are sent. Rough memory
-        guide: a 3b model needs about 3 GB of RAM, 8b about 6 GB, 14b about 10 GB.</p>
+      <!-- Where models come from. Both are downloaded and run by Ollama. -->
+      <div class="tabs" id="model-source">
+        <button type="button" class="tab active" data-source="ollama">Ollama library</button>
+        <button type="button" class="tab" data-source="huggingface">Hugging Face</button>
+      </div>
+      <p class="hint">Rough memory guide: a 3b model needs about 3 GB of RAM, 8b about 6 GB,
+        14b about 10 GB. Only your search words are sent to the internet.</p>
 
       <!-- Shown while a model downloads -->
       <div id="model-download" class="model-download" hidden>
@@ -183,6 +180,17 @@
         <progress id="download-progress" max="1" value="0"></progress>
         <p id="download-status" class="hint" role="status"></p>
       </div>
+
+      <!-- Source 1: the Ollama library (ollama.com) -->
+      <div id="source-ollama">
+      <form id="library-search" class="model-form">
+        <input type="search" id="library-query" placeholder="Search the Ollama library, like: qwen, coder, embed" autocomplete="off">
+        <button class="primary">Search</button>
+      </form>
+      <form id="pull-form" class="model-form">
+        <input id="pull-name" placeholder="Or type an exact name, like qwen3:4b" autocomplete="off">
+        <button>Download</button>
+      </form>
 
       <!-- Browse without searching: sort and filter the list below -->
       <div class="library-controls">
@@ -203,6 +211,34 @@
       <p id="library-status" class="hint" role="status"></p>
       <ul id="library-results" class="model-list"></ul>
       <button type="button" id="library-more" hidden>Show more</button>
+      </div>
+
+      <!-- Source 2: Hugging Face (huggingface.co), GGUF models run by Ollama -->
+      <div id="source-huggingface" hidden>
+        <form id="hf-search" class="model-form">
+          <input type="search" id="hf-query" placeholder="Search Hugging Face, like: qwen2.5 7b instruct" autocomplete="off">
+          <button class="primary">Search</button>
+        </form>
+        <p class="hint">Over a million models. Each comes in versions from small and rough (Q2)
+          to big and precise (Q8); Q4_K_M is the usual choice. Prefer well-known publishers
+          (Qwen, google, bartowski, unsloth) and many downloads.</p>
+        <!-- Browse without searching. Only what Ollama can run: no "All". -->
+        <div class="library-controls">
+          <div class="tabs" id="hf-order">
+            <button type="button" class="tab active" data-order="popular">Popular</button>
+            <button type="button" class="tab" data-order="trending">Trending</button>
+            <button type="button" class="tab" data-order="liked">Most liked</button>
+          </div>
+          <div class="filter-chips" id="hf-category">
+            <button type="button" class="active" data-category="chat">Chat</button>
+            <button type="button" data-category="vision">Vision</button>
+            <button type="button" data-category="embedding">Embedding</button>
+          </div>
+        </div>
+        <p id="hf-status" class="hint" role="status"></p>
+        <ul id="hf-results" class="model-list"></ul>
+        <button type="button" id="hf-more" hidden>Show more</button>
+      </div>
     </section>
 
     <!-- Memory panel: memories and documents in two tabs -->

@@ -166,6 +166,18 @@ or type an exact name such as `qwen3:4b`. The list is kept for an hour. A downlo
 be cancelled; downloading again continues where it stopped. **Delete** frees
 the disk space. New models appear in the chat's model list right away.
 
+Switch the source to **Hugging Face** to browse GGUF models (Hugging Face's
+official API): **Popular**, **Trending** or **Most liked**, in the categories
+**Chat**, **Vision** and **Embedding**, 30 at a time, or search over a million
+models. There is no "newest" or "all": brand-new uploads are often spam, and
+other categories (image, music, speech) can't run in Ollama. Models you have
+in any version are marked installed. **Choose version** lists the common versions
+with their sizes; ★ marks Q4_K_M, the usual choice, and **Show all** lists the
+rest. Downloads go through Ollama (as `hf.co/<publisher>/<model>:<version>`),
+so these models appear in the chat's list like any other. Gated models, which
+need a Hugging Face account, are marked and can't be downloaded here. Prefer
+well-known publishers and many downloads: anyone can upload a model.
+
 The search reads ollama.com's normal search page, because Ollama has no
 search API. If that page changes, search may find nothing; typing an exact
 name always works, because downloads use Ollama's official API.

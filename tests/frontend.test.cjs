@@ -377,3 +377,24 @@ test("library filters and installed sizes", () => {
   assert.equal(context.fullName("qwen3", "4b"), "qwen3:4b");
   assert.equal(context.fullName("nomic-embed-text", null), "nomic-embed-text:latest");
 });
+
+test("Hugging Face shows the common versions first", () => {
+  const models = fs.readFileSync("static/models.js", "utf8");
+  const start = models.indexOf("const COMMON_VERSIONS");
+  const context = vm.createContext({});
+  vm.runInContext(models.slice(start, models.indexOf("// 1234567", start)), context);
+  const versions = ["IQ2_M", "Q3_K_M", "Q4_0_4_8", "Q4_K_M", "Q8_0", "F16"].map(version => ({ version }));
+  assert.deepEqual(context.commonVersions(versions).map(item => item.version), ["Q3_K_M", "Q4_K_M", "Q8_0"]);
+  const unusual = [{ version: "IQ1_S" }, { version: "BF16" }];
+  assert.deepEqual(context.commonVersions(unusual), unusual); // nothing common: show all
+});
+
+test("a Hugging Face model counts as installed when any of its versions is", () => {
+  const models = fs.readFileSync("static/models.js", "utf8");
+  const start = models.indexOf("function repoInstalled(");
+  const context = vm.createContext({ installedNames: new Set(["hf.co/Bartowski/Qwen2.5-7B-Instruct-GGUF:Q4_K_M", "qwen3:4b"]) });
+  vm.runInContext(models.slice(start, models.indexOf("// One Hugging Face model", start)), context);
+  assert.equal(context.repoInstalled("bartowski/Qwen2.5-7B-Instruct-GGUF"), true); // capitals don't matter
+  assert.equal(context.repoInstalled("bartowski/Qwen2.5-7B-Instruct"), false); // a different repo
+  assert.equal(context.repoInstalled("Qwen/Qwen3-4B-GGUF"), false);
+});

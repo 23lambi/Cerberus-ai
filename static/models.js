@@ -66,14 +66,20 @@ async function loadInstalledModels() {
   installedList.innerHTML = "";
   for (const model of data.models) installedList.appendChild(installedRow(model));
   installedNames = new Set(data.models.map((model) => model.name));
-  if (libraryModels.length) renderLibrary(); // update the ✓ installed marks
+  // Update the ✓ installed marks in both lists.
+  if (libraryModels.length) renderLibrary();
+  if (hfModels.length) renderHuggingFace();
 }
 
-// Opening the panel: the installed models, and the library list the
-// first time (after that it's already there).
+// Opening the panel: the installed models, and the list of the chosen
+// source the first time (after that it's already there).
 function loadModelsPanel() {
   loadInstalledModels();
-  if (!libraryModels.length && !libraryQuery) loadLibrary();
+  if (!document.getElementById("source-huggingface").hidden) {
+    if (!hfModels.length && !hfQuery) loadHuggingFace();
+  } else if (!libraryModels.length && !libraryQuery) {
+    loadLibrary();
+  }
 }
 
 // One installed model: name, details, what it can do, and Delete.
@@ -339,3 +345,226 @@ async function startDownload(name) {
     downloadStatus.textContent = failure || "The download ended early. Try again.";
   }
 }
+
+// ---------- Where models come from: the Ollama library or Hugging Face ----------
+
+for (const button of document.querySelectorAll("#model-source [data-source]")) {
+  button.addEventListener("click", () => showSource(button.dataset.source));
+}
+
+function showSource(source) {
+  for (const other of document.querySelectorAll("#model-source [data-source]")) {
+    other.classList.toggle("active", other.dataset.source === source);
+  }
+  document.getElementById("source-ollama").hidden = source !== "ollama";
+  document.getElementById("source-huggingface").hidden = source !== "huggingface";
+  // The Hugging Face list loads the first time you open it.
+  if (source === "huggingface" && !hfModels.length && !hfQuery) loadHuggingFace();
+  // Remember the choice for next time (this browser only).
+  try {
+    localStorage.setItem("cerberus-model-source", source);
+  } catch (_) { /* private mode: just don't remember */ }
+}
+
+// Ollama may write a name with other capitals than Hugging Face, so the
+// "already installed" check ignores case.
+function isInstalled(name) {
+  const wanted = name.toLowerCase();
+  return [...installedNames].some((installed) => installed.toLowerCase() === wanted);
+}
+
+// ---------- Hugging Face ----------
+
+const hfResults = document.getElementById("hf-results");
+const hfStatus = document.getElementById("hf-status");
+
+// The Hugging Face list, like the Ollama one: what came, and what's shown.
+let hfModels = [];
+let hfOrder = "popular"; // popular, trending, liked
+let hfCategory = "chat"; // chat, vision, embedding
+let hfShown = 0;
+let hfQuery = ""; // the search words, "" = browsing
+
+// The versions most people choose from. The others (IQ2_M, Q4_0_4_8...)
+// are for experts, one click away under "Show all".
+const COMMON_VERSIONS = ["Q3_K_M", "Q4_K_M", "Q5_K_M", "Q6_K", "Q8_0"];
+
+function commonVersions(versions) {
+  const common = versions.filter((item) => COMMON_VERSIONS.includes(item.version));
+  return common.length ? common : versions; // an unusual model: show them all
+}
+
+// 1234567 -> "1.2M"
+function compactNumber(number) {
+  return new Intl.NumberFormat("en", { notation: "compact" }).format(number);
+}
+
+// Without words: browse the chosen order and category. With words: search.
+async function loadHuggingFace(query = "") {
+  hfQuery = query;
+  hfResults.innerHTML = "";
+  document.getElementById("hf-more").hidden = true;
+  hfStatus.textContent = query ? "Searching Hugging Face…" : "Loading from Hugging Face…";
+  const params = new URLSearchParams(query ? { q: query } : { order: hfOrder, category: hfCategory });
+  try {
+    const response = await fetch("/models/huggingface?" + params);
+    if (!response.ok) throw new Error(await responseError(response));
+    hfModels = (await response.json()).models;
+  } catch (error) {
+    hfModels = [];
+    hfStatus.textContent = error.message;
+    return;
+  }
+  hfShown = LIBRARY_PAGE;
+  renderHuggingFace();
+}
+
+const HF_ORDER_WORDS = { popular: "most downloaded", trending: "trending now", liked: "most liked" };
+
+function renderHuggingFace() {
+  hfStatus.textContent = !hfModels.length
+    ? "Nothing found. Try fewer or other words."
+    : hfQuery
+    ? hfModels.length + " GGUF models found, most downloaded first. Choose a version to download."
+    : hfModels.length + " " + hfCategory + " models, " + HF_ORDER_WORDS[hfOrder] + " first. Choose a version to download.";
+  hfResults.innerHTML = "";
+  for (const model of hfModels.slice(0, hfShown)) hfResults.appendChild(hfRow(model));
+  const more = document.getElementById("hf-more");
+  const left = hfModels.length - hfShown;
+  more.hidden = left <= 0;
+  more.textContent = "Show more (" + left + " left)";
+}
+
+document.getElementById("hf-search").addEventListener("submit", (event) => {
+  event.preventDefault();
+  // Empty search: back to browsing.
+  loadHuggingFace(document.getElementById("hf-query").value.trim());
+});
+
+document.getElementById("hf-more").addEventListener("click", () => {
+  hfShown += LIBRARY_PAGE;
+  renderHuggingFace();
+});
+
+// Popular / Trending / Most liked, and Chat / Vision / Embedding: each a
+// new list from Hugging Face (the server keeps each one an hour).
+function hfChoice(selector, key, apply) {
+  for (const button of document.querySelectorAll(selector)) {
+    button.addEventListener("click", () => {
+      apply(button.dataset[key]);
+      for (const other of document.querySelectorAll(selector)) other.classList.toggle("active", other === button);
+      document.getElementById("hf-query").value = "";
+      loadHuggingFace();
+    });
+  }
+}
+hfChoice("#hf-order [data-order]", "order", (order) => { hfOrder = order; });
+hfChoice("#hf-category [data-category]", "category", (category) => { hfCategory = category; });
+
+// Is some version of this Hugging Face model installed? Ollama knows
+// them as "hf.co/<repo>:<version>".
+function repoInstalled(repo) {
+  const prefix = ("hf.co/" + repo + ":").toLowerCase();
+  return [...installedNames].some((name) => name.toLowerCase().startsWith(prefix));
+}
+
+// One Hugging Face model. Its versions load when you ask for them: that's
+// one more request to Hugging Face, so not for all 20 results at once.
+function hfRow(model) {
+  const li = document.createElement("li");
+  const info = document.createElement("div");
+  info.className = "model-info";
+
+  const head = document.createElement("div");
+  head.className = "model-head";
+  const name = document.createElement("strong");
+  name.className = "model-name";
+  name.textContent = model.repo;
+  head.append(name, tag(compactNumber(model.downloads) + " downloads · " + compactNumber(model.likes) + " likes", "hint"));
+
+  const tags = document.createElement("div");
+  tags.className = "tags";
+  if (model.vision) tags.appendChild(tag("vision"));
+  if (model.embedding) tags.appendChild(tag("embedding"));
+  if (repoInstalled(model.repo)) tags.appendChild(tag("installed", "tag live"));
+
+  const versions = document.createElement("div");
+  versions.className = "sizes";
+  const choose = document.createElement("button");
+  choose.type = "button";
+  choose.textContent = "Choose version";
+  choose.addEventListener("click", () => loadVersions(model.repo, versions, tags));
+  versions.appendChild(choose);
+
+  info.append(head, tags, versions);
+  li.appendChild(info);
+  return li;
+}
+
+async function loadVersions(repo, box, tags) {
+  box.innerHTML = "";
+  box.appendChild(tag("Loading versions…", "hint"));
+  let data;
+  try {
+    const response = await fetch("/models/huggingface/versions?repo=" + encodeURIComponent(repo));
+    if (!response.ok) throw new Error(await responseError(response));
+    data = await response.json();
+  } catch (error) {
+    box.innerHTML = "";
+    box.appendChild(tag(error.message, "hint"));
+    return;
+  }
+  box.innerHTML = "";
+  if (data.license) tags.appendChild(tag("license: " + data.license));
+  if (data.gated) {
+    box.appendChild(tag("Gated: this model needs a Hugging Face account and accepted terms, so it " +
+                        "can't be downloaded here. Look for another publisher's GGUF of it.", "hint"));
+    return;
+  }
+  if (!data.versions.length) {
+    box.appendChild(tag("No GGUF files in this model, so Ollama can't run it.", "hint"));
+    return;
+  }
+
+  // First the common versions; "Show all" adds the rest.
+  function draw(versions) {
+    box.innerHTML = "";
+    for (const item of versions) box.appendChild(versionButton(item, data.suggested));
+    if (versions.length < data.versions.length) {
+      const all = document.createElement("button");
+      all.type = "button";
+      all.textContent = "Show all " + data.versions.length + " versions";
+      all.addEventListener("click", () => draw(data.versions));
+      box.appendChild(all);
+    }
+  }
+  draw(commonVersions(data.versions));
+}
+
+// One version: "★ Q4_K_M · 4.4 GB". The star marks the suggested one.
+function versionButton(item, suggested) {
+  const button = document.createElement("button");
+  button.type = "button";
+  const label = item.version + " · " + formatBytes(item.size);
+  if (isInstalled(item.ollama_name)) {
+    button.textContent = "✓ " + label;
+    button.title = "Installed";
+    button.disabled = true;
+    button.classList.add("installed");
+  } else {
+    button.textContent = (item.version === suggested ? "★ " : "↓ ") + label;
+    button.title = "Download " + item.ollama_name + (item.version === suggested ? " (suggested)" : "");
+    if (item.version === suggested) button.classList.add("suggested");
+    button.addEventListener("click", () => startDownload(item.ollama_name));
+  }
+  return button;
+}
+
+// ---------- Start ----------
+
+// The source used last time. At the very end of the file on purpose: it
+// uses variables declared above (hfModels...), and JavaScript doesn't
+// allow a "let" variable to be used before its line has run.
+try {
+  if (localStorage.getItem("cerberus-model-source") === "huggingface") showSource("huggingface");
+} catch (_) { /* nothing remembered */ }

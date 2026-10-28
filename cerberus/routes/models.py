@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from cerberus import library, ollama
+from cerberus import huggingface, library, ollama
 
 router = APIRouter(prefix="/models")
 
@@ -46,6 +46,28 @@ async def search_library(q: str = "", order: str = "popular"):
         return {"models": await library.browse("newest" if order == "newest" else "popular")}
     except library.LibraryError as error:
         raise HTTPException(502, str(error)) from None
+
+
+@router.get("/huggingface")
+async def search_huggingface(q: str = "", order: str = "popular", category: str = "chat"):
+    """Search Hugging Face for GGUF models (the ones Ollama can run), or
+    without words, browse one category: chat, vision or embedding."""
+    try:
+        if q.strip():
+            return {"models": await huggingface.search(q.strip()[:100])}
+        return {"models": await huggingface.browse(order, category)}
+    except huggingface.HuggingFaceError as error:
+        raise HTTPException(502, str(error)) from None
+
+
+@router.get("/huggingface/versions")
+async def huggingface_versions(repo: str):
+    """The versions of one Hugging Face model (Q4_K_M, Q8_0...) with their sizes."""
+    try:
+        return await huggingface.versions(repo.strip())
+    except huggingface.HuggingFaceError as error:
+        status = 422 if "isn't a Hugging Face" in str(error) else 404 if "doesn't exist" in str(error) else 502
+        raise HTTPException(status, str(error)) from None
 
 
 class PullIn(BaseModel):
