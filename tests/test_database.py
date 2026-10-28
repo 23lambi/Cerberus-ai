@@ -61,3 +61,9 @@ def test_messages_are_found_by_index(db):
         ).fetchall()
     steps = " ".join(row["detail"] for row in plan)
     assert "USING INDEX messages_by_chat" in steps
+
+
+def test_database_uses_wal(db):
+    # The mode is stored in the file, so every new connection gets it too.
+    with database.get_db() as conn:
+        assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"

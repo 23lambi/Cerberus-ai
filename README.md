@@ -89,7 +89,8 @@ current chat as Markdown or JSON. JSON retains images and image descriptions.
 
 A backup contains a consistent SQLite snapshot, original document files,
 `documents.json` mapping their paths, and `RESTORE.txt`. Stop Cerberus before
-restoring; keep a copy of your existing data, replace `cerberus.db`, and copy
+restoring; keep a copy of your existing data, replace `cerberus.db` (deleting
+any old `cerberus.db-wal` and `cerberus.db-shm` beside it), and copy
 documents to the paths in the manifest. Models and application code are separate.
 The download stays on your computer and includes your private data.
 

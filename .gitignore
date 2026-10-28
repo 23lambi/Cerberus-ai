@@ -1,5 +1,7 @@
 venv/
 cerberus.db
+cerberus.db-wal
+cerberus.db-shm
 __pycache__/
 documents/
 .pytest_cache/

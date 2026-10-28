@@ -43,6 +43,8 @@ inside cerberus.db. Only original uploaded files need separate copying.
 To restore on the same computer:
 1. Stop Cerberus. Keep a copy of your current database and documents.
 2. Replace cerberus.db in the Cerberus project folder with this database.
+   Delete cerberus.db-wal and cerberus.db-shm there too, if they exist:
+   they belong to the old database.
 3. Read documents.json. Copy each archive_path file to its original_path
    (relative paths are relative to the Cerberus project folder).
 4. Start Cerberus with one server worker.

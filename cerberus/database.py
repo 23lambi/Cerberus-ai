@@ -40,6 +40,10 @@ def init_db():
     # CREATE TABLE IF NOT EXISTS does nothing when the table is already there,
     # so this is safe to run every time the server starts.
     with get_db() as conn:
+        # WAL ("write-ahead log"): a save goes to cerberus.db-wal first, so
+        # reading never has to wait for a save to finish, and the other way
+        # round. The setting is stored in the database file itself.
+        conn.execute("PRAGMA journal_mode=WAL")
         conn.executescript("""
 CREATE TABLE IF NOT EXISTS chats (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
