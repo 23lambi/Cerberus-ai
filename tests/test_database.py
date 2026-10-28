@@ -49,3 +49,15 @@ def test_first_question_becomes_the_title(db):
     chat = database.create_chat("New chat")
     database.save_message(chat["id"], "user", "How do I learn Rust?")
     assert database.get_chat(chat["id"])["title"] == "How do I learn Rust?"
+
+
+def test_messages_are_found_by_index(db):
+    # EXPLAIN QUERY PLAN asks SQLite HOW it would run a query, without
+    # running it. "SCAN messages" = read the whole table, row by row;
+    # "SEARCH messages USING INDEX" = jump straight to the right rows.
+    with database.get_db() as conn:
+        plan = conn.execute(
+            "EXPLAIN QUERY PLAN SELECT * FROM messages WHERE chat_id = ?", (1,)
+        ).fetchall()
+    steps = " ".join(row["detail"] for row in plan)
+    assert "USING INDEX messages_by_chat" in steps

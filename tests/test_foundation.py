@@ -303,6 +303,8 @@ def test_backup_does_not_silently_omit_missing_document(client):
 def test_migration_preserves_existing_documents_and_is_repeatable(db):
     document_id = database.add_document("existing.txt", "documents/existing.txt")
     with database.get_db() as conn:
+        # An old database had neither the column nor its index.
+        conn.execute("DROP INDEX documents_by_project")
         conn.execute("ALTER TABLE documents DROP COLUMN project_id")
     database.init_db()
     database.init_db()

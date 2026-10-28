@@ -139,6 +139,19 @@ CREATE TABLE IF NOT EXISTS document_proposals (
 );
 """)
 
+        # Indexes: like the index at the back of a book. Without one, finding
+        # "the messages of chat 7" means reading every message of every chat.
+        # With one, SQLite jumps straight to them. They come last, because
+        # some of these columns are only added by the migrations above.
+        conn.executescript("""
+CREATE INDEX IF NOT EXISTS messages_by_chat ON messages (chat_id);
+CREATE INDEX IF NOT EXISTS chats_by_project ON chats (project_id);
+CREATE INDEX IF NOT EXISTS chunks_by_document ON chunks (document_id);
+CREATE INDEX IF NOT EXISTS documents_by_project ON documents (project_id);
+CREATE INDEX IF NOT EXISTS documents_by_chat ON documents (chat_id);
+CREATE INDEX IF NOT EXISTS notes_by_project ON project_notes (project_id);
+""")
+
 
 def now():
     # The time as text, like "2026-10-17T14:05:09". SQLite has no date type,
