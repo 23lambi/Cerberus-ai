@@ -38,134 +38,23 @@ jobs:
           if [ "$CREATE_DRAFT" != "true" ]; then
             exit 0
           fi
-          # A missing tag is expected; authentication/network errors must still fail.
-          refs="$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$RELEASE_TAG")"
-          exists="$(printf '%s' "$refs" | jq --arg ref "refs/tags/$RELEASE_TAG" '[.[] | select(.ref == $ref)] | length')"
-          if [ "$exists" != "0" ]; then
-            existing_commit="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq .sha)"
+          # A missing ref returns an empty result; authentication/network errors fail.
+          ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" 2>/dev/null || true)"
+          if [ -n "$ref" ]; then
+            object_sha="$(printf '%s' "$ref" | jq -r '.object.sha')"
+            object_type="$(printf '%s' "$ref" | jq -r '.object.type')"
+            ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" 2>/dev/null || true)"
+          if [ -n "$ref" ]; then
+            object_sha="$(printf '%s' "$ref" | jq -r '.object.sha')"
+            object_type="$(printf '%s' "$ref" | jq -r '.object.type')"
+            existing_commit="$object_sha"
+            if [ "$object_type" = "tag" ]; then
+              existing_commit="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$object_sha" --jq .object.sha)"
+            fi
             if [ "$existing_commit" != "$RELEASE_COMMIT" ]; then
-              echo "::error::Tag $RELEASE_TAG belongs to commit $existing_commit, but this run builds $RELEASE_COMMIT. Run this workflow again with an unused version (for example the next patch version). Do not move the existing tag."
+              echo "::error::Version $RELEASE_TAG points to $existing_commit; these artifacts were built from $RELEASE_COMMIT. Choose a new version."
               exit 1
             fi
-          fi
-
-  build:
-    name: Build ${{ matrix.target }}
-    needs: validate
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-24.04
-            target: linux-x86_64
-          - os: windows-2022
-            target: windows-x86_64
-          - os: macos-15
-            target: macos-arm64
-          - os: macos-15-intel
-            target: macos-x86_64
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
-    env:
-      RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.14'
-          cache: pip
-          cache-dependency-path: |
-            requirements-base.txt
-            packaging/requirements-*.txt
-      - uses: actions/setup-node@v7
-        with:
-          node-version: '24'
-          package-manager-cache: false
-      - name: Linux GUI build libraries
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y tk8.6 libegl1 libopengl0 libxcb-cursor0 libxkbcommon-x11-0 libnss3 libasound2t64
-      - name: Install build dependencies
-        run: python -m pip install -r packaging/requirements-app.txt pytest==9.1.1
-      - name: Python tests
-        env:
-          CERBERUS_DATA: ${{ runner.temp }}/cerberus-release-tests
-        run: python -m pytest -q
-      - run: node tests/frontend.test.cjs
-      - name: Build and smoke-test the launcher
-        shell: bash
-        run: python scripts/build_release.py launcher --version "$RELEASE_VERSION"
-      - name: Build and smoke-test the application
-        shell: bash
-        run: python scripts/build_release.py app --version "$RELEASE_VERSION"
-      - name: Verify archive installation and data preservation
-        shell: bash
-        env:
-          BUILD_TARGET: ${{ matrix.target }}
-        run: python scripts/smoke_installation.py "dist/release/cerberus-$BUILD_TARGET.tar.gz" --version "$RELEASE_VERSION"
-      - uses: actions/upload-artifact@v7
-        with:
-          name: desktop-${{ matrix.target }}
-          path: dist/release/*
-          if-no-files-found: error
-          compression-level: 0
-
-  assemble:
-    name: Assemble verified downloads
-    needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    env:
-      RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.14'
-      - uses: actions/download-artifact@v8
-        with:
-          pattern: desktop-*
-          path: dist/release
-          merge-multiple: true
-      - name: Create checksummed application manifest
-        run: python scripts/release_manifest.py dist/release --version "$RELEASE_VERSION"
-      - uses: actions/upload-artifact@v7
-        with:
-          name: desktop-release
-          path: dist/release/*
-          compression-level: 0
-
-  draft:
-    name: Create draft GitHub release
-    if: startsWith(github.ref, 'refs/tags/v') || inputs.create_draft
-    needs: assemble
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: actions/download-artifact@v8
-        with:
-          name: desktop-release
-          path: dist/release
-      - name: Create draft for maintainer review
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.version || github.ref_name }}
-          RELEASE_COMMIT: ${{ github.sha }}
-        run: |
-          existing_commit="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq .sha 2>/dev/null || true)"
-          if [ -n "$existing_commit" ] && [ "$existing_commit" != "$RELEASE_COMMIT" ]; then
-            echo "::error::Tag $RELEASE_TAG now points to $existing_commit instead of this build ($RELEASE_COMMIT). Run the workflow with an unused version."
-            exit 1
           fi
           gh release create "$RELEASE_TAG" dist/release/* \
             --draft --target "$RELEASE_COMMIT" --title "Cerberus $RELEASE_TAG" \
