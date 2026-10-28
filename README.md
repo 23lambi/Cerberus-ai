@@ -11,14 +11,21 @@ A desktop workspace for chat, documents, and research with local or cloud AI.
 
 ## Get started
 
-Download the launcher for your computer. **No Python, Git, or terminal setup is required.**
+**Packaged downloads are not published yet.** The launcher files must first be
+built and added to a stable GitHub release. Until then, the direct asset links
+would return **Not Found**.
 
-| Your computer | Download | Open after extracting the ZIP |
+[Check available releases](https://github.com/23lambi/Cerberus-ai/releases) · [Build and release instructions](docs/launcher.md#build-and-publish)
+
+When a release is available, choose the ZIP for your computer. **No Python,
+Git, or terminal setup is required for packaged downloads.**
+
+| Your computer | Release file | Open after extracting the ZIP |
 | --- | --- | --- |
-| Windows · 64-bit | [Windows launcher](https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-windows-x86_64.zip) | `CerberusLauncher.exe` |
-| macOS · Apple Silicon | [Mac launcher · Apple Silicon](https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-macos-arm64.zip) | `CerberusLauncher.app` |
-| macOS · Intel | [Mac launcher · Intel](https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-macos-x86_64.zip) | `CerberusLauncher.app` |
-| Linux · 64-bit | [Linux launcher](https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-linux-x86_64.zip) | `CerberusLauncher` |
+| Windows · 64-bit | `cerberus-launcher-windows-x86_64.zip` | `CerberusLauncher.exe` |
+| macOS · Apple Silicon | `cerberus-launcher-macos-arm64.zip` | `CerberusLauncher.app` |
+| macOS · Intel | `cerberus-launcher-macos-x86_64.zip` | `CerberusLauncher.app` |
+| Linux · 64-bit | `cerberus-launcher-linux-x86_64.zip` | `CerberusLauncher` |
 
 1. Download and extract your launcher ZIP.
 2. Open the launcher and choose **Install Cerberus**, then **Open Cerberus**.
