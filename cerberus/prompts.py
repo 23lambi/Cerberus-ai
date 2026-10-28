@@ -190,6 +190,9 @@ conversation or about the user.
 Reply with exactly one line: NONE, or a short search query (at most 10 words)
 in the language of the message. For a follow-up question, put the topic from
 the earlier messages into the query.
+Write what to search for, never the answer: do not add facts, dates or
+numbers that are not in the messages. Good: "Eiffel Tower height".
+Bad: "Eiffel Tower is 300 meters tall".
 """
 
 # When the search itself failed (SearXNG not running, no internet...).

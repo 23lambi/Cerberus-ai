@@ -60,7 +60,7 @@ def test_research_keeps_the_pieces_about_the_question(db, fake, monkeypatch):
     assert first["kind"] == "web"
     assert "unique" in first["text"]
     # Never whole pages: only a few pieces of about 800 characters reach the model.
-    assert sum(len(source["text"]) for source in sources) < 4 * 900
+    assert sum(len(source["text"]) for source in sources) < 4 * 560
 
 
 def test_a_page_that_cannot_be_read_falls_back_to_its_snippet(db, fake, monkeypatch):
@@ -243,3 +243,22 @@ def test_a_follow_up_is_searched_with_the_helpers_query(client, fake, monkeypatc
     assert searched == ["zebra stripes reason"]
     sources = events(response)[0]["sources"]
     assert sources[0]["query"] == "zebra stripes reason"  # saved with the answer
+
+
+def test_a_query_with_made_up_numbers_is_not_trusted(fake):
+    # A real case: the Helper wrote its guess into the query, and the
+    # search then found pages about the wrong date.
+    fake.script = [[("content", "Python 3.15 was released on March 14, 2022")]]
+    recent = [{"role": "user", "content": "What's new in Python 3.15?"},
+              {"role": "assistant", "content": "Lazy imports."}]
+
+    query = asyncio.run(web.plan("and when was it released?", recent, helper="small:3b"))
+
+    # The rules' version instead: the earlier question in front.
+    assert query == "What's new in Python 3.15? and when was it released?"
+
+
+def test_numbers_from_the_conversation_are_fine(fake):
+    fake.script = [[("content", "Python 3.15 release date")]]
+    recent = [{"role": "user", "content": "What's new in Python 3.15?"}]
+    assert asyncio.run(web.plan("and when was it released?", recent, helper="small:3b")) == "Python 3.15 release date"

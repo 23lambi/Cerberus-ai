@@ -62,5 +62,11 @@ MAX_PAGE_BYTES = 2 * 1024 * 1024  # stop downloading a page after 2 MB
 MAX_REDIRECTS = 5
 PAGE_TEXT_CHARS = 40000  # the most text kept from one page
 WEB_PAGES = 3  # how many of the search results are read
-WEB_PIECES_PER_PAGE = 6  # round 1, by words: the best pieces of each page
-WEB_PIECES = 4  # round 2, by meaning: the pieces the model gets (~800 chars each)
+# Web pages are cut finer than documents. On a CPU the model reads only
+# about 75 tokens a second, so every character it gets costs time: small
+# pieces mean the 4 chosen ones are mostly what matters (measured: about
+# 2000 instead of 3200 characters, several seconds less per answer).
+WEB_PIECE_CHARS = 500
+WEB_PIECE_OVERLAP = 60
+WEB_PIECES_PER_PAGE = 4  # round 1, by words: the best pieces of each page
+WEB_PIECES = 4  # round 2, by meaning: the pieces the model gets

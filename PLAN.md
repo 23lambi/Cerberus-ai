@@ -232,8 +232,27 @@ Implementation notes:
 - Browser: 🌐 Web box (remembered, off the first time), "Web: N pages" label,
   web source preview with an http(s)-only link, SearXNG address in Settings.
 - Verified with real SearXNG, real pages and `llama3.2:3b` (temporary database).
-- Possible next steps: a `web_search` tool for tool models, Helper-rewritten
-  search queries for follow-up questions, and visual review in the browser.
+
+Follow-ups on 2026-10-28 (all committed):
+- Redesign: Noto Sans + JetBrains Mono, SVG line icons, user bubbles, pill
+  toggles, Settings as grouped cards with switches; `style.css` rebuilt around
+  design variables. Checked with headless Firefox screenshots.
+- Smart search (`web.plan`): Web means "may search". Small talk, thanks,
+  arithmetic, writing tasks and memory questions skip it ("Web: not needed").
+  The Helper decides and rewrites follow-ups into queries; a query containing
+  numbers not found in the conversation is rejected (a small model once wrote
+  its guessed answer into the query). Without a Helper, rules decide and add
+  the previous question to short follow-ups. The query is saved with sources.
+- Speed, measured on this CPU (llama3.2:3b reads about 75–130 prompt tokens/s):
+  the model reading the web text dominated (13–18 s), then embeddings (2.5 s);
+  search and page reading take about 2 s. Web pages are now cut into 500-char
+  pieces (4 chosen): prompt reading 5–9 s, embeddings 1.2 s, a web answer about
+  20 s instead of 24–31 s. DuckDuckGo may answer SearXNG with a CAPTCHA after
+  many searches in a row; SearXNG then skips it.
+- Known limit: `llama3.2:3b` occasionally ignores correct sources on
+  follow-ups; `llama3.1:8b` was reliable but about 2.5× slower.
+- Possible next steps: progress messages while searching (prepare() is silent
+  for ~5 s), a `web_search` tool for tool models, Stage 4 research mode.
 
 ### Stage 4 — research mode
 

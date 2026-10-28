@@ -5,7 +5,7 @@
 #   3. keep only the pieces of those pages that fit the question
 #
 # The model's context window is small, so it never gets whole pages:
-# only WEB_PIECES pieces of about 800 characters, grouped per page, so
+# only WEB_PIECES pieces of about 500 characters, grouped per page, so
 # that source [1] is always one web page.
 
 import asyncio
@@ -13,7 +13,13 @@ import re
 from urllib.parse import urlsplit
 
 from cerberus import keeper, webpage, websearch
-from cerberus.config import WEB_PAGES, WEB_PIECES, WEB_PIECES_PER_PAGE
+from cerberus.config import (
+    WEB_PAGES,
+    WEB_PIECE_CHARS,
+    WEB_PIECE_OVERLAP,
+    WEB_PIECES,
+    WEB_PIECES_PER_PAGE,
+)
 from cerberus.ollama import OllamaError, can_think, stream_chat
 from cerberus.prompts import WEB_PLAN_PROMPT
 from cerberus.websearch import WebError
@@ -120,6 +126,13 @@ async def ask_helper(model, question, recent):
         return None
     if line.upper().startswith("NONE"):
         return ""
+    # Small models sometimes write a guessed ANSWER into the query ("Python
+    # 3.15 was released in March 2022"), and the search then finds the
+    # wrong pages. A number that is in neither your message nor the recent
+    # conversation was made up: then the query isn't trusted.
+    known = question + " " + " ".join(m["content"] for m in recent)
+    if any(number not in known for number in re.findall(r"\d+", line)):
+        return None
     return line[:200]
 
 
@@ -179,7 +192,7 @@ async def pick(question, pages):
     question_words = keeper.words(question)
     candidates = []
     for page_number, page in enumerate(pages):
-        pieces = keeper.split_text(page["text"])
+        pieces = keeper.split_text(page["text"], WEB_PIECE_CHARS, WEB_PIECE_OVERLAP)
         candidates += [(page_number, i, pieces[i]) for i in by_words(question_words, pieces)]
     if not candidates:
         return []
