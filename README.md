@@ -2,44 +2,36 @@
 
 # Cerberus
 
-A desktop workspace for chat, documents, and research with local or cloud AI.
+**A desktop workspace for chat, documents, and research.** Use local AI for
+private work or connect a cloud model when you need one.
 
 [![Checks](https://github.com/23lambi/Cerberus-ai/actions/workflows/checks.yml/badge.svg)](https://github.com/23lambi/Cerberus-ai/actions/workflows/checks.yml)
-[![Apache 2.0 license](https://img.shields.io/badge/license-Apache_2.0-737373)](LICENSE)
+[![Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-737373)](LICENSE)
 
-[Downloads](#download) · [Features](#features) · [User guide](docs/guide.md) · [Report a bug](https://github.com/23lambi/Cerberus-ai/issues/new/choose)
+[Download](#download) · [What it does](#what-it-does) · [AI engines](#ai-engines) · [Guide](docs/guide.md) · [Issues](https://github.com/23lambi/Cerberus-ai/issues/new/choose)
 
 ## Download
 
-**First desktop release in preparation.** Downloads will appear after the
-cross-platform builds pass and a stable release is published.
+**The release build has passed.** Download links will be ready after the draft
+release is reviewed and published.
 
-[![Windows x64](https://img.shields.io/badge/Windows-x64-24292f?style=for-the-badge)](https://github.com/23lambi/Cerberus-ai/releases)
-[![macOS](https://img.shields.io/badge/macOS-Apple_Silicon_%26_Intel-24292f?style=for-the-badge)](https://github.com/23lambi/Cerberus-ai/releases)
-[![Linux x64](https://img.shields.io/badge/Linux-x64-24292f?style=for-the-badge)](https://github.com/23lambi/Cerberus-ai/releases)
+[Windows](https://github.com/23lambi/Cerberus-ai/releases) · [macOS](https://github.com/23lambi/Cerberus-ai/releases) · [Linux](https://github.com/23lambi/Cerberus-ai/releases) · [Build status](https://github.com/23lambi/Cerberus-ai/actions/workflows/release.yml)
 
-The Releases page will list each platform’s launcher ZIP once the first release is published.
-[Build status](https://github.com/23lambi/Cerberus-ai/actions/workflows/release.yml) · [Platform requirements](docs/launcher.md#supported-builds)
-
-Once a release is available:
-
-1. Download your launcher ZIP and extract it.
-2. Open the launcher → **Install Cerberus** → **Open Cerberus**.
-3. Choose your AI engine and model in **Settings → Setup check**.
-
-**No Python or Git setup is needed for packaged downloads.** The launcher
-handles app updates and repairs; your chats and settings are stored separately.
-Initial builds are unsigned.
+When the release is published, choose the launcher ZIP for your computer, extract
+it, and open the launcher. It installs and updates Cerberus; your chats and
+settings stay in your user data folder. No Python or Git setup is needed.
 
 <details>
-<summary>Which download should I choose?</summary>
+<summary>Choose the right launcher</summary>
 
-| Your computer | Release file | Open |
+| Computer | Download | Open |
 | --- | --- | --- |
-| Windows · 64-bit | `cerberus-launcher-windows-x86_64.zip` | `CerberusLauncher.exe` |
-| macOS · Apple Silicon | `cerberus-launcher-macos-arm64.zip` | `CerberusLauncher.app` |
-| macOS · Intel | `cerberus-launcher-macos-x86_64.zip` | `CerberusLauncher.app` |
-| Linux · 64-bit | `cerberus-launcher-linux-x86_64.zip` | `CerberusLauncher` |
+| Windows, 64-bit | `cerberus-launcher-windows-x86_64.zip` | `CerberusLauncher.exe` |
+| macOS, Apple Silicon | `cerberus-launcher-macos-arm64.zip` | `CerberusLauncher.app` |
+| macOS, Intel | `cerberus-launcher-macos-x86_64.zip` | `CerberusLauncher.app` |
+| Linux, 64-bit | `cerberus-launcher-linux-x86_64.zip` | `CerberusLauncher` |
+
+Initial builds are unsigned. See [supported platforms and requirements](docs/launcher.md#supported-builds).
 
 </details>
 
@@ -48,50 +40,49 @@ Initial builds are unsigned.
 </p>
 <p align="center"><sub>Chat interface shown with sample data.</sub></p>
 
-## Features
+## What it does
 
-- **Chat & reasoning** — streaming answers, Deep think, images, and tools.
-- **Documents & projects** — searchable files, Markdown editing, version history,
-  and AI edits you review before applying.
-- **Memory** — saved facts available across your chats.
-- **Research** — web sources and reports with numbered citations.
-- **Data control** — local storage, full backups, and Markdown or JSON exports.
+- **Chat:** streaming responses, Deep think, image input, and tools.
+- **Documents:** organize projects, search files, edit Markdown, and review AI changes before applying them.
+- **Memory:** save useful facts across conversations.
+- **Research:** search the web and get reports with citations.
+- **Your data:** keep chats and documents locally; create backups and Markdown or JSON exports.
 
 ## AI engines
 
-| On your computer | Cloud services |
+| Run locally | Connect to cloud |
 | --- | --- |
 | Ollama · llama.cpp · LM Studio · Jan | Hugging Face · OpenAI · Groq · OpenRouter |
 
-Other OpenAI-compatible servers are supported too. Model support for images
-and tools varies by engine and model.
+Other OpenAI-compatible servers work too. Image and tool support depends on the
+engine and model. Cerberus can start its managed llama.cpp server or install its
+own Ollama. Optional web search and Research use SearXNG.
 
-**Models → Your models** manages your Ollama collection. **Find models** lets
-you browse downloads or discover running **Local apps**, then choose **Use in chat**.
-
-Cerberus can install its own Ollama or start an installed llama.cpp server with
-a GGUF file. Web search and Research use an optional SearXNG server.
-[Setup details →](docs/guide.md#choosing-an-ai-engine)
+In the app, open **Models** to manage Ollama models, find downloads, or connect
+to a running local app. Choose **Use in chat** to select a model.
+[Engine setup guide](docs/guide.md#choosing-an-ai-engine)
 
 ## Privacy
 
-Chats and documents are stored locally. Cloud engines receive your messages
-and supplied context; web features contact search services and websites.
-API keys are stored separately from the database and excluded from backups.
+Local chats and documents stay on your computer. When you use a cloud engine,
+your messages and the context you provide go to that service. Web search also
+contacts the configured search service and the pages it opens. API keys are
+stored separately from the chat database and are excluded from backups.
 
-## Development
+## Build from source
 
-Built with **FastAPI**, **SQLite**, **plain JavaScript**, and **pywebview**.
+The desktop app uses FastAPI, SQLite, JavaScript, and pywebview. Packaged releases
+do not require Python or Git. Source setup and test commands are in the section below.
 
 <details>
-<summary>Run from source · Python 3.14</summary>
+<summary>Source setup · Python 3.14</summary>
 
 ```bash
 git clone https://github.com/23lambi/Cerberus-ai.git
 cd Cerberus-ai
 ```
 
-**Linux & macOS**
+**Linux and macOS**
 
 ```bash
 python3 -m venv venv
@@ -99,7 +90,7 @@ venv/bin/pip install -r requirements.txt
 sh install-desktop.sh
 ```
 
-**Windows · PowerShell**
+**Windows PowerShell**
 
 ```powershell
 py -3.14 -m venv venv
@@ -107,7 +98,7 @@ venv\Scripts\pip install -r requirements.txt
 powershell -ExecutionPolicy Bypass -File install-desktop.ps1
 ```
 
-**Checks**
+Run checks:
 
 ```bash
 venv/bin/python -m pytest -q
@@ -116,10 +107,8 @@ node tests/frontend.test.cjs
 
 </details>
 
-[User guide](docs/guide.md) · [Contributing](CONTRIBUTING.md) · [Project layout](docs/development/architecture.md) · [Build releases](docs/releasing.md)
+[User guide](docs/guide.md) · [Contributing](CONTRIBUTING.md) · [Project layout](docs/development/architecture.md) · [Release process](docs/releasing.md)
 
-## Feedback & license
+## Feedback and license
 
-Found a bug or have an idea? [Open an issue](https://github.com/23lambi/Cerberus-ai/issues/new/choose).
-
-[Apache 2.0 licensed](LICENSE). Bundled libraries retain their [own licenses](static/vendor/README.md).
+[Report a bug or suggest an improvement](https://github.com/23lambi/Cerberus-ai/issues/new/choose). Cerberus project code is licensed under [Apache 2.0](LICENSE); bundled libraries retain their [own licenses](static/vendor/README.md).
