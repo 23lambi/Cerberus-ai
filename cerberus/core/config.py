@@ -36,6 +36,9 @@ def data_dir(environ=os.environ, project=PROJECT_DIR, platform=sys.platform, hom
     """
     if environ.get("CERBERUS_DATA"):
         return Path(environ["CERBERUS_DATA"]).expanduser()
+    # Packaged applications must never keep personal data inside their bundle.
+    if getattr(sys, "frozen", False):
+        return system_data_dir(platform, environ, home)
     if (project / "cerberus.db").exists():
         return project
     return system_data_dir(platform, environ, home)

@@ -19,6 +19,13 @@ A desktop workspace for chat, documents, and research with local or cloud AI.
 - **Research with sources** — web search and reports with numbered citations.
 - **Own your data** — local storage, full backups, and Markdown or JSON exports.
 
+## Desktop downloads
+
+A launcher for Linux, macOS, and Windows is being prepared. It installs, updates,
+repairs, and launches Cerberus without requiring Python on the user's computer.
+The first packaged release still needs to be published.
+[Launcher and release guide →](docs/launcher.md)
+
 ## Get started
 
 Requires **Python 3.14**. Clone the project first:

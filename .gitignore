@@ -35,3 +35,8 @@ keys.json
 .idea/
 .DS_Store
 Thumbs.db
+
+# Packaged application and launcher output
+/build/
+/dist/
+*.spec

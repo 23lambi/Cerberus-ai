@@ -8,6 +8,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from cerberus.core import settings
+from cerberus.core.version import VERSION
 from cerberus.core.config import DATA_DIR, EMBED_MODEL, STATIC_DIR
 from cerberus.engines.ollama import (
     OllamaError,
@@ -41,7 +42,7 @@ def home():
 @router.get("/about")
 def about():
     # data_dir: where your chats and files are, shown in Settings.
-    return {"name": "Cerberus", "version": "0.3.0", "data_dir": str(DATA_DIR)}
+    return {"name": "Cerberus", "version": VERSION, "data_dir": str(DATA_DIR)}
 
 
 @router.get("/models")

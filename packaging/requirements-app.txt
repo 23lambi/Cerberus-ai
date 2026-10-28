@@ -1,0 +1,6 @@
+-r ../requirements-base.txt
+-r requirements-launcher.txt
+# Release builds use Qt's LGPL-capable bindings on Linux; shared libraries
+# remain separate files in the one-folder application bundle.
+PySide6==6.11.2; sys_platform == "linux"
+QtPy==2.4.3; sys_platform == "linux"

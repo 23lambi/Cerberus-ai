@@ -65,12 +65,12 @@ def start_server():
     from main import app
 
     # One server, one worker: Stop and the active answers live in this process.
-    server = uvicorn.Server(uvicorn.Config(app, host=HOST, port=PORT, log_level="warning"))
+    server = uvicorn.Server(uvicorn.Config(app, host=HOST, port=PORT, log_level="warning", log_config=None))
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
-    # Wait until it really listens (at most 10 seconds), so the window
-    # never opens on an empty page.
-    for _ in range(200):
+    # Managed llama.cpp may spend up to two minutes loading a model.
+    # Wait until startup finishes so the window never opens on an empty page.
+    for _ in range(3000):
         if server.started:
             return server, thread
         if not thread.is_alive():

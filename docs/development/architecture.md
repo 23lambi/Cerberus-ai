@@ -12,12 +12,14 @@ cerberus/                  Python application
   analysis/                File inspection, disassembly, and indicators
   models/                  Ollama and Hugging Face download catalogs
   routes/                  FastAPI endpoints
+launcher/                  Standalone installer/updater (standard library + Tk)
+packaging/                 Bundle entry points and release dependencies
+scripts/                   Native builds, manifests, and installation smoke checks
 static/                    HTML, CSS, JavaScript, and app icons
   vendor/                  Bundled frontend libraries and their licenses
 tests/                     Python tests and frontend checks
   fixtures/                Small binary samples and their C source
 docs/                      User guide, roadmap, and development notes
-  assets/                  Images used in documentation
 .github/                   CI workflows and contribution templates
 desktop.py                 Desktop launcher
 main.py                    FastAPI application
