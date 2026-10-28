@@ -176,3 +176,30 @@ def test_html_becomes_readable_text():
     """)
     assert title == "My page"
     assert text == "Hello\nFish & chips, cheap.\nSecond\nline"
+
+
+def test_menus_made_of_divs_are_skipped_with_everything_nested_inside():
+    _, text = webpage.html_to_text("""
+        <div role="navigation"><div>Topics</div><div><div>Careers</div></div></div>
+        <div>Real content</div>
+        <div role="banner">Sign up!</div>
+    """)
+    assert text == "Real content"
+
+
+def test_the_marked_main_content_wins_when_it_has_enough_text():
+    story = "<p>" + "Zebras are striped. " * 40 + "</p>"
+    page = f"<div>Topics Careers Python</div><article>{story}</article><div>Related posts</div>"
+    _, text = webpage.html_to_text(page)
+    assert text.startswith("Zebras are striped.")
+    assert "Topics" not in text and "Related" not in text
+
+    # A tiny <main> (a teaser) is not trusted: then the whole page is kept.
+    _, text = webpage.html_to_text("<div>Intro text</div><main><p>Short</p></main>")
+    assert text == "Intro text\nShort"
+
+
+def test_broken_html_never_loses_the_rest_of_the_page():
+    # A </div> too many must not end a region early or make the depth negative.
+    _, text = webpage.html_to_text("<div role='navigation'>Menu</div></div></div><p>Still here</p>")
+    assert text == "Still here"

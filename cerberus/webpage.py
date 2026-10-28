@@ -173,43 +173,85 @@ class TextOnly(HTMLParser):
     HTMLParser calls handle_starttag for <p>, handle_data for the text
     inside, and handle_endtag for </p>. We only keep the text, and skip
     parts that aren't content: code, styles, menus, headers and footers.
+
+    Many sites build their menus from plain <div>s, marked only with
+    role="navigation". To skip one, we must find ITS </div> among all the
+    <div>s nested inside it, so each region counts its own nesting depth.
     """
 
     SKIP = {"head", "script", "style", "noscript", "template", "svg",
             "nav", "header", "footer", "aside", "form", "iframe"}
+    # role="..." values that mean "menu, header or sidebar", on any tag.
+    SKIP_ROLES = {"navigation", "banner", "contentinfo", "search",
+                  "complementary", "menu", "menubar", "dialog"}
+    # The page's real content, when the site marks it.
+    MAIN = {"main", "article"}
     # Tags that start a new line, so words from two paragraphs don't stick together.
     BREAKS = {"p", "div", "br", "li", "tr", "h1", "h2", "h3", "h4", "h5", "h6",
-              "section", "article", "pre", "blockquote", "table", "dt", "dd"}
+              "section", "article", "main", "pre", "blockquote", "table", "dt", "dd"}
+    # Tags that never have a closing tag, so they can't start a region.
+    VOID = {"br", "img", "input", "meta", "link", "hr", "source", "wbr", "area", "col"}
 
     def __init__(self):
         super().__init__()  # convert_charrefs: "&amp;" arrives as "&"
-        self.parts = []
+        self.parts = []  # all readable text
+        self.main_parts = []  # only the text inside <main>/<article>
         self.title = []
-        self.skipping = 0  # how deep we are inside parts to skip
         self.in_title = False
+        # Open regions, like {"tag": "div", "depth": 2, "kind": "skip"}.
+        self.regions = []
+
+    def inside(self, kind):
+        return any(region["kind"] == kind for region in self.regions)
 
     def handle_starttag(self, tag, attrs):
-        if tag in self.SKIP:
-            self.skipping += 1
-        elif tag == "title":
+        # A <div> inside a region that started with <div>: one level deeper.
+        for region in self.regions:
+            if region["tag"] == tag:
+                region["depth"] += 1
+        role = (dict(attrs).get("role") or "").lower()
+        if tag not in self.VOID:
+            if tag in self.SKIP or role in self.SKIP_ROLES:
+                self.regions.append({"tag": tag, "depth": 1, "kind": "skip"})
+            elif tag in self.MAIN or role == "main":
+                self.regions.append({"tag": tag, "depth": 1, "kind": "main"})
+        if tag == "title":
             self.in_title = True
         elif tag in self.BREAKS:
-            self.parts.append("\n")
+            self.newline()
 
     def handle_endtag(self, tag):
-        if tag in self.SKIP:
-            self.skipping = max(0, self.skipping - 1)  # broken HTML: never below 0
-        elif tag == "title":
+        for region in self.regions:
+            if region["tag"] == tag:
+                region["depth"] -= 1
+        # A region whose depth is back to 0 just closed.
+        self.regions = [region for region in self.regions if region["depth"] > 0]
+        if tag == "title":
             self.in_title = False
         elif tag in self.BREAKS:
-            self.parts.append("\n")
+            self.newline()
+
+    def newline(self):
+        self.parts.append("\n")
+        self.main_parts.append("\n")
 
     def handle_data(self, data):
         # The title lives inside <head>, which is skipped, so check it first.
         if self.in_title:
             self.title.append(data)
-        elif not self.skipping:
+        elif not self.inside("skip"):
             self.parts.append(data)
+            if self.inside("main"):
+                self.main_parts.append(data)
+
+
+MAIN_MIN_CHARS = 500  # a <main> with less text is probably just a teaser
+
+
+def clean_lines(parts):
+    # Squash runs of spaces in each line, and drop empty lines.
+    lines = (" ".join(line.split()) for line in "".join(parts).splitlines())
+    return "\n".join(line for line in lines if line)
 
 
 def html_to_text(html):
@@ -217,7 +259,10 @@ def html_to_text(html):
     parser = TextOnly()
     parser.feed(html)
     parser.close()
-    # Squash runs of spaces in each line, and drop empty lines.
-    lines = (" ".join(line.split()) for line in "".join(parser.parts).splitlines())
-    text = "\n".join(line for line in lines if line)
+    text = clean_lines(parser.parts)
+    main = clean_lines(parser.main_parts)
+    # When the site marks its real content, take only that: no menus,
+    # cookie banners or "related articles" that came without a marker.
+    if len(main) >= MAIN_MIN_CHARS:
+        text = main
     return " ".join("".join(parser.title).split()), text

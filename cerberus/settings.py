@@ -18,6 +18,8 @@ DEFAULTS = {
     # model that can't see them.
     "eyes_on": "no",
     "eyes_model": "",
+    # Web search: the address of SearXNG (see websearch.py).
+    "web_url": "http://127.0.0.1:8888",
 }
 
 

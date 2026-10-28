@@ -41,6 +41,7 @@ class ChatRequest(BaseModel):
     chat_id: int | None = Field(default=None, gt=0)
     think: bool = False  # let a thinking model reason first (normal chat only)
     tools: bool = False  # let the model use tools (calculator, memory search...)
+    web: bool = False  # search the web first (needs SearXNG, see websearch.py)
 
     @model_validator(mode="after")
     def valid_conversation(self):
