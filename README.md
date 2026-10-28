@@ -1,16 +1,14 @@
-<div align="center">
-  <img src="docs/assets/banner.svg" alt="Cerberus — your AI workspace, your choice of engine" width="100%">
-  <p>Chat, work with documents, and research—all in one desktop app.</p>
-  <p><a href="#get-started">Get started</a> · <a href="#ai-engines">AI engines</a> · <a href="docs/guide.md">User guide</a></p>
-</div>
+<img src="static/cerberus.svg" alt="Cerberus logo" width="48" align="right">
 
-<p align="center">
-  <a href="https://github.com/23lambi/Cerberus-ai/actions/workflows/checks.yml"><img src="https://github.com/23lambi/Cerberus-ai/actions/workflows/checks.yml/badge.svg" alt="Automated checks"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-e8707e" alt="MIT license"></a>
-  <img src="https://img.shields.io/badge/Python-3.14-3776AB" alt="Python 3.14">
-</p>
+# Cerberus
 
----
+A desktop workspace for chat, documents, and research with local or cloud AI.
+
+[![Checks](https://github.com/23lambi/Cerberus-ai/actions/workflows/checks.yml/badge.svg)](https://github.com/23lambi/Cerberus-ai/actions/workflows/checks.yml)
+[![MIT license](https://img.shields.io/badge/license-MIT-737373)](LICENSE)
+![Python 3.14](https://img.shields.io/badge/python-3.14-737373)
+
+[Get started](#get-started) · [AI engines](#ai-engines) · [User guide](docs/guide.md)
 
 ## Built for everyday work
 
