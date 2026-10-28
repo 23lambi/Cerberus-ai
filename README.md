@@ -12,14 +12,35 @@ Open http://127.0.0.1:8000. Ollama must be running separately.
 
 ## Desktop app
 
-Cerberus can also run in its own window, with an icon in your app menu:
+Cerberus can also run in its own window, with an icon in your app menu, on
+Linux, macOS and Windows. You need Python 3.14 and Ollama. Once, from the
+Cerberus folder:
 
 ```bash
-venv/bin/pip install -r requirements.txt   # once: pywebview and Qt (about 540 MB)
-sh install-desktop.sh                      # once: adds Cerberus to the app menu
+# Linux and macOS
+python3 -m venv venv
+venv/bin/pip install -r requirements.txt
+sh install-desktop.sh          # Linux: app menu; macOS: ~/Applications/Cerberus.app
 ```
 
-Then start **Cerberus** from the app menu, or run `venv/bin/python desktop.py`.
+```powershell
+# Windows (PowerShell)
+py -m venv venv
+venv\Scripts\pip install -r requirements.txt
+powershell -ExecutionPolicy Bypass -File install-desktop.ps1   # Start menu
+```
+
+The window uses the system's own browser engine on Windows (WebView2) and
+macOS (WebKit). Linux has none built in, so pip installs Qt WebEngine (about
+540 MB). Then start **Cerberus** from the app menu, or run `desktop.py` with
+the venv's Python.
+
+Your data stays in the project folder if `cerberus.db` is already there.
+New installs keep it in the system's app-data folder: `~/.local/share/cerberus`
+(Linux), `~/Library/Application Support/Cerberus` (macOS) or
+`%LOCALAPPDATA%\Cerberus` (Windows). Set `CERBERUS_DATA` to choose another
+folder. Settings → Your data shows where it is. Only Linux is tested by the
+author; macOS and Windows are prepared but untested.
 The app starts the server in the background and stops it when you close the
 window. If Cerberus is already running (for example with uvicorn), the window
 uses that server and leaves it running. Backups and chat exports are saved to

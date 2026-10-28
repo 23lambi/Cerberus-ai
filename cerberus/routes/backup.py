@@ -42,14 +42,15 @@ inside cerberus.db. Only original uploaded files need separate copying.
 
 To restore on the same computer:
 1. Stop Cerberus. Keep a copy of your current database and documents.
-2. Replace cerberus.db in the Cerberus project folder with this database.
+2. Replace cerberus.db in your Cerberus data folder (Settings > Your data
+   shows where it is) with this database.
    Delete cerberus.db-wal and cerberus.db-shm there too, if they exist:
    they belong to the old database.
 3. Read documents.json. Copy each archive_path file to its original_path
-   (relative paths are relative to the Cerberus project folder).
+   (relative paths are relative to that same data folder).
 4. Start Cerberus with one server worker.
 
-On another computer, use the same project-relative document paths. If an
+On another computer, use the same data-folder-relative document paths. If an
 original_path is absolute, update that document's path in the restored
 database to its new location before starting the app.
 

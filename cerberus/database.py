@@ -10,6 +10,7 @@ import json
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
+from pathlib import Path
 
 from cerberus.config import DB_PATH
 
@@ -37,6 +38,8 @@ def snapshot(path):
 
 
 def init_db():
+    # A new install: the data folder (see config.data_dir) may not exist yet.
+    Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
     # CREATE TABLE IF NOT EXISTS does nothing when the table is already there,
     # so this is safe to run every time the server starts.
     with get_db() as conn:

@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from cerberus import settings
-from cerberus.config import EMBED_MODEL
+from cerberus.config import DATA_DIR, EMBED_MODEL, STATIC_DIR
 from cerberus.ollama import (
     OllamaError,
     can_chat,
@@ -23,12 +23,13 @@ router = APIRouter()
 def home():
     # Opening http://127.0.0.1:8000/ sends the whole app: one HTML page.
     # The page then loads its CSS and JS from /static.
-    return FileResponse("static/index.html")
+    return FileResponse(STATIC_DIR / "index.html")
 
 
 @router.get("/about")
 def about():
-    return {"name": "Cerberus", "version": "0.2.1"}
+    # data_dir: where your chats and files are, shown in Settings.
+    return {"name": "Cerberus", "version": "0.3.0", "data_dir": str(DATA_DIR)}
 
 
 @router.get("/models")

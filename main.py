@@ -4,6 +4,7 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from cerberus.config import STATIC_DIR
 from cerberus.database import init_db
 
 # Each route file is one group of URLs, for example everything under /chats.
@@ -57,4 +58,5 @@ app.include_router(reverse.router)
 
 # Serve the files in the static folder (HTML, CSS, JS) at /static/...
 # so the browser can download them.
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# The full path, so it works from any folder (and in the desktop app).
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

@@ -134,6 +134,15 @@ function addBackupCard() {
     "A ZIP with all chats, memories, settings and files, plus restore steps. " +
       "Keep it private: it holds your data."
   );
+  // Where your data is: on Windows and macOS it's in a hidden system folder.
+  const where = document.createElement("p");
+  where.className = "hint";
+  card.appendChild(where);
+  fetch("/about")
+    .then((response) => response.json())
+    .then((info) => { where.textContent = "Your data is in: " + info.data_dir; })
+    .catch(() => {});
+
   const links = document.createElement("div");
   links.className = "setting-links";
 

@@ -204,7 +204,7 @@ async def add_document(name, data, project_id=None, chat_id=None):
     # the same name never overwrite each other, and the regex replaces
     # every unusual character with "_".
     folder = Path(DOCUMENTS_DIR)
-    folder.mkdir(exist_ok=True)
+    folder.mkdir(parents=True, exist_ok=True)
     safe_name = re.sub(r"[^\w.\-]", "_", name)
     path = folder / f"{uuid4().hex[:8]}_{safe_name}"
     path.write_bytes(data)

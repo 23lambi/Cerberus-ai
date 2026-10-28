@@ -20,7 +20,7 @@ starlette==1.8.0
 typing-inspection==0.4.4
 typing_extensions==4.16.0
 uvicorn==0.54.0
-uvloop==0.23.0
+uvloop==0.23.0; sys_platform != "win32"
 watchfiles==1.3.0
 websockets==17.2
 pytest==9.1.1
@@ -29,10 +29,10 @@ pyelftools==0.33
 capstone==5.0.7
 bottle==0.13.4
 proxy_tools==0.1.0
-PyQt6==6.11.0
-PyQt6-Qt6==6.11.2
-PyQt6-WebEngine==6.11.0
-PyQt6-WebEngine-Qt6==6.11.2
-PyQt6_sip==13.13.0
+PyQt6==6.11.0; sys_platform == "linux"
+PyQt6-Qt6==6.11.2; sys_platform == "linux"
+PyQt6-WebEngine==6.11.0; sys_platform == "linux"
+PyQt6-WebEngine-Qt6==6.11.2; sys_platform == "linux"
+PyQt6_sip==13.13.0; sys_platform == "linux"
 pywebview==6.2.1
-QtPy==2.4.3
+QtPy==2.4.3; sys_platform == "linux"

@@ -2,6 +2,47 @@
 # Names in CAPITALS are constants: Python lets you change them, but the
 # convention says "don't, they are settings".
 
+import os
+import sys
+from pathlib import Path
+
+# ---------- Where things are ----------
+
+# The project folder (the one with main.py). Path(__file__) is this file;
+# .parent twice goes up from cerberus/config.py to the project.
+PROJECT_DIR = Path(__file__).resolve().parent.parent
+STATIC_DIR = PROJECT_DIR / "static"  # the page: HTML, CSS, JavaScript
+
+
+def system_data_dir(platform=sys.platform, environ=os.environ, home=Path.home()):
+    """Where each system wants programs to keep their files."""
+    if platform == "win32":
+        # %LOCALAPPDATA%, like C:\Users\you\AppData\Local
+        return Path(environ.get("LOCALAPPDATA", home / "AppData" / "Local")) / "Cerberus"
+    if platform == "darwin":  # macOS
+        return home / "Library" / "Application Support" / "Cerberus"
+    # Linux and others: $XDG_DATA_HOME, normally ~/.local/share
+    return Path(environ.get("XDG_DATA_HOME", home / ".local" / "share")) / "cerberus"
+
+
+def data_dir(environ=os.environ, project=PROJECT_DIR, platform=sys.platform, home=Path.home()):
+    """The folder for your chats, memories and documents.
+
+    1. CERBERUS_DATA, when you set it: your choice wins.
+    2. The project folder, when cerberus.db is already there: older
+       installs keep their data exactly where it was.
+    3. Otherwise the system's own place for app data. An installed app
+       can't write inside its own folder on Windows or macOS.
+    """
+    if environ.get("CERBERUS_DATA"):
+        return Path(environ["CERBERUS_DATA"]).expanduser()
+    if (project / "cerberus.db").exists():
+        return project
+    return system_data_dir(platform, environ, home)
+
+
+DATA_DIR = data_dir()
+
 # ---------- Ollama ----------
 
 OLLAMA_URL = "http://localhost:11434"  # where the Ollama server listens
@@ -20,7 +61,7 @@ THINK_MAX_TOKENS = 4000  # extra room for reasoning when Think is on
 HEAD_MAX_TOKENS = 400  # Deep think: the draft and the review
 JUDGE_MAX_TOKENS = 600  # Deep think: the final answer
 
-DB_PATH = "cerberus.db"  # the SQLite file with all chats, memories and settings
+DB_PATH = str(DATA_DIR / "cerberus.db")  # the SQLite file with all chats, memories and settings
 
 # ---------- Guard ----------
 
@@ -39,7 +80,10 @@ KEEPER_MIN_SCORE = 0.4
 
 # ---------- Documents ----------
 
-DOCUMENTS_DIR = "documents"  # uploaded files are kept in this folder
+# Uploaded files are kept in this folder. In the project folder it stays the
+# short relative "documents", like in older versions, so the paths already
+# saved in cerberus.db keep working; anywhere else it's a full path.
+DOCUMENTS_DIR = "documents" if DATA_DIR == PROJECT_DIR else str(DATA_DIR / "documents")
 MAX_UPLOAD_MB = 20
 CHUNK_SIZE = 800  # documents are cut into pieces of about 800 characters
 CHUNK_OVERLAP = 100  # neighbouring pieces share 100 characters, so no sentence is lost at a cut
