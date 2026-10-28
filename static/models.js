@@ -23,6 +23,41 @@ let libraryQuery = ""; // the search words, "" = browsing
 let installedNames = new Set(); // to mark sizes you already have
 const LIBRARY_PAGE = 30;
 
+let modelsView = "installed";
+let localModelsLoaded = false;
+let localModelsRequest = 0;
+let libraryLoaded = false;
+let hfLoaded = false;
+const CAPABILITY_LABELS = {
+  vision: "Reads images", tools: "Uses tools", thinking: "Reasoning",
+  embedding: "Document search", audio: "Audio", cloud: "Cloud",
+};
+
+function loadModelLibrary() {
+  if (!document.getElementById("source-local").hidden) {
+    if (!localModelsLoaded) loadLocalModels();
+  } else if (!document.getElementById("source-huggingface").hidden) {
+    if (!hfLoaded && !hfQuery) loadHuggingFace();
+  } else if (!libraryLoaded && !libraryQuery) loadLibrary();
+}
+
+function showModelsView(view) {
+  modelsView = view;
+  document.getElementById("models-installed-view").hidden = view !== "installed";
+  document.getElementById("models-discover-view").hidden = view !== "discover";
+  for (const button of document.querySelectorAll("[data-model-view]")) {
+    const selected = button.dataset.modelView === view;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  }
+  if (view === "discover") loadModelLibrary();
+}
+
+for (const button of document.querySelectorAll("[data-model-view]")) {
+  button.addEventListener("click", () => showModelsView(button.dataset.modelView));
+}
+document.getElementById("models-browse").addEventListener("click", () => showModelsView("discover"));
+
 // What a model can do, shown as small tags. "completion" (it can chat)
 // is true for almost every model, so it isn't shown.
 const SHOWN_CAPABILITIES = ["vision", "tools", "thinking", "embedding", "audio", "cloud"];
@@ -43,7 +78,7 @@ function formatBytes(bytes) {
 function tag(text, className = "tag") {
   const span = document.createElement("span");
   span.className = className;
-  span.textContent = text;
+  span.textContent = CAPABILITY_LABELS[text] || text;
   return span;
 }
 
@@ -62,7 +97,7 @@ async function loadInstalledModels() {
   }
   installedStatus.textContent = data.models.length
     ? ""
-    : "No models yet. Pick one below, or type a name like llama3.2:3b.";
+    : "Your collection starts here. Choose Find a model to download your first one.";
   installedList.innerHTML = "";
   for (const model of data.models) installedList.appendChild(installedRow(model));
   installedNames = new Set(data.models.map((model) => model.name));
@@ -78,13 +113,9 @@ function loadModelsPanel() {
   const note = document.getElementById("models-engine-note");
   note.hidden = currentEngine.kind === "ollama"; // app.js
   note.textContent = "Your AI engine is " + currentEngine.name + ": it manages its own models. " +
-    "The models here are Ollama's, for when you switch back (Setup → AI engine).";
+    "This collection belongs to Ollama. Choose Ollama in Settings → Setup check to chat with these models.";
   loadInstalledModels();
-  if (!document.getElementById("source-huggingface").hidden) {
-    if (!hfModels.length && !hfQuery) loadHuggingFace();
-  } else if (!libraryModels.length && !libraryQuery) {
-    loadLibrary();
-  }
+  if (modelsView === "discover") loadModelLibrary();
 }
 
 // One installed model: name, details, what it can do, and Delete.
@@ -99,22 +130,60 @@ function installedRow(model) {
   const details = document.createElement("p");
   details.className = "hint";
   // "3.2B · Q4_K_M · 1.9 GB": parameters, how it's compressed, size on disk.
-  details.textContent = [model.parameters, model.quantization, formatBytes(model.size)].filter(Boolean).join(" · ");
+  details.textContent = formatBytes(model.size) ? formatBytes(model.size) + " on disk" : "Downloaded";
   const tags = document.createElement("div");
   tags.className = "tags";
   for (const capability of model.capabilities) {
     if (SHOWN_CAPABILITIES.includes(capability)) tags.appendChild(tag(capability));
   }
-  if (model.in_memory) tags.appendChild(tag("in memory · " + formatBytes(model.in_memory), "tag live"));
-  info.append(name, details, tags);
+  if (model.in_memory) tags.appendChild(tag("Loaded · " + formatBytes(model.in_memory), "tag live"));
+  const technical = document.createElement("details");
+  technical.className = "model-technical";
+  const summary = document.createElement("summary");
+  summary.textContent = "Model details";
+  technical.append(summary, tag([model.parameters, model.quantization].filter(Boolean).join(" · ") || "No extra details available", "hint"));
+  info.append(name, details, tags, technical);
 
+  const actions = document.createElement("div");
+  actions.className = "model-actions";
+  if (currentEngine.kind === "ollama" && model.capabilities.includes("completion")) {
+    const use = document.createElement("button");
+    use.type = "button";
+    use.className = "primary";
+    use.textContent = "Use in chat";
+    use.addEventListener("click", () => useInstalledModel(model.name));
+    actions.appendChild(use);
+  }
   const remove = document.createElement("button");
   remove.type = "button";
   remove.textContent = "Delete";
   remove.addEventListener("click", () => deleteModel(model));
 
-  li.append(info, remove);
+  remove.className = "model-remove";
+  remove.setAttribute("aria-label", "Delete " + model.name);
+  actions.appendChild(remove);
+  li.append(info, actions);
   return li;
+}
+
+async function useInstalledModel(name) {
+  if (controller || attachmentUploads) {
+    installedStatus.textContent = "Finish or stop your current message before changing models.";
+    return;
+  }
+  try {
+    await loadModels();
+    if (controller || attachmentUploads) throw new Error("Finish or stop your current message before changing models.");
+    if (currentEngine.kind !== "ollama") throw new Error("Choose Ollama in Setup to use this model.");
+    if (![...modelSelect.options].some((option) => option.value === name)) {
+      throw new Error("This model is no longer available. Refresh Your models and try again.");
+    }
+    modelSelect.value = name;
+    modelSelect.dispatchEvent(new Event("change"));
+    showFeature("chat");
+  } catch (error) {
+    installedStatus.textContent = error.message;
+  }
 }
 
 async function deleteModel(model) {
@@ -143,9 +212,10 @@ async function loadLibrary(query = "") {
     const response = await fetch("/models/library?" + params);
     if (!response.ok) throw new Error(await responseError(response));
     libraryModels = (await response.json()).models;
+    libraryLoaded = true;
   } catch (error) {
     libraryModels = [];
-    libraryStatus.textContent = error.message + " You can still type an exact name above.";
+    libraryStatus.textContent = error.message + " You can also use Download by model name.";
     return;
   }
   libraryShown = LIBRARY_PAGE;
@@ -166,7 +236,7 @@ function renderLibrary() {
   const where = libraryQuery ? "found" : libraryOrder === "newest" ? "new on Ollama" : "on Ollama, most popular first";
   libraryStatus.textContent = matching.length
     ? matching.length + " models " + where + ". Pick a size to download it."
-    : "Nothing here. Try another filter, or type an exact name above.";
+    : "No matches. Try another search or change Filter and sort.";
   libraryResults.innerHTML = "";
   for (const model of matching.slice(0, libraryShown)) libraryResults.appendChild(libraryRow(model));
   const more = document.getElementById("library-more");
@@ -302,6 +372,7 @@ async function startDownload(name) {
     return;
   }
   downloadController = new AbortController();
+  document.getElementById("download-cancel").disabled = false;
   downloadName.textContent = "Downloading " + name;
   downloadStatus.textContent = "Starting…";
   downloadProgress.removeAttribute("value"); // no value = a moving "busy" bar
@@ -336,11 +407,12 @@ async function startDownload(name) {
       : error.message;
   } finally {
     downloadController = null;
+    document.getElementById("download-cancel").disabled = true;
   }
 
   if (done) {
     downloadName.textContent = name + " is installed";
-    downloadStatus.textContent = "Pick it in the model list next to Send.";
+    downloadStatus.textContent = "Ready to use. Open Your models and choose Use in chat.";
     downloadProgress.max = 1;
     downloadProgress.value = 1;
     await loadInstalledModels();
@@ -349,6 +421,84 @@ async function startDownload(name) {
     downloadName.textContent = "Not installed: " + name;
     downloadStatus.textContent = failure || "The download ended early. Try again.";
   }
+}
+
+// ---------- Models exposed by other running local apps ----------
+
+async function loadLocalModels() {
+  const request = ++localModelsRequest;
+  const status = document.getElementById("local-models-status");
+  const results = document.getElementById("local-models-results");
+  const refresh = document.getElementById("local-models-refresh");
+  status.textContent = "Looking for local AI apps…";
+  refresh.disabled = true;
+  results.innerHTML = "";
+  try {
+    const response = await fetch("/models/local");
+    if (!response.ok) throw new Error(await responseError(response));
+    const data = await response.json();
+    if (request !== localModelsRequest) return;
+    localModelsLoaded = true;
+    let count = 0;
+    for (const engine of data.engines) {
+      for (const name of engine.models) {
+        results.appendChild(localModelRow(engine, name));
+        count++;
+      }
+    }
+    status.textContent = count ? count + (count === 1 ? " model available" : " models available") + " from your local apps."
+      : data.engines.length ? "Found a local app, but no models are available yet. Load a model in that app, then refresh."
+      : "No local apps found yet. Start a local app's API server, then refresh.";
+  } catch (error) {
+    if (request === localModelsRequest) status.textContent = error.message;
+  } finally {
+    if (request === localModelsRequest) refresh.disabled = false;
+  }
+}
+
+document.getElementById("local-models-refresh").addEventListener("click", loadLocalModels);
+
+function localModelRow(engine, name) {
+  const card = document.createElement("li");
+  const info = document.createElement("div");
+  info.className = "model-info";
+  const title = document.createElement("strong");
+  title.className = "model-name";
+  title.textContent = name;
+  info.append(title, tag(engine.name, "tag live"));
+  const use = document.createElement("button");
+  use.type = "button";
+  use.className = "primary";
+  use.textContent = "Use in chat";
+  use.addEventListener("click", async () => {
+    const status = document.getElementById("local-models-status");
+    if (controller || attachmentUploads) {
+      status.textContent = "Finish or stop your current message before changing engines.";
+      return;
+    }
+    use.disabled = true;
+    status.textContent = "Connecting to " + engine.name + "…";
+    try {
+      const response = await fetch("/setup/engine", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ engine: "openai", preset: engine.preset, url: engine.url, key: "" }) });
+      if (!response.ok) throw new Error(await responseError(response));
+      const result = await response.json();
+      if (!result.ok) throw new Error(result.error);
+      await loadModels();
+      if (controller || attachmentUploads) throw new Error("Finish or stop your current message before changing models.");
+      if (![...modelSelect.options].some(option => option.value === name)) throw new Error("This model is not available for chat. Load a chat model in the app, then refresh.");
+      modelSelect.value = name;
+      modelSelect.dispatchEvent(new Event("change"));
+      showFeature("chat");
+      status.textContent = "Connected to " + engine.name + ".";
+    } catch (error) {
+      status.textContent = error.message;
+    } finally {
+      use.disabled = false;
+    }
+  });
+  card.append(info, use);
+  return card;
 }
 
 // ---------- Where models come from: the Ollama library or Hugging Face ----------
@@ -360,11 +510,13 @@ for (const button of document.querySelectorAll("#model-source [data-source]")) {
 function showSource(source) {
   for (const other of document.querySelectorAll("#model-source [data-source]")) {
     other.classList.toggle("active", other.dataset.source === source);
+    other.setAttribute("aria-pressed", String(other.dataset.source === source));
   }
+  document.getElementById("source-local").hidden = source !== "local";
   document.getElementById("source-ollama").hidden = source !== "ollama";
   document.getElementById("source-huggingface").hidden = source !== "huggingface";
   // The Hugging Face list loads the first time you open it.
-  if (source === "huggingface" && !hfModels.length && !hfQuery) loadHuggingFace();
+  if (modelsView === "discover") loadModelLibrary();
   // Remember the choice for next time (this browser only).
   try {
     localStorage.setItem("cerberus-model-source", source);
@@ -415,6 +567,7 @@ async function loadHuggingFace(query = "") {
     const response = await fetch("/models/huggingface?" + params);
     if (!response.ok) throw new Error(await responseError(response));
     hfModels = (await response.json()).models;
+    hfLoaded = true;
   } catch (error) {
     hfModels = [];
     hfStatus.textContent = error.message;
@@ -571,5 +724,6 @@ function versionButton(item, suggested) {
 // uses variables declared above (hfModels...), and JavaScript doesn't
 // allow a "let" variable to be used before its line has run.
 try {
-  if (localStorage.getItem("cerberus-model-source") === "huggingface") showSource("huggingface");
+  const saved = localStorage.getItem("cerberus-model-source");
+  if (["huggingface", "local"].includes(saved)) showSource(saved);
 } catch (_) { /* nothing remembered */ }

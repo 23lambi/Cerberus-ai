@@ -54,3 +54,29 @@ def test_the_page_is_found_from_any_folder(client, monkeypatch, tmp_path):
     assert client.get("/").status_code == 200
     assert client.get("/static/app.js").status_code == 200
     assert "data_dir" in client.get("/about").json()
+
+
+def test_interface_assets_get_new_urls_when_their_contents_change(client, monkeypatch, tmp_path):
+    import re
+    from cerberus.routes import pages
+
+    (tmp_path / "index.html").write_text(
+        '<link href="/static/style.css" rel="stylesheet"><script src="/static/app.js"></script>',
+        encoding="utf-8",
+    )
+    (tmp_path / "style.css").write_text("body { color: red; }")
+    script = tmp_path / "app.js"
+    script.write_text("old()")
+    monkeypatch.setattr(pages, "STATIC_DIR", tmp_path)
+    first = client.get("/")
+    assert first.status_code == 200
+    assert first.headers["content-type"].startswith("text/html")
+    assert first.headers["cache-control"] == "no-cache"
+    assert client.get("/").text == first.text
+    script.write_text("new()")  # Same length, potentially the same timestamp.
+    second = client.get("/")
+    urls = lambda response: re.findall(r'/static/[^" ]+', response.text)
+    first_urls, second_urls = urls(first), urls(second)
+    assert all("?v=" in url for url in first_urls)
+    assert first_urls[0] == second_urls[0]  # Unchanged CSS keeps its URL.
+    assert first_urls[1] != second_urls[1]

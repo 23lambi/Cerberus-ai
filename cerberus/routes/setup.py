@@ -1,12 +1,13 @@
 # The Setup window (static/setup.js): checks, getting Ollama, and SearXNG.
 
+import asyncio
 import json
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from cerberus import engine, ollama, openai_api, settings, setup
+from cerberus import engine, llamacpp, ollama, openai_api, settings, setup
 
 router = APIRouter(prefix="/setup")
 
@@ -58,6 +59,7 @@ def engines():
     return {
         "engine": ollama.engine(),
         "presets": openai_api.PRESETS,
+        "llamacpp": llamacpp.configuration(),
         "openai": {"preset": chosen["preset"], "url": chosen["url"], "cloud": chosen["cloud"],
                    "key_set": bool(chosen["key"])},
     }
@@ -82,6 +84,10 @@ async def choose_engine(body: EngineIn):
         # The preset's own address is saved as "" so it follows the preset.
         if url == openai_api.PRESETS[body.preset]["url"]:
             url = ""
+        if body.preset == "llamacpp":
+            actual_url = url or openai_api.PRESETS["llamacpp"]["url"]
+            if actual_url != f"http://127.0.0.1:{settings.get('llamacpp_port')}/v1":
+                settings.update({"llamacpp_on": "no"})
         settings.update({"engine": "openai", "openai_preset": body.preset, "openai_url": url, "openai_key": body.key})
     else:
         settings.update({"engine": "ollama"})
@@ -91,3 +97,30 @@ async def choose_engine(body: EngineIn):
     except ollama.OllamaError as error:
         return {"ok": False, "error": str(error)}
     return {"ok": True, "models": len(models)}
+
+
+class LlamaCppIn(BaseModel):
+    binary: str = Field(default="llama-server", min_length=1, max_length=1000)
+    model: str = Field(min_length=1, max_length=4000)
+    port: int = Field(default=8080, ge=1, le=65535)
+
+
+@router.post("/llamacpp/start")
+async def start_llamacpp(body: LlamaCppIn):
+    try:
+        await llamacpp.start(body.binary, body.model, body.port)
+    except llamacpp.EngineError as error:
+        raise HTTPException(409, str(error)) from None
+    settings.update({"llamacpp_binary": body.binary, "llamacpp_model": body.model,
+                     "llamacpp_port": str(body.port), "llamacpp_on": "yes", "engine": "openai",
+                     "openai_preset": "llamacpp", "openai_url": f"http://127.0.0.1:{body.port}/v1"})
+    ollama.capabilities_cache.clear()
+    return {"running": True}
+
+
+@router.post("/llamacpp/stop")
+async def stop_llamacpp():
+    async with llamacpp.lock:
+        settings.update({"llamacpp_on": "no"})
+        await asyncio.to_thread(llamacpp.stop)
+    return {"running": False}

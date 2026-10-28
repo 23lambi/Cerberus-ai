@@ -1,4 +1,4 @@
-// The Memories tab: shows what Cerberus remembers, and lets you add,
+// The Memory screen: shows what Cerberus remembers, and lets you add,
 // edit and forget memories. Each action calls the server, then redraws
 // the list from the server's answer.
 

@@ -1,6 +1,7 @@
 # The Models panel: the installed models, searching ollama.com, and
 # downloading or deleting models. The work is in ollama.py and library.py.
 
+import asyncio
 import json
 import re
 
@@ -8,9 +9,34 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from cerberus import huggingface, library, ollama
+from cerberus import huggingface, library, ollama, openai_api
 
 router = APIRouter(prefix="/models")
+
+
+@router.get("/local")
+async def local_models():
+    """Discover running local apps at known addresses, not arbitrary ports."""
+    candidates = [{"preset": preset, "name": openai_api.PRESETS[preset]["name"],
+                   "url": openai_api.PRESETS[preset]["url"], "key": ""}
+                  for preset in ("lmstudio", "jan", "llamacpp")]
+    if ollama.engine() == "openai":
+        chosen = openai_api.current()
+        if chosen["url"] and not chosen["cloud"]:
+            # A custom port or authenticated local server already configured by the user.
+            candidates = [item for item in candidates if item["url"] != chosen["url"]]
+            candidates.insert(0, chosen)
+
+    async def probe(candidate):
+        try:
+            names = await openai_api.list_models(candidate, timeout=2)
+        except openai_api.EngineError:
+            return None
+        return {"preset": candidate["preset"], "name": candidate["name"],
+                "url": candidate["url"], "models": names}
+
+    found = await asyncio.gather(*(probe(candidate) for candidate in candidates))
+    return {"engines": [item for item in found if item is not None]}
 
 # A model name: "llama3.2:3b", "nomic-embed-text", "hf.co/user/model:Q4_K_M".
 NAME = re.compile(r"[A-Za-z0-9][\w.\-/:]{0,199}")

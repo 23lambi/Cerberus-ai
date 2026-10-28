@@ -1,5 +1,5 @@
 // The Setup window: is everything Cerberus needs ready, and if not, fix it
-// from here. Three steps: the AI engine (Ollama), the models, web search.
+// from here. Choose where AI runs, get a model, then add optional features.
 // The server checks (cerberus/setup.py); this file shows the result and
 // the buttons that make sense for it.
 
@@ -22,6 +22,7 @@ async function renderSetup() {
     // Both at the same time: what's ready, and the engines to choose from.
     const [statusResponse, enginesResponse] = await Promise.all([fetch("/setup/status"), fetch("/setup/engines")]);
     if (!statusResponse.ok) throw new Error(await responseError(statusResponse));
+    if (!enginesResponse.ok) throw new Error(await responseError(enginesResponse));
     state = await statusResponse.json();
     state.engines = await enginesResponse.json();
   } catch (error) {
@@ -30,8 +31,18 @@ async function renderSetup() {
     return;
   }
   setupBody.innerHTML = "";
-  const intro = makeBox("hint", "Cerberus needs an AI engine and a model. Web search is optional.");
-  setupBody.append(intro, engineStep(state), modelsStep(state), searchStep(state));
+  const ready = state.engine.running && state.chat_models.length > 0;
+  const intro = document.createElement("div");
+  intro.className = "setup-intro";
+  const title = document.createElement("h3");
+  title.textContent = ready ? "You're ready to chat" : "Let's get you ready to chat";
+  intro.append(title, makeBox("hint", ready
+    ? "Your AI is connected. You can start chatting or adjust your setup below."
+    : "Choose where your AI runs. We'll help you with the next step."));
+  const optional = setupDisclosure("Optional · Web search", state.searxng.status === "ok" ? "Connected" : "Set up later");
+  optional.body.appendChild(searchStep(state));
+  setupBody.append(intro, engineStep(state), modelsStep(state), optional.root);
+  document.getElementById("setup-done").textContent = ready ? "Start chatting" : "Close for now";
 }
 
 // ---------- Building blocks ----------
@@ -46,10 +57,32 @@ function setupStep(number, title, ok, okText = "Ready", todoText = "Needs attent
   badge.className = "setup-badge " + (ok ? "ok" : "todo");
   badge.textContent = ok ? "✓ " + okText : "! " + todoText;
   const heading = document.createElement("h3");
-  heading.textContent = number + ". " + title;
+  heading.textContent = number ? number + ". " + title : title;
   head.append(heading, badge);
   card.appendChild(head);
   return card;
+}
+
+// Native disclosures keep technical and optional settings keyboard accessible.
+function setupDisclosure(title, note = "") {
+  const root = document.createElement("details");
+  root.className = "setup-disclosure";
+  const summary = document.createElement("summary");
+  const label = document.createElement("span");
+  label.textContent = title;
+  summary.appendChild(label);
+  if (note) summary.appendChild(makeBox("setup-summary-note", note));
+  const body = document.createElement("div");
+  body.className = "setup-disclosure-body";
+  root.append(summary, body);
+  return { root, body };
+}
+
+function setupField(label, input) {
+  const wrapper = document.createElement("label");
+  wrapper.className = "setup-field";
+  wrapper.append(makeBox("setup-field-label", label), input);
+  return wrapper;
 }
 
 function setupButton(text, onClick, primary = false) {
@@ -128,48 +161,93 @@ function isCloudAddress(url) {
 }
 
 function engineStep(state) {
-  const card = setupStep(1, "AI engine", state.engine.running);
+  const card = setupStep(1, "Choose your AI", state.engine.running, "Connected", "Choose below");
   const engines = state.engines;
-
-  // The choice: Ollama, or one of the OpenAI-compatible engines.
-  const choose = document.createElement("select");
-  choose.setAttribute("aria-label", "AI engine");
-  choose.appendChild(new Option("Ollama (on this computer)", "ollama"));
-  for (const [key, preset] of Object.entries(engines.presets)) choose.appendChild(new Option(preset.name, key));
-  choose.value = engines.engine === "ollama" ? "ollama" : engines.openai.preset;
-  card.appendChild(choose);
-
-  const details = document.createElement("div");
-  details.className = "setup-engine";
-  card.appendChild(details);
-  const draw = () => {
-    details.innerHTML = "";
-    if (choose.value === "ollama") ollamaDetails(details, state, engines.engine === "ollama");
-    else otherEngineDetails(details, state, engines, choose.value);
+  const groups = {
+    local: { title: "On this computer", hint: "Keep conversations local", presets: ["ollama", "llamacpp", "lmstudio", "jan"] },
+    cloud: { title: "Cloud service", hint: "Connect with an API key", presets: ["huggingface", "openai", "groq", "openrouter"] },
   };
-  choose.addEventListener("change", draw);
+  let preset = engines.engine === "ollama" ? "ollama" : engines.openai.preset;
+  let group = Object.keys(groups).find((key) => groups[key].presets.includes(preset)) || "custom";
+  const choices = document.createElement("div");
+  choices.className = "setup-choices";
+  choices.setAttribute("role", "group");
+  choices.setAttribute("aria-label", "Where your AI runs");
+  const buttons = {};
+  const selection = document.createElement("div");
+  selection.className = "setup-engine";
+  const draw = () => {
+    selection.innerHTML = "";
+    for (const key of Object.keys(buttons)) buttons[key].setAttribute("aria-pressed", String(group === key));
+    custom.setAttribute("aria-pressed", String(group === "custom"));
+    const details = document.createElement("div");
+    details.className = "setup-engine";
+    if (group !== "custom") {
+      const choose = document.createElement("select");
+      choose.setAttribute("aria-label", "AI engine");
+      for (const key of groups[group].presets) {
+        choose.appendChild(new Option(key === "ollama" ? "Ollama · easiest to set up" : engines.presets[key].name, key));
+      }
+      choose.value = preset;
+      selection.appendChild(setupField(group === "local" ? "Local app" : "Provider", choose));
+      choose.addEventListener("change", () => { preset = choose.value; draw(); });
+    }
+    if (preset === "ollama") ollamaDetails(details, state, engines.engine === "ollama");
+    else otherEngineDetails(details, state, engines, preset);
+    selection.appendChild(details);
+  };
+  for (const [key, info] of Object.entries(groups)) {
+    const button = setupButton("", () => {
+      group = key;
+      const current = engines.engine === "ollama" ? "ollama" : engines.openai.preset;
+      preset = info.presets.includes(current) ? current : info.presets[0];
+      draw();
+    });
+    button.className = "setup-choice";
+    const title = document.createElement("strong");
+    title.textContent = info.title;
+    button.append(title, makeBox("hint", info.hint));
+    choices.appendChild(button);
+    buttons[key] = button;
+  }
+  const custom = setupButton("Custom connection", () => { group = "custom"; preset = "custom"; draw(); });
+  custom.className = "setup-custom";
+  card.append(choices, custom, selection);
   draw();
   return card;
 }
 
 // Saves the engine choice and tests it; then everything updates.
 async function useEngine(body, details) {
-  details.appendChild(makeBox("hint", "Connecting…"));
-  const response = await fetch("/setup/engine", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const result = response.ok ? await response.json() : { ok: false, error: await responseError(response) };
-  if (!result.ok) {
-    details.lastChild.textContent = result.error;
-    return;
+  const progress = makeBox("hint", "Connecting…");
+  progress.setAttribute("role", "status");
+  details.appendChild(progress);
+  const buttons = [...details.querySelectorAll("button")];
+  for (const button of buttons) button.disabled = true;
+  try {
+    const response = await fetch("/setup/engine", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    const result = response.ok ? await response.json() : { ok: false, error: await responseError(response) };
+    if (!result.ok) throw new Error(result.error);
+    await afterEngineChange();
+  } catch (error) {
+    progress.textContent = error.message;
+    progress.setAttribute("role", "alert");
+  } finally {
+    for (const button of buttons) button.disabled = false;
   }
-  await afterEngineChange();
 }
 
 // An OpenAI-compatible engine: address, key, help, and the cloud warning.
-function otherEngineDetails(details, state, engines, preset) {
+function otherEngineDetails(details, state, engines, preset, connectionOnly = false) {
+  if (preset === "llamacpp" && !connectionOnly) {
+    managedLlamaDetails(details, engines.llamacpp);
+    const external = setupDisclosure("Connect to an existing server instead");
+    otherEngineDetails(external.body, state, engines, preset, true);
+    details.appendChild(external.root);
+    return;
+  }
   const info = engines.presets[preset];
   const chosen = engines.engine === "openai" && engines.openai.preset === preset;
   if (chosen) {
@@ -177,12 +255,15 @@ function otherEngineDetails(details, state, engines, preset) {
       ? "✓ Connected to " + state.engine.name + ": " + state.engine.models.length + " models."
       : state.engine.error));
   }
-  details.appendChild(makeBox("hint", info.key_help));
+  if (preset !== "llamacpp") details.appendChild(makeBox("hint", info.key_help));
 
   const address = document.createElement("input");
   address.type = "url";
   address.placeholder = "Address, like http://127.0.0.1:1234/v1";
   address.value = chosen ? engines.openai.url : info.url;
+  if (!chosen && preset === "llamacpp" && engines.llamacpp.enabled) {
+    address.value = "http://127.0.0.1:" + engines.llamacpp.port + "/v1";
+  }
   address.setAttribute("aria-label", "Engine address");
 
   const key = document.createElement("input");
@@ -201,8 +282,68 @@ function otherEngineDetails(details, state, engines, preset) {
   address.addEventListener("input", updateWarning);
   updateWarning();
 
-  details.append(address, key, warning, setupButton(chosen ? "Save & test" : "Use this engine", () =>
+  const advanced = setupDisclosure("Connection settings");
+  advanced.body.append(setupField("Server address", address));
+  if (info.key) {
+    details.appendChild(setupField(chosen && engines.openai.key_set ? "API key · saved" : "API key", key));
+  } else {
+    advanced.body.appendChild(setupField("API key · only if required", key));
+  }
+  if (preset === "custom" || connectionOnly) advanced.root.open = true;
+  details.append(advanced.root, warning, setupButton(chosen ? "Save & connect" : "Connect", () =>
     useEngine({ engine: "openai", preset, url: address.value.trim(), key: key.value.trim() }, details), true));
+}
+
+function managedLlamaDetails(details, config) {
+  details.appendChild(makeBox("hint", config.owned
+    ? "llama.cpp is running. Cerberus will stop it when you close the app."
+    : "Choose a downloaded GGUF model. Cerberus will start it for you and remember it next time."));
+  const advanced = setupDisclosure("Advanced", "Executable & port");
+  const field = (parent, label, value, type = "text") => {
+    const input = document.createElement("input");
+    input.type = type;
+    input.value = value;
+    input.placeholder = label;
+    input.setAttribute("aria-label", label);
+    parent.appendChild(setupField(label, input));
+    return input;
+  };
+  const model = field(details, "Model file · full path to a .gguf file", config.model);
+  const binary = field(advanced.body, "llama-server executable or path", config.binary);
+  const port = field(advanced.body, "Local server port", config.port, "number");
+  details.appendChild(advanced.root);
+  port.min = "1";
+  port.max = "65535";
+  const run = async (action, body) => {
+    setupBusy = true;
+    for (const button of details.querySelectorAll("button")) button.disabled = true;
+    const progress = makeBox("hint", action === "start" ? "Loading GGUF model…" : "Stopping llama.cpp…");
+    details.appendChild(progress);
+    try {
+      const response = await fetch("/setup/llamacpp/" + action, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (!response.ok) throw new Error(await responseError(response));
+      setupBusy = false;
+      await afterEngineChange();
+    } catch (error) {
+      progress.textContent = error.message;
+    } finally {
+      setupBusy = false;
+      for (const button of details.querySelectorAll("button")) button.disabled = false;
+    }
+  };
+  if (config.owned) {
+    model.disabled = binary.disabled = port.disabled = true;
+    details.appendChild(makeBox("hint", "To change the model, stop it first."));
+  } else {
+    details.appendChild(makeBox("hint", "Requires llama-server. First start can take up to two minutes."));
+    details.appendChild(setupButton("Start with Cerberus", () => run("start", {
+      binary: binary.value.trim(), model: model.value.trim(), port: Number(port.value),
+    }), true));
+  }
+  if (config.owned || config.enabled) details.appendChild(setupButton("Stop & disable automatic start", () => run("stop")));
 }
 
 // Ollama: what it was before, plus a button to switch back to it.
@@ -215,12 +356,11 @@ function ollamaDetails(details, state, chosen) {
   }
   const card = details;
   if (engine.running) {
-    const source = engine.managed ? "Cerberus's own copy" : "installed on this computer";
-    card.appendChild(makeBox("hint", "Ollama " + engine.version + " is running (" + source + ")."));
+    card.appendChild(makeBox("hint", "Connected to Ollama. Your conversations stay on this computer."));
     return;
   }
   if (engine.managed) {
-    card.appendChild(makeBox("hint", "Cerberus has its own Ollama, but it isn't running."));
+    card.appendChild(makeBox("hint", "Ollama is ready to start."));
     card.appendChild(setupButton("Start Ollama", () => startOllama(card), true));
   } else if (engine.system) {
     // A system Ollama: started by its own service, not by Cerberus (else
@@ -229,8 +369,8 @@ function ollamaDetails(details, state, chosen) {
     card.appendChild(commandLine(engine.start_hint));
   } else if (engine.can_download) {
     card.appendChild(makeBox("hint",
-      "Ollama is not installed. Cerberus can download the official version and run it for you: " +
-      "no installer, no admin rights. It's about 1.5 GB (220 MB on a Mac), once."));
+      "Download Ollama once to run AI on this computer. About 1.5 GB (220 MB on Mac). " +
+      "Cerberus handles installation and startup."));
     card.appendChild(setupButton("Download & run Ollama", () => downloadOllama(card), true));
   } else {
     card.appendChild(makeBox("hint", "Install Ollama from ollama.com/download, then press Check again."));
@@ -284,10 +424,9 @@ async function afterEngineChange() {
 
 function modelsStep(state) {
   const ready = state.chat_models.length > 0;
-  const card = setupStep(2, "Models", ready && state.embed_installed,
-                         "Ready", ready ? "Optional" : "Needs a model");
+  const card = setupStep(2, "Your chat model", ready, "Ready", "Next step");
   if (!state.engine.running) {
-    card.appendChild(makeBox("hint", "First the AI engine above."));
+    card.appendChild(makeBox("hint", "Connect your AI above, then we’ll help you choose a model."));
     return card;
   }
   const other = state.engine.kind === "openai";
@@ -299,20 +438,20 @@ function modelsStep(state) {
     card.appendChild(makeBox("hint", state.engine.name + " offers no models yet. Load one there."));
   } else {
     const memory = state.ram_gb ? " for your " + Math.round(state.ram_gb) + " GB of memory" : "";
-    card.appendChild(makeBox("hint", "No chat model yet. Suggested" + memory + ": " + state.suggested_model + "."));
-    card.appendChild(setupButton("Install " + state.suggested_model, () => installModel(card, state.suggested_model), true));
+    card.appendChild(makeBox("hint", "Recommended" + memory + ": " + state.suggested_model + ". Download it once to start chatting."));
+    card.appendChild(setupButton("Download recommended model", () => installModel(card, state.suggested_model), true));
   }
-  if (!state.ollama.running) {
-    // Another engine, without Ollama: memories and documents still work,
-    // found by matching words instead of by meaning.
-    card.appendChild(makeBox("hint",
-      "Search by meaning uses Ollama on this computer. Without it, Cerberus finds memories " +
-      "and documents by matching words."));
-  } else if (!state.embed_installed) {
-    card.appendChild(makeBox("hint",
-      state.embed_model + " (about 270 MB) lets Cerberus find memories and documents by meaning, " +
-      "not only by matching words."));
-    card.appendChild(setupButton("Install " + state.embed_model, () => installModel(card, state.embed_model)));
+  if (!state.embed_installed) {
+    const extra = setupDisclosure("Better document search", "Optional");
+    if (!state.ollama.running) {
+      extra.body.appendChild(makeBox("hint",
+        "Your documents are searchable by keywords. Set up Ollama to also search by meaning."));
+    } else {
+      extra.body.appendChild(makeBox("hint",
+        "Find documents by meaning as well as keywords. This optional download is about 270 MB."));
+      extra.body.appendChild(setupButton("Enable better search", () => installModel(extra.body, state.embed_model)));
+    }
+    card.appendChild(extra.root);
   }
   if (!other) {
     card.appendChild(setupButton("Browse all models", () => {
@@ -346,12 +485,13 @@ async function installModel(card, name) {
 const SEARCH_STATUS = {
   ok: "SearXNG answers. Web and Research can search.",
   json_off: "SearXNG runs, but refuses to answer in JSON, which Cerberus needs.",
-  offline: "SearXNG doesn't answer at this address. Web and Research won't work until it runs.",
+  offline: "Web search is not connected yet. It uses a separate app called SearXNG.",
 };
 
 function searchStep(state) {
   const search = state.searxng;
-  const card = setupStep(3, "Web search (SearXNG)", search.status === "ok", "Ready", "Optional");
+  const card = setupStep(null, "Search the web", search.status === "ok", "Ready", "Optional");
+  card.appendChild(makeBox("hint", "Add web sources to answers and use Research. You can chat without this."));
   card.appendChild(makeBox("hint", SEARCH_STATUS[search.status]));
 
   // The address: change it here, it's saved as a setting.
@@ -361,7 +501,7 @@ function searchStep(state) {
   address.type = "url";
   address.value = search.url;
   address.setAttribute("aria-label", "SearXNG address");
-  form.append(address, setupButton("Save & test", () => form.requestSubmit()));
+  form.append(setupField("SearXNG server address", address), setupButton("Save & test", () => form.requestSubmit()));
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     await fetch("/settings", {

@@ -412,3 +412,322 @@ test("the thinking shimmer stops however an answer ends", async () => {
     assert.equal(bubble.classes.has("pending"), false, ending);
   }
 });
+
+test("managed llama.cpp sends model paths and restores controls after failure", async () => {
+  const setupSource = fs.readFileSync("static/setup.js", "utf8");
+  const children = [];
+  const details = {
+    appendChild: (child) => children.push(child),
+    querySelectorAll: () => children.filter((child) => child.click),
+  };
+  let request;
+  const context = vm.createContext({
+    document: { createElement: () => ({ setAttribute() {} }) },
+    makeBox: (cls, text) => ({ textContent: text }),
+    setupButton: (text, click) => ({ textContent: text, click }),
+    setupDisclosure: () => ({ root: {}, body: { appendChild() {} } }),
+    setupField: (label, input) => input,
+    setupBusy: false,
+    fetch: async (url, options) => { request = { url, body: JSON.parse(options.body) }; return { ok: false }; },
+    responseError: async () => "Port is in use",
+    afterEngineChange: async () => assert.fail("must keep the error visible"),
+  });
+  vm.runInContext(setupSource.slice(setupSource.indexOf("function managedLlamaDetails("),
+    setupSource.indexOf("// Ollama: what it was before")), context);
+  context.managedLlamaDetails(details, { binary: "llama-server", model: "/my model.gguf", port: "8123", owned: false });
+  const button = children.find((child) => child.textContent === "Start with Cerberus");
+  await button.click();
+  assert.equal(request.url, "/setup/llamacpp/start");
+  assert.deepEqual(request.body, { binary: "llama-server", model: "/my model.gguf", port: 8123 });
+  assert.equal(children.at(-1).textContent, "Port is in use");
+  assert.equal(button.disabled, false);
+  assert.equal(context.setupBusy, false);
+});
+
+test("managed llama.cpp offers stop for an owned server and refreshes after stopping", async () => {
+  const setupSource = fs.readFileSync("static/setup.js", "utf8");
+  const children = [];
+  let refreshed = false;
+  let endpoint;
+  const context = vm.createContext({
+    document: { createElement: () => ({ setAttribute() {} }) },
+    makeBox: (cls, text) => ({ textContent: text }),
+    setupButton: (text, click) => ({ textContent: text, click }),
+    setupDisclosure: () => ({ root: {}, body: { appendChild() {} } }),
+    setupField: (label, input) => input,
+    setupBusy: false,
+    fetch: async (url) => { endpoint = url; return { ok: true }; },
+    afterEngineChange: async () => { refreshed = true; },
+  });
+  vm.runInContext(setupSource.slice(setupSource.indexOf("function managedLlamaDetails("),
+    setupSource.indexOf("// Ollama: what it was before")), context);
+  const details = { appendChild: (child) => children.push(child), querySelectorAll: () => children.filter((child) => child.click) };
+  context.managedLlamaDetails(details, { binary: "llama-server", model: "/a.gguf", port: "8080", owned: true, enabled: true });
+  assert(!children.some((child) => child.textContent === "Start with Cerberus"));
+  await children.find((child) => child.textContent === "Stop & disable automatic start").click();
+  assert.equal(endpoint, "/setup/llamacpp/stop");
+  assert(refreshed);
+  assert.equal(context.setupBusy, false);
+});
+
+// A small DOM for exercising the real setup builders and their event handlers.
+function setupHarness() {
+  class Element {
+    constructor(tag) { this.tagName = tag; this.children = []; this.attributes = {}; this.events = {}; this.open = false; }
+    set textContent(value) { this.text = value; this.children = []; }
+    get textContent() { return (this.text || "") + this.children.map((child) => child.textContent).join(""); }
+    set innerHTML(value) { this.children = []; this.text = ""; }
+    append(...children) { this.children.push(...children); }
+    appendChild(child) { this.append(child); return child; }
+    setAttribute(name, value) { this.attributes[name] = value; }
+    addEventListener(name, callback) { this.events[name] = callback; }
+    querySelectorAll(tag) { return walk(this).filter((child) => child !== this && child.tagName === tag); }
+  }
+  function walk(node) { return [node, ...node.children.flatMap(walk)]; }
+  const context = vm.createContext({
+    document: { createElement: (tag) => new Element(tag) },
+    Option: class extends Element { constructor(text, value) { super("option"); this.textContent = text; this.value = value; } },
+    makeBox: (cls, text) => { const node = new Element("div"); node.className = cls; node.textContent = text; return node; },
+    URL, setupBusy: false,
+  });
+  const setupSource = fs.readFileSync("static/setup.js", "utf8");
+  vm.runInContext(setupSource.slice(setupSource.indexOf("// ---------- Building blocks"),
+    setupSource.indexOf("// ---------- Buttons, and opening")), context);
+  const presets = {
+    huggingface: { name: "Hugging Face (cloud)", key: true, key_help: "Enter a token", url: "https://router.huggingface.co/v1" },
+    openai: { name: "OpenAI", key: true, key_help: "Enter a key", url: "https://api.openai.com/v1" },
+    groq: { name: "Groq" }, openrouter: { name: "OpenRouter" },
+    llamacpp: { name: "llama.cpp", key: false, url: "http://127.0.0.1:8080/v1" },
+    lmstudio: { name: "LM Studio" }, jan: { name: "Jan" }, custom: { name: "Other", url: "", key_help: "Custom server" },
+  };
+  const state = {
+    engine: { running: true, kind: "ollama", name: "Ollama" }, ollama: { running: true },
+    chat_models: ["local-model"], embed_installed: false,
+    engines: { engine: "ollama", presets, openai: { preset: "openai", url: presets.openai.url, key_set: false },
+      llamacpp: { binary: "llama-server", model: "/a.gguf", port: "8123", enabled: true, owned: false } },
+  };
+  return { context, state, walk };
+}
+
+test("setup groups local and cloud choices and keeps cloud addresses under connection settings", () => {
+  const { context, state, walk } = setupHarness();
+  const card = context.engineStep(state);
+  const select = () => walk(card).find((node) => node.tagName === "select");
+  assert.equal(select().value, "ollama");
+  assert.deepEqual(select().children.map((node) => node.value), ["ollama", "llamacpp", "lmstudio", "jan"]);
+  const cloud = walk(card).find((node) => node.tagName === "button" && node.textContent.includes("Cloud service"));
+  cloud.events.click();
+  assert.equal(cloud.attributes["aria-pressed"], "true");
+  assert.deepEqual(select().children.map((node) => node.value), ["huggingface", "openai", "groq", "openrouter"]);
+  const connection = walk(card).find((node) => node.tagName === "details");
+  assert.equal(connection.open, false);
+  assert(walk(connection).some((node) => node.type === "url"));
+  assert(walk(card).some((node) => node.type === "password" && !walk(connection).includes(node)));
+  assert(walk(card).some((node) => node.className === "hint engine-cloud" && !node.hidden));
+});
+
+test("llama.cpp puts the model first and folds executable, port and external server settings", () => {
+  const { context, state, walk } = setupHarness();
+  state.engines.openai.preset = "llamacpp";
+  state.engines.openai.url = "http://127.0.0.1:8123/v1";
+  state.engines.engine = "openai";
+  state.engine = { running: false, error: "Offline" };
+  const card = context.engineStep(state);
+  const advanced = walk(card).find((node) => node.tagName === "details" && node.children[0].textContent.includes("Advanced"));
+  const external = walk(card).find((node) => node.tagName === "details" && node.children[0].textContent.includes("existing server"));
+  assert.equal(advanced.open, false);
+  assert.equal(external.open, false);
+  assert(walk(advanced).some((node) => node.value === "llama-server"));
+  assert(walk(advanced).some((node) => node.value === "8123"));
+  const model = walk(card).find((node) => node.value === "/a.gguf");
+  assert(model && !walk(advanced).includes(model) && !walk(external).includes(model));
+});
+
+test("missing optional embeddings do not mark an available chat model as unfinished", () => {
+  const { context, state, walk } = setupHarness();
+  const card = context.modelsStep(state);
+  assert(walk(card).some((node) => node.className === "setup-badge ok"));
+  const search = walk(card).find((node) => node.tagName === "details");
+  assert.equal(search.open, false);
+  assert(search.textContent.includes("Better document search"));
+});
+
+test("Docs and Memory open independent screens and load only their own content", () => {
+  const html = fs.readFileSync("static/index.html", "utf8");
+  const documentsPanel = html.match(/<section id="panel-documents"[^>]*>([\s\S]*?)<\/section>/)[1];
+  const memoryPanel = html.match(/<section id="panel-memory"[^>]*>([\s\S]*?)<\/section>/)[1];
+  assert(documentsPanel.includes('id="document-list"'));
+  assert(documentsPanel.includes('id="document-file"'));
+  assert(documentsPanel.includes('id="new-document"'));
+  assert(!documentsPanel.includes('id="memory-list"'));
+  assert(memoryPanel.includes('id="memory-list"'));
+  assert(memoryPanel.includes('id="memory-add"'));
+  assert(!memoryPanel.includes('id="document-list"'));
+  assert(!html.includes("data-tab="));
+  function element(id, dataset = {}) {
+    const classes = new Set();
+    const attrs = {};
+    return { id, dataset, classes, attrs, events: {},
+      classList: { toggle: (name, selected) => selected ? classes.add(name) : classes.delete(name) },
+      addEventListener(name, callback) { this.events[name] = callback; },
+      setAttribute(name, value) { attrs[name] = value; },
+      removeAttribute(name) { delete attrs[name]; },
+    };
+  }
+  const names = ["chat", "documents", "memory", "models"];
+  const buttons = names.map((name) => element(name, { feature: name }));
+  const panels = names.map((name) => element("panel-" + name));
+  let memoriesLoaded = 0, documentsLoaded = 0;
+  const context = vm.createContext({
+    document: { querySelectorAll: (selector) => ({ "[data-feature]": buttons, ".panel": panels })[selector] },
+    loadMemories: () => memoriesLoaded++, loadDocuments: () => documentsLoaded++, loadModelsPanel() {},
+  });
+  vm.runInContext(fs.readFileSync("static/features.js", "utf8"), context);
+  const active = (nodes) => nodes.filter((node) => node.classes.has("active")).map((node) => node.id);
+  buttons[1].events.click();
+  assert.deepEqual(active(buttons), ["documents"]);
+  assert.deepEqual(active(panels), ["panel-documents"]);
+  assert.equal(buttons[1].attrs["aria-current"], "page");
+  assert.equal(documentsLoaded, 1);
+  assert.equal(memoriesLoaded, 0);
+  buttons[2].events.click();
+  assert.deepEqual(active(buttons), ["memory"]);
+  assert.deepEqual(active(panels), ["panel-memory"]);
+  assert.equal(buttons[1].attrs["aria-current"], undefined);
+  assert.equal(memoriesLoaded, 1);
+  assert.equal(documentsLoaded, 1);
+  context.showFeature("chat");
+  assert.deepEqual(active(buttons), ["chat"]);
+  assert.deepEqual(active(panels), ["panel-chat"]);
+  buttons[1].events.click();
+  assert.equal(documentsLoaded, 2);
+  assert.equal(memoriesLoaded, 1);
+});
+
+function modelsHarness(savedSource = null) {
+  class Element {
+    constructor() { this.children = []; this.events = {}; this.dataset = {}; this.attrs = {}; this.hidden = false; this.open = false;
+      this.classList = { toggle() {}, add() {} }; }
+    append(...children) { this.children.push(...children); }
+    appendChild(child) { this.children.push(child); }
+    addEventListener(name, callback) { this.events[name] = callback; }
+    setAttribute(name, value) { this.attrs[name] = value; }
+  }
+  const elements = new Map();
+  const get = (id) => { if (!elements.has(id)) elements.set(id, new Element()); return elements.get(id); };
+  get("source-huggingface").hidden = true;
+  get("source-local").hidden = true;
+  const views = ["installed", "discover"].map((view) => { const el = new Element(); el.dataset.modelView = view; return el; });
+  const sources = ["local", "ollama", "huggingface"].map((source) => { const el = new Element(); el.dataset.source = source; return el; });
+  let libraryCalls = 0, hfCalls = 0, installedCalls = 0;
+  const context = vm.createContext({
+    document: { getElementById: get, createElement: () => new Element(), querySelectorAll: selector =>
+      selector === "[data-model-view]" ? views : selector === "#model-source [data-source]" ? sources : [] },
+    localStorage: { getItem: () => savedSource, setItem() {} },
+    currentEngine: { kind: "ollama", name: "Ollama" }, controller: null, attachmentUploads: 0,
+  });
+  vm.runInContext(fs.readFileSync("static/models.js", "utf8"), context);
+  context.loadLibrary = () => { libraryCalls++; vm.runInContext("libraryLoaded = true", context); };
+  context.loadHuggingFace = () => { hfCalls++; vm.runInContext("hfLoaded = true", context); };
+  context.loadInstalledModels = () => { installedCalls++; };
+  return { context, get, views, counts: () => ({ libraryCalls, hfCalls, installedCalls }) };
+}
+
+test("Your models stays local and libraries load only when opened, including a remembered source", () => {
+  const { context, get, views, counts } = modelsHarness("huggingface");
+  context.loadModelsPanel();
+  assert.deepEqual(counts(), { libraryCalls: 0, hfCalls: 0, installedCalls: 1 });
+  views[1].events.click();
+  assert.equal(get("models-installed-view").hidden, true);
+  assert.equal(get("models-discover-view").hidden, false);
+  assert.equal(views[1].attrs["aria-pressed"], "true");
+  assert.equal(counts().hfCalls, 1);
+  context.showSource("ollama");
+  assert.equal(counts().libraryCalls, 1);
+  views[0].events.click();
+  views[1].events.click();
+  assert.equal(counts().libraryCalls, 1);
+  assert.equal(counts().hfCalls, 1);
+});
+
+test("Use in chat selects the model through the existing change handler and guards active answers", async () => {
+  const { context } = modelsHarness();
+  let changes = 0, loads = 0, opened;
+  context.loadModels = async () => { loads++; };
+  context.modelSelect = { value: "old", options: [{ value: "chat-model" }], dispatchEvent(event) { assert.equal(event.type, "change"); changes++; } };
+  context.Event = class { constructor(type) { this.type = type; } };
+  context.showFeature = (name) => { opened = name; };
+  await context.useInstalledModel("chat-model");
+  assert.equal(context.modelSelect.value, "chat-model");
+  assert.equal(changes, 1);
+  assert.equal(opened, "chat");
+  context.controller = {};
+  await context.useInstalledModel("other-model");
+  assert.equal(changes, 1);
+  assert.equal(loads, 1);
+  context.controller = null;
+  context.loadModels = async () => { context.controller = {}; };
+  await context.useInstalledModel("other-model");
+  assert.equal(changes, 1);
+});
+
+test("installed cards offer chat only for chat models on Ollama and fold technical details", () => {
+  const { context } = modelsHarness();
+  const walk = node => [node, ...node.children.flatMap(walk)];
+  const model = { name: "chat-model", capabilities: ["completion", "vision"], size: 1024, parameters: "3B", quantization: "Q4_K_M" };
+  const card = context.installedRow(model);
+  assert(walk(card).some(node => node.textContent === "Use in chat"));
+  assert(walk(card).some(node => node.textContent === "Reads images"));
+  const technical = walk(card).find(node => node.className === "model-technical");
+  assert.equal(technical.open, false);
+  assert(!walk(context.installedRow({ ...model, capabilities: ["embedding"] })).some(node => node.textContent === "Use in chat"));
+  context.currentEngine = { kind: "openai", name: "Other engine" };
+  assert(!walk(context.installedRow(model)).some(node => node.textContent === "Use in chat"));
+});
+
+test("Local apps loads without querying an online library and refresh shows newly available models", async () => {
+  const { context, get, counts } = modelsHarness();
+  let scans = 0;
+  context.fetch = async url => {
+    assert.equal(url, "/models/local");
+    scans++;
+    return { ok: true, json: async () => ({ engines: [{ name: "LM Studio", preset: "lmstudio", url: "http://127.0.0.1:1234/v1", models: scans === 1 ? [] : ["local-chat"] }] }) };
+  };
+  context.showModelsView("discover");
+  const initial = counts().libraryCalls;
+  context.showSource("local");
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(scans, 1);
+  assert(get("local-models-status").textContent.includes("no models"));
+  assert.equal(counts().libraryCalls, initial);
+  assert.equal(get("source-ollama").hidden, true);
+  await get("local-models-refresh").events.click();
+  assert.equal(scans, 2);
+  assert(get("local-models-status").textContent.includes("1 model available"));
+  assert.equal(get("local-models-results").children.length, 1);
+  assert.equal(get("local-models-refresh").disabled, false);
+});
+
+test("local model selection connects its engine before selecting the model, and guards active chats", async () => {
+  const { context } = modelsHarness();
+  let request, selected, changes = 0;
+  context.fetch = async (url, options) => { request = { url, body: JSON.parse(options.body) }; return { ok: true, json: async () => ({ ok: true }) }; };
+  context.loadModels = async () => {};
+  context.modelSelect = { options: [{ value: "my-model" }], dispatchEvent() { changes++; } };
+  context.Event = class {};
+  context.showFeature = name => { selected = name; };
+  const engine = { name: "Jan", preset: "jan", url: "http://127.0.0.1:1337/v1" };
+  const row = context.localModelRow(engine, "my-model");
+  const use = row.children[1];
+  context.controller = {};
+  await use.events.click();
+  assert.equal(request, undefined);
+  context.controller = null;
+  await use.events.click();
+  assert.equal(request.url, "/setup/engine");
+  assert.deepEqual(request.body, { engine: "openai", preset: "jan", url: engine.url, key: "" });
+  assert.equal(context.modelSelect.value, "my-model");
+  assert.equal(changes, 1);
+  assert.equal(selected, "chat");
+  assert.equal(use.disabled, false);
+});

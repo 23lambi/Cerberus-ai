@@ -1,7 +1,10 @@
 # The page itself, plus small info URLs.
 
+import hashlib
+import re
+
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from cerberus import settings
@@ -24,7 +27,15 @@ router = APIRouter()
 def home():
     # Opening http://127.0.0.1:8000/ sends the whole app: one HTML page.
     # The page then loads its CSS and JS from /static.
-    return FileResponse(STATIC_DIR / "index.html")
+    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+
+    def versioned_asset(match):
+        # New code gets a new URL, including in the desktop webview's cache.
+        digest = hashlib.sha256((STATIC_DIR / match[2]).read_bytes()).hexdigest()[:12]
+        return f'{match[1]}?v={digest}"'
+
+    html = re.sub(r'((?:src|href)="/static/([^"?]+\.(?:js|css)))"', versioned_asset, html)
+    return HTMLResponse(html)
 
 
 @router.get("/about")

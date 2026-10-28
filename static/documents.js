@@ -1,4 +1,4 @@
-// The Documents tab: upload files for Cerberus to read, list them and
+// The Documents screen: upload files for Cerberus to read, list them and
 // remove them. The + button in the chat uses the same file picker.
 
 const documentList = document.getElementById("document-list");
@@ -227,9 +227,6 @@ window.addEventListener("beforeunload", event => {
   if (editor.open && (editorDirty() || editorBusy)) { event.preventDefault(); event.returnValue = ""; }
 });
 document.getElementById("new-document").addEventListener("click", () => openDocumentEditor());
-document.getElementById("open-project-documents").addEventListener("click", () => {
-  showFeature("memory"); showTab("documents");
-});
 document.getElementById("editor-save").addEventListener("click", () => editorOperation(async () => {
   const doc = await editorRequest(editingDocument.id ? "/documents/" + editingDocument.id : "/documents/workspace", {
     method: editingDocument.id ? "PUT" : "POST",

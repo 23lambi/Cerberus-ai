@@ -64,7 +64,7 @@ function fillSettings(values) {
   sectionTitle("Setup");
   const setupCard = settingCard(
     "Setup check",
-    "Check the AI engine (Ollama), the models and web search, and fix what's missing."
+    "Choose where your AI runs and get ready to chat. Optional features can wait."
   );
   const openSetupButton = document.createElement("button");
   openSetupButton.type = "button";

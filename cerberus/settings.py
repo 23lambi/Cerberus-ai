@@ -25,6 +25,10 @@ DEFAULTS = {
     "engine": "ollama",
     "openai_preset": "huggingface",
     "openai_url": "",
+    "llamacpp_on": "no",
+    "llamacpp_binary": "llama-server",
+    "llamacpp_model": "",
+    "llamacpp_port": "8080",
 }
 
 

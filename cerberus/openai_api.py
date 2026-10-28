@@ -91,13 +91,13 @@ def error_text(engine, response_body, status):
 # ---------- Models ----------
 
 
-async def list_models(engine=None):
+async def list_models(engine=None, timeout=15):
     """The model names this engine offers (GET /models)."""
     engine = engine or current()
     if not engine["url"]:
         raise EngineError("Choose the engine's address in Setup.")
     try:
-        async with httpx.AsyncClient(timeout=15) as client:
+        async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.get(engine["url"] + "/models", headers=headers(engine))
     except httpx.HTTPError:
         raise EngineError(f"{engine['name']} can't be reached at {engine['url']}. Is it running?") from None

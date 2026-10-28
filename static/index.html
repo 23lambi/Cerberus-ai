@@ -43,7 +43,7 @@
       <svg class="logo"><use href="#i-logo"/></svg>
     </button>
     <button class="rail-item" data-feature="chat" title="Chat"><svg class="icon"><use href="#i-chat"/></svg><span>Chat</span></button>
-    <button class="rail-item" id="open-project-documents" title="Documents"><svg class="icon"><use href="#i-file"/></svg><span>Docs</span></button>
+    <button class="rail-item" id="open-project-documents" data-feature="documents" title="Documents"><svg class="icon"><use href="#i-file"/></svg><span>Docs</span></button>
     <button class="rail-item" data-feature="reverse" title="Reverse"><svg class="icon"><use href="#i-chip"/></svg><span>Reverse</span></button>
     <button class="rail-item" data-feature="memory" title="Memory"><svg class="icon"><use href="#i-memory"/></svg><span>Memory</span></button>
     <button class="rail-item" data-feature="models" title="Models"><svg class="icon"><use href="#i-cube"/></svg><span>Models</span></button>
@@ -160,23 +160,12 @@
     <!-- Models panel: installed models, search and download (models.js) -->
     <section id="panel-models" class="panel">
       <h2>Models</h2>
-      <p class="panel-intro">The AI models on this computer, and new ones to download from Ollama.
-        Bigger models answer better, but need more memory and are slower.</p>
+      <p class="panel-intro">Choose a model to chat with, or find something new to try.</p>
       <p id="models-engine-note" class="hint engine-note" hidden></p>
-
-      <h3 class="setting-section">Installed</h3>
-      <p id="installed-status" class="hint" role="status"></p>
-      <ul id="installed-models" class="model-list"></ul>
-
-      <h3 class="setting-section">Get a model</h3>
-      <!-- Where models come from. Both are downloaded and run by Ollama. -->
-      <div class="tabs" id="model-source">
-        <button type="button" class="tab active" data-source="ollama">Ollama library</button>
-        <button type="button" class="tab" data-source="huggingface">Hugging Face</button>
+      <div class="models-navigation" role="group" aria-label="Model views">
+        <button type="button" class="tab active" data-model-view="installed" aria-pressed="true" aria-controls="models-installed-view">Your models</button>
+        <button type="button" class="tab" data-model-view="discover" aria-pressed="false" aria-controls="models-discover-view">Find models</button>
       </div>
-      <p class="hint">Rough memory guide: a 3b model needs about 3 GB of RAM, 8b about 6 GB,
-        14b about 10 GB. Only your search words are sent to the internet.</p>
-
       <!-- Shown while a model downloads -->
       <div id="model-download" class="model-download" hidden>
         <div class="download-head">
@@ -187,17 +176,51 @@
         <p id="download-status" class="hint" role="status"></p>
       </div>
 
+
+      <div id="models-installed-view">
+        <div class="models-section-heading">
+          <div><h3>Ready on this computer</h3><p class="hint">Downloaded once. Available whenever you need them.</p></div>
+          <button type="button" id="models-browse">Find a model</button>
+        </div>
+        <p id="installed-status" class="hint" role="status"></p>
+        <ul id="installed-models" class="model-list"></ul>
+      </div>
+
+      <div id="models-discover-view" hidden>
+        <div class="models-section-heading">
+          <div><h3>Find your next model</h3><p class="hint">Start with a smaller model for faster replies and less memory use.</p></div>
+        </div>
+        <div class="tabs" id="model-source" role="group" aria-label="Model library">
+          <button type="button" class="tab" data-source="local" aria-pressed="false">Local apps</button>
+          <button type="button" class="tab active" data-source="ollama" aria-pressed="true">Ollama library</button>
+          <button type="button" class="tab" data-source="huggingface" aria-pressed="false">Hugging Face</button>
+        </div>
+        <p class="hint models-library-note">Local apps lists models already available on your computer. Library downloads are managed by Ollama.</p>
+        <div id="source-local" hidden>
+          <div class="models-section-heading">
+            <div><h3>Models from your local apps</h3><p class="hint">Start the API server in LM Studio, Jan or llama.cpp, then refresh.</p></div>
+            <button type="button" id="local-models-refresh">Refresh</button>
+          </div>
+          <p id="local-models-status" class="hint" role="status"></p>
+          <ul id="local-models-results" class="model-list"></ul>
+          <p class="hint">Checks the usual local addresses and your configured local engine. For a different address, use Settings → Setup check.</p>
+        </div>
       <!-- Source 1: the Ollama library (ollama.com) -->
       <div id="source-ollama">
       <form id="library-search" class="model-form">
-        <input type="search" id="library-query" placeholder="Search the Ollama library, like: qwen, coder, embed" autocomplete="off">
+        <input type="search" id="library-query" aria-label="Search Ollama models" placeholder="Search the Ollama library, like: qwen, coder, embed" autocomplete="off">
         <button class="primary">Search</button>
       </form>
+      <details class="models-options">
+        <summary>Download by model name</summary>
       <form id="pull-form" class="model-form">
-        <input id="pull-name" placeholder="Or type an exact name, like qwen3:4b" autocomplete="off">
+        <input id="pull-name" aria-label="Exact model name" placeholder="Or type an exact name, like qwen3:4b" autocomplete="off">
         <button>Download</button>
       </form>
+      </details>
 
+      <details class="models-options">
+        <summary>Filter and sort</summary>
       <!-- Browse without searching: sort and filter the list below -->
       <div class="library-controls">
         <div class="tabs" id="library-order">
@@ -214,6 +237,8 @@
         </div>
       </div>
 
+      </details>
+
       <p id="library-status" class="hint" role="status"></p>
       <ul id="library-results" class="model-list"></ul>
       <button type="button" id="library-more" hidden>Show more</button>
@@ -222,12 +247,12 @@
       <!-- Source 2: Hugging Face (huggingface.co), GGUF models run by Ollama -->
       <div id="source-huggingface" hidden>
         <form id="hf-search" class="model-form">
-          <input type="search" id="hf-query" placeholder="Search Hugging Face, like: qwen2.5 7b instruct" autocomplete="off">
+          <input type="search" id="hf-query" aria-label="Search Hugging Face models" placeholder="Search Hugging Face, like: qwen2.5 7b instruct" autocomplete="off">
           <button class="primary">Search</button>
         </form>
-        <p class="hint">Over a million models. Each comes in versions from small and rough (Q2)
-          to big and precise (Q8); Q4_K_M is the usual choice. Prefer well-known publishers
-          (Qwen, google, bartowski, unsloth) and many downloads.</p>
+        <p class="hint">Community models with more versions to choose from. Look for the recommended version when downloading.</p>
+        <details class="models-options">
+          <summary>Filter and sort</summary>
         <!-- Browse without searching. Only what Ollama can run: no "All". -->
         <div class="library-controls">
           <div class="tabs" id="hf-order">
@@ -241,41 +266,38 @@
             <button type="button" data-category="embedding">Embedding</button>
           </div>
         </div>
+        </details>
         <p id="hf-status" class="hint" role="status"></p>
         <ul id="hf-results" class="model-list"></ul>
         <button type="button" id="hf-more" hidden>Show more</button>
       </div>
+      </div>
     </section>
 
-    <!-- Memory panel: memories and documents in two tabs -->
-    <section id="panel-memory" class="panel">
-      <h2>Memory</h2>
-      <p class="panel-intro">What Cerberus knows about you, and the files it can search. Everything stays on this computer.</p>
-      <div class="tabs">
-        <button class="tab" data-tab="memories">Memories</button>
-        <button class="tab" data-tab="documents">Documents</button>
-      </div>
+    <!-- Memory and Documents have separate panels and sidebar entries. -->
+    <section id="panel-memory" class="panel" aria-labelledby="memory-title">
+      <h2 id="memory-title">Memory</h2>
+      <p class="panel-intro">Facts Cerberus remembers across your chats.</p>
+      <p class="hint">Saved facts are used in every chat. Tip: say "Remember that…" in a chat to add one.</p>
+      <form id="memory-add">
+        <input id="memory-input" aria-label="A fact to remember" placeholder="For example: I study computer science" autocomplete="off">
+        <button class="primary">Add memory</button>
+      </form>
+      <p id="memory-status" class="hint" role="status"></p>
+      <ul id="memory-list"></ul>
+    </section>
 
-      <div id="tab-memories" class="tab-body">
-        <p class="hint">Saved facts are used in every chat. Tip: say "Remember that…" in a chat to add one.</p>
-        <form id="memory-add">
-          <input id="memory-input" placeholder="Add something to remember, like: I study computer science" autocomplete="off">
-          <button class="primary">Add</button>
-        </form>
-        <p id="memory-status" class="hint" role="status"></p>
-        <ul id="memory-list"></ul>
+    <section id="panel-documents" class="panel" aria-labelledby="documents-title">
+      <h2 id="documents-title">Documents</h2>
+      <p class="panel-intro">Your files and notes, ready to use in conversations.</p>
+      <p class="hint" id="document-scope">Files for All chats. Project documents stay within their project.</p>
+      <!-- multiple = pick several files at once; accept = which files the picker shows -->
+      <div class="document-toolbar">
+        <input type="file" id="document-file" aria-label="Upload documents" multiple accept=".txt,.md,.markdown,.pdf,.csv,.json,.py,.js,.html">
+        <button type="button" id="new-document">New Markdown document</button>
       </div>
-
-      <div id="tab-documents" class="tab-body">
-        <p class="hint" id="document-scope">Files for All chats. Project documents stay within their project.</p>
-        <!-- multiple = pick several files at once; accept = which files the picker shows -->
-        <div class="document-toolbar">
-          <input type="file" id="document-file" multiple accept=".txt,.md,.markdown,.pdf,.csv,.json,.py,.js,.html">
-          <button type="button" id="new-document">New Markdown document</button>
-        </div>
-        <p id="document-status" class="hint"></p>
-        <ul id="document-list"></ul>
-      </div>
+      <p id="document-status" class="hint" role="status"></p>
+      <ul id="document-list"></ul>
     </section>
   </main>
 

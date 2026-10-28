@@ -26,7 +26,7 @@ from cerberus.routes import (
     settings,
     setup,
 )
-from cerberus import engine
+from cerberus import engine, llamacpp
 
 # Create the tables in cerberus.db if they don't exist yet.
 # This runs once, when the server starts.
@@ -42,9 +42,16 @@ async def lifespan(app):
             await engine.start()
         except engine.EngineError as error:
             print("Cerberus:", error)
-    yield
-    # ...and stops with it. A system Ollama is never touched.
-    engine.stop()
+    try:
+        await llamacpp.start_saved()
+    except llamacpp.EngineError as error:
+        print("Cerberus:", error)
+    try:
+        yield
+    finally:
+        # Stop only children started by Cerberus.
+        engine.stop()
+        llamacpp.stop()
 
 
 app = FastAPI(title="Cerberus", lifespan=lifespan)

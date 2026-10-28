@@ -197,3 +197,90 @@ def test_a_failed_browse_is_not_kept(monkeypatch):
     with pytest.raises(library.LibraryError):
         asyncio.run(library.browse())
     assert library.browse_cache == {}  # the next try asks again
+
+
+def test_local_apps_discovery_lists_running_servers_without_keys(client, monkeypatch):
+    from cerberus import openai_api
+    calls = []
+
+    async def list_models(engine, timeout):
+        calls.append((engine["url"], timeout))
+        if engine["preset"] == "jan":
+            raise openai_api.EngineError("offline")
+        return ["my-local-model"]
+
+    monkeypatch.setattr(openai_api, "list_models", list_models)
+    response = client.get("/models/local")
+    assert response.status_code == 200
+    found = response.json()["engines"]
+    assert [engine["preset"] for engine in found] == ["lmstudio", "llamacpp"]
+    assert all(engine["models"] == ["my-local-model"] for engine in found)
+    assert all("key" not in engine for engine in found)
+    assert len(calls) == 3 and all(timeout == 2 for _, timeout in calls)
+    assert all(url.startswith("http://127.0.0.1:") for url, _ in calls)
+
+
+def test_local_apps_include_configured_local_address_and_keep_its_key_private(client, monkeypatch):
+    from cerberus import keys, openai_api, settings
+    settings.update({"engine": "openai", "openai_preset": "custom", "openai_url": "http://127.0.0.1:9123/v1"})
+    keys.set("openai_key", "private-local-key")
+    seen = []
+
+    async def list_models(engine, timeout):
+        seen.append(engine)
+        return []
+
+    monkeypatch.setattr(openai_api, "list_models", list_models)
+    response = client.get("/models/local")
+    assert response.json()["engines"][0]["url"] == "http://127.0.0.1:9123/v1"
+    assert seen[0]["key"] == "private-local-key"
+    assert "private-local-key" not in response.text
+    assert len(seen) == 4
+
+
+def test_local_discovery_never_probes_cloud_provider(client, monkeypatch):
+    from cerberus import openai_api, settings
+    settings.update({"engine": "openai", "openai_preset": "openai", "openai_url": ""})
+    calls = []
+
+    async def list_models(engine, timeout):
+        calls.append(engine["url"])
+        raise openai_api.EngineError("offline")
+
+    monkeypatch.setattr(openai_api, "list_models", list_models)
+    assert client.get("/models/local").json() == {"engines": []}
+    assert len(calls) == 3
+    assert all("127.0.0.1" in url for url in calls)
+
+
+def test_configured_default_local_endpoint_is_probed_once(client, monkeypatch):
+    from cerberus import openai_api, settings
+    settings.update({"engine": "openai", "openai_preset": "lmstudio", "openai_url": ""})
+    calls = []
+
+    async def list_models(engine, timeout):
+        calls.append(engine["url"])
+        return []
+
+    monkeypatch.setattr(openai_api, "list_models", list_models)
+    found = client.get("/models/local").json()["engines"]
+    assert len(found) == len(set(calls)) == 3
+
+
+def test_local_discovery_reads_openai_model_lists(client, monkeypatch):
+    import httpx
+    from cerberus import openai_api
+
+    def handler(request):
+        if request.url.port != 1234:
+            raise httpx.ConnectError("not running")
+        assert request.url.path == "/v1/models"
+        assert "authorization" not in request.headers
+        return httpx.Response(200, json={"data": [{"id": "local-chat-model"}]})
+
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(openai_api.httpx, "AsyncClient", lambda **kw: real_client(transport=httpx.MockTransport(handler)))
+    found = client.get("/models/local").json()["engines"]
+    assert len(found) == 1
+    assert found[0]["name"] == "LM Studio"
+    assert found[0]["models"] == ["local-chat-model"]
