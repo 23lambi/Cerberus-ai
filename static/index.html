@@ -86,6 +86,10 @@
             <label class="toggle" id="tools-toggle" hidden title="Let the model use tools: a calculator, the time, your memories">
               <input type="checkbox" id="tools" checked> Tools
             </label>
+            <!-- Works with every model. Off = nothing leaves this computer. -->
+            <label class="toggle" id="web-toggle" title="Search the web (SearXNG) before answering. Your question is sent to the internet.">
+              <input type="checkbox" id="web"> &#127760; Web
+            </label>
             <label class="toggle">
               <input type="checkbox" id="three-heads"> Deep think
             </label>
@@ -145,6 +149,8 @@
       <p id="file-preview-status" class="hint" role="status"></p>
       <pre id="file-preview-text"></pre>
       <button type="button" id="file-preview-current" hidden>View current document</button>
+      <!-- For web sources. noopener noreferrer: the page can't control this tab or see where you came from. -->
+      <a id="file-preview-link" target="_blank" rel="noopener noreferrer" hidden>Open page in a new tab</a>
     </div>
   </dialog>
 

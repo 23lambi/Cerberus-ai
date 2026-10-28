@@ -14,6 +14,7 @@ const thinkToggle = document.getElementById("think-toggle");
 const thinkCheck = document.getElementById("think");
 const toolsToggle = document.getElementById("tools-toggle");
 const toolsCheck = document.getElementById("tools");
+const webCheck = document.getElementById("web");
 const chatList = document.getElementById("chat-list");
 const chatSearch = document.getElementById("chat-search");
 const newChatButton = document.getElementById("new-chat");
@@ -93,7 +94,22 @@ function sourceLabels(headers) {
 function replyLabel(headers) {
   const mode = MODE_NAMES[headers.get("X-Cerberus-Mode")] || "Chat";
   // [mode, ...list] = a new list: mode first, then everything in list.
-  return [mode, ...sourceLabels(headers)].join(", ");
+  const labels = [mode, ...sourceLabels(headers)];
+  // The server only sends X-Cerberus-Web when the web was asked, even
+  // with 0 pages found, so you always see that a request went online.
+  const web = headers.get("X-Cerberus-Web");
+  if (web !== null) {
+    const pages = Number(web);
+    labels.push("Web: " + (pages ? pages + (pages === 1 ? " page" : " pages") : "no pages"));
+  }
+  return labels.join(", ");
+}
+
+// Under an answer: why the web search failed (SearXNG not running...).
+// The answer itself still comes, from what the model already knows.
+function showWebError(headers, el) {
+  const error = headers.get("X-Cerberus-Web-Error");
+  if (error) el.after(makeBox("hint", "Web search failed: " + error));
 }
 
 // Adds a plain-text message at the bottom of the chat and returns it,
@@ -159,9 +175,13 @@ function renderDocumentSources(el, sources) {
   list.className = "answer-sources";
   const label = document.createElement("p");
   label.className = "hint";
-  label.textContent = "Document sources supplied to the model — click to inspect:";
+  label.textContent = "Sources supplied to the model — click to inspect:";
   list.appendChild(label);
-  for (const source of sources) list.appendChild(sourceButton(source, "[" + source.number + "] " + source.name));
+  for (const source of sources) {
+    // 🌐 marks what came from the internet, so it stands apart from your own files.
+    const icon = source.kind === "web" ? "🌐 " : "";
+    list.appendChild(sourceButton(source, icon + "[" + source.number + "] " + source.name));
+  }
   el.appendChild(list);
 }
 
@@ -709,6 +729,7 @@ async function sendNormal(model) {
         chat_id: currentChatId,
         think: wantsThinking(),
         tools: wantsTools(),
+        web: webCheck.checked,
       }),
       // The signal connects this request to the Stop button.
       signal: controller.signal,
@@ -727,6 +748,7 @@ async function sendNormal(model) {
 
   const who = "Cerberus (" + replyLabel(response.headers) + "):";
   bubble.textContent = who + " ...";
+  showWebError(response.headers, bubble);
 
   const result = await readReply(response, bubble, who, (ev) => {
     if (ev.type === "seen") {
@@ -946,6 +968,7 @@ async function sendCouncil(model) {
         messages: history,
         model: model,
         chat_id: currentChatId,
+        web: webCheck.checked,
       }),
       signal: controller.signal,
     });
@@ -956,6 +979,7 @@ async function sendCouncil(model) {
     }
 
     const label = replyLabel(response.headers);
+    showWebError(response.headers, answer);
 
     await readEvents(response, (ev) => {
       if (ev.step === "sources") {
@@ -1215,6 +1239,13 @@ modelSelect.addEventListener("change", freeOtherModels);
 modelSelect.addEventListener("change", () => {
   localStorage.setItem("cerberus-model", modelSelect.value);
   updateModelFeatures();
+});
+
+// Remember the Web box too. The very first time it's off: searching
+// sends your question to the internet, so that must be your choice.
+webCheck.checked = localStorage.getItem("cerberus-web") === "yes";
+webCheck.addEventListener("change", () => {
+  localStorage.setItem("cerberus-web", webCheck.checked ? "yes" : "no");
 });
 
 // NEW (projects step 2): closing or reloading the page also leaves the chat.

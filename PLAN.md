@@ -213,9 +213,27 @@ Verification on 2026-10-18:
 
 ### Stage 3 — optional web search
 
-- Configurable search service and page reading.
-- Source links with results and clear indication when a request accesses the web.
-- Keep offline/local chat usable when search is disabled or unavailable.
+Status: implemented and committed on 2026-10-28 (steps 1–4).
+
+- [x] Configurable search service (SearXNG in Docker on 127.0.0.1:8888) and page reading.
+- [x] Source links with results and clear indication when a request accesses the web.
+- [x] Keep offline/local chat usable when search is disabled or unavailable.
+
+Implementation notes:
+- `websearch.py` asks SearXNG (JSON). `webpage.py` reads one page: public
+  addresses only (rechecked after each redirect), the checked IP is pinned
+  against DNS rebinding while HTTPS still verifies the name, 10 s / 2 MB /
+  HTML-or-text limits, menus skipped, `<main>`/`<article>` preferred.
+- `web.py` reads the top 3 pages in parallel, then picks pieces in two rounds
+  (words, then meaning) and returns one `kind: "web"` source per page.
+- `context.py` adds web sources last and drops them first when the prompt is
+  too big. The untrusted-content warning travels with the source list. A failed
+  search adds WEB_FAILED to the notes and the `X-Cerberus-Web-Error` header.
+- Browser: 🌐 Web box (remembered, off the first time), "Web: N pages" label,
+  web source preview with an http(s)-only link, SearXNG address in Settings.
+- Verified with real SearXNG, real pages and `llama3.2:3b` (temporary database).
+- Possible next steps: a `web_search` tool for tool models, Helper-rewritten
+  search queries for follow-up questions, and visual review in the browser.
 
 ### Stage 4 — research mode
 

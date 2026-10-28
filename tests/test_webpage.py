@@ -199,6 +199,16 @@ def test_the_marked_main_content_wins_when_it_has_enough_text():
     assert text == "Intro text\nShort"
 
 
+def test_icon_titles_do_not_end_up_in_the_page_title():
+    # A real case (devguide.python.org): icons with <title>s of their own.
+    title, _ = webpage.html_to_text("""
+        <html><head><title>Status of Python versions</title></head><body>
+        <svg><title>Menu</title></svg><svg><title>Expand</title></svg>
+        <p>Text</p><title>Not me either</title></body></html>
+    """)
+    assert title == "Status of Python versions"
+
+
 def test_broken_html_never_loses_the_rest_of_the_page():
     # A </div> too many must not end a region early or make the depth negative.
     _, text = webpage.html_to_text("<div role='navigation'>Menu</div></div></div><p>Still here</p>")

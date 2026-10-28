@@ -64,6 +64,7 @@ function fillSettings(values) {
   for (const feature of MODEL_FEATURES) {
     addModelFeature(values, feature);
   }
+  addWebSetting(values);
   settingsFields.appendChild(builtInPrompts());
   const downloads = document.createElement("fieldset");
   downloads.className = "setting-group";
@@ -86,6 +87,34 @@ function fillSettings(values) {
     }
   }
   settingsFields.appendChild(downloads);
+}
+
+// Web search: where SearXNG listens. The 🌐 Web box in the chat turns it
+// on per message; here is only the address.
+function addWebSetting(values) {
+  const section = document.createElement("fieldset");
+  section.className = "setting-group";
+
+  const legend = document.createElement("legend");
+  legend.textContent = "Web search";
+
+  const field = document.createElement("input");
+  field.type = "url"; // the browser checks it looks like an address
+  field.name = "web_url";
+  field.className = "setting-input";
+  field.value = values.web_url;
+  field.placeholder = "http://127.0.0.1:8888";
+
+  const hint = document.createElement("p");
+  hint.className = "hint";
+  hint.textContent =
+    "The address of your SearXNG. With the 🌐 Web box ticked, your question is " +
+    "sent to it, and SearXNG asks search engines on the internet. Cerberus then " +
+    "reads the best pages, but never pages on this computer or your home network. " +
+    "Not running? Start it with: sudo docker start searxng";
+
+  section.append(legend, field, hint);
+  settingsFields.appendChild(section);
 }
 
 // Makes a textarea exactly as tall as its text, so you see all of it

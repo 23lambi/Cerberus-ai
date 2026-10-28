@@ -100,14 +100,26 @@ async function openFilePreview(documentId, source = null) {
   const text = document.getElementById("file-preview-text");
   const status = document.getElementById("file-preview-status");
   const current = document.getElementById("file-preview-current");
+  const link = document.getElementById("file-preview-link");
+  const fromWeb = Boolean(source && source.kind === "web");
   if (!filePreview.open) filePreview.showModal();
   title.textContent = source ? source.name : "File preview";
   text.textContent = source ? source.text : "";
-  current.hidden = !source;
+  // A document can be reopened as it is now; a web page is opened on its site.
+  current.hidden = !source || fromWeb;
   current.onclick = () => openFilePreview(documentId);
-  status.textContent = source
-    ? "Source [" + source.number + "]: exact text supplied for this answer. The current document may have changed."
-    : "Loading file…";
+  // Only real web addresses become a link. "javascript:..." would be code
+  // that runs on click, so saved data never gets to choose that.
+  const safeUrl = fromWeb && /^https?:\/\//i.test(source.url || "");
+  link.hidden = !safeUrl;
+  link.href = safeUrl ? source.url : "#";
+  if (fromWeb) {
+    status.textContent = "Source [" + source.number + "]: the exact text taken from this web page for this answer. The page may have changed since.";
+  } else {
+    status.textContent = source
+      ? "Source [" + source.number + "]: exact text supplied for this answer. The current document may have changed."
+      : "Loading file…";
+  }
   if (source) return;
   try {
     const doc = await editorRequest("/documents/" + documentId);

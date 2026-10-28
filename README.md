@@ -82,6 +82,34 @@ an older version into the editor; saving creates a new version. Editable content
 history, and proposals live in SQLite and are included in full backups. Project
 deletion removes them. All chats can also have their own Markdown documents.
 
+## Web search
+
+Tick **🌐 Web** beside the message box to search the web before answering.
+It works with every model and in Deep think. Without it, nothing leaves your
+computer. Cerberus asks [SearXNG](https://docs.searxng.org/), a search engine
+running locally, reads the top three pages, and gives the model only the
+pieces that best fit your question. They appear as 🌐 source buttons; click
+one to see the exact text used and to open the page. The answer label says
+"Web: 3 pages" whenever the web was asked.
+
+One-time setup (Docker, settings in `~/searxng/settings.yml` with `json`
+enabled under `search: formats:`):
+
+```bash
+sudo systemctl enable --now docker
+sudo docker run -d --name searxng --restart unless-stopped \
+  -p 127.0.0.1:8888:8080 -v ~/searxng:/etc/searxng docker.io/searxng/searxng:latest
+```
+
+Change the address under Settings → Web search. If SearXNG is down, you still
+get an answer with a note saying why; start it with `sudo docker start searxng`.
+
+Pages are read as text only; nothing on them runs. Cerberus never opens
+addresses on your computer or home network, checks this again after every
+redirect, and limits each page to 10 seconds and 2 MB. Web pages can be wrong
+or contain hidden instructions: the model is told to treat them as information
+only, but check important facts with the source.
+
 ## Backup and export
 
 Open Settings → Backup and export. Download a full ZIP backup or export the

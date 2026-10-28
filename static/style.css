@@ -1205,3 +1205,7 @@ dialog button.primary {
 #chat-selection-status { width: 100%; margin: 0; }
 #chat-selection-status:empty { display: none; }
 #chat-list .chat-select { flex-shrink: 0; margin-right: 7px; }
+/* Web search: the address field in Settings and the link in a source preview */
+.setting-input { display: block; width: 100%; margin-top: 10px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 7px 8px; outline: none; }
+.setting-input:focus { border-color: var(--accent); }
+#file-preview-link { color: var(--accent); }

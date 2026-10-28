@@ -275,3 +275,36 @@ test("an unreachable server is reported instead of failing silently", async () =
   assert.equal(elements.get("memory-input").value, "I like tea");
   assert.match(elements.get("memory-status").textContent, /Could not reach Cerberus/);
 });
+
+function labelFor(headers) {
+  const context = vm.createContext({ MODE_NAMES: { chat: "Chat", memory: "Memory" } });
+  vm.runInContext(section("function sourceLabels(", "// Under an answer:"), context);
+  // Like the browser's Headers: a missing header is null (a Map would say undefined).
+  return context.replyLabel({ get: name => headers[name] ?? null });
+}
+
+test("the answer label says when the web was used, also when nothing was found", () => {
+  assert.equal(labelFor({"X-Cerberus-Mode": "chat"}), "Chat");
+  assert.equal(labelFor({"X-Cerberus-Mode": "chat", "X-Cerberus-Web": "3"}), "Chat, Web: 3 pages");
+  assert.equal(labelFor({"X-Cerberus-Mode": "chat", "X-Cerberus-Web": "1"}), "Chat, Web: 1 page");
+  assert.equal(labelFor({"X-Cerberus-Mode": "chat", "X-Cerberus-Web": "0"}), "Chat, Web: no pages");
+});
+
+test("a web source opens its page in a new tab instead of a document", async () => {
+  const {context, elements} = workspaceContext(async () => { throw new Error("Snapshots need no request"); });
+  await context.openFilePreview(undefined, {number: 1, name: "Zebra facts (animals.example)",
+    text: "Stripes are unique.", kind: "web", url: "https://animals.example/zebra"});
+  assert.equal(elements.get("file-preview-text").textContent, "Stripes are unique.");
+  assert.equal(elements.get("file-preview-link").hidden, false);
+  assert.equal(elements.get("file-preview-link").href, "https://animals.example/zebra");
+  assert.equal(elements.get("file-preview-current").hidden, true);
+  assert.match(elements.get("file-preview-status").textContent, /web page/);
+});
+
+test("a saved source can never turn a link into code", async () => {
+  const {context, elements} = workspaceContext(async () => { throw new Error("Snapshots need no request"); });
+  await context.openFilePreview(undefined, {number: 1, name: "Evil", text: "x", kind: "web",
+    url: "javascript:alert(document.cookie)"});
+  assert.equal(elements.get("file-preview-link").hidden, true);
+  assert.equal(elements.get("file-preview-link").href, "#");
+});

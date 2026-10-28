@@ -198,6 +198,7 @@ class TextOnly(HTMLParser):
         self.main_parts = []  # only the text inside <main>/<article>
         self.title = []
         self.in_title = False
+        self.title_done = False
         # Open regions, like {"tag": "div", "depth": 2, "kind": "skip"}.
         self.regions = []
 
@@ -216,7 +217,10 @@ class TextOnly(HTMLParser):
             elif tag in self.MAIN or role == "main":
                 self.regions.append({"tag": tag, "depth": 1, "kind": "main"})
         if tag == "title":
-            self.in_title = True
+            # Icons drawn in SVG have <title>s of their own ("Menu", "Expand").
+            # The page's title is the first one, and never one inside an <svg>.
+            in_svg = any(region["tag"] == "svg" for region in self.regions)
+            self.in_title = not self.title_done and not in_svg
         elif tag in self.BREAKS:
             self.newline()
 
@@ -227,6 +231,8 @@ class TextOnly(HTMLParser):
         # A region whose depth is back to 0 just closed.
         self.regions = [region for region in self.regions if region["depth"] > 0]
         if tag == "title":
+            if self.in_title:
+                self.title_done = True
             self.in_title = False
         elif tag in self.BREAKS:
             self.newline()
