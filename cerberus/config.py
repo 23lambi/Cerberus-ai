@@ -57,3 +57,7 @@ PROJECT_NOTES_MAX_CHARS = 6000  # the most project notes that go into one prompt
 
 WEB_RESULTS = 5  # how many search results to keep
 WEB_SEARCH_TIMEOUT = 15  # seconds; SearXNG waits for several engines
+WEB_PAGE_TIMEOUT = 10  # seconds for one page, redirects included
+MAX_PAGE_BYTES = 2 * 1024 * 1024  # stop downloading a page after 2 MB
+MAX_REDIRECTS = 5
+PAGE_TEXT_CHARS = 40000  # the most text kept from one page
