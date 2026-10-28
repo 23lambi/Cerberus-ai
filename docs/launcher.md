@@ -88,12 +88,15 @@ Python distributions must include Tcl/Tk. To run the launcher from source:
 python -m launcher
 ```
 
-The **Build desktop releases** workflow can be run manually to produce test
-artifacts. A version tag such as `v0.4.0` builds all four targets, runs tests,
-smoke-tests the bundled executables and installer, creates checksums, and opens
-a **draft** GitHub release. Review each platform, signing, license notices, and
-release notes before publishing the draft. The launcher only sees published,
-stable releases.
+Use **Actions → Build desktop releases → Run workflow**, enter a version, and
+leave **Create a draft release** enabled. All four builds must pass before a
+draft is created. Disable that option to build test artifacts only. Version-tag
+pushes also create a draft after passing the builds.
+
+Review the draft and test each platform before publishing. The launcher only
+sees published, stable releases in a **public repository**; it does not use your
+GitHub login or access private releases. See [Publishing a release](releasing.md)
+for the complete maintainer steps.
 
 The app assets are `cerberus-<target>.tar.gz`. Each launcher ZIP is
 `cerberus-launcher-<target>.zip`. `release-manifest.json` records the version,

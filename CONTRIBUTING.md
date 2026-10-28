@@ -5,7 +5,7 @@ pull requests are welcome.
 
 ## Try it and report a problem
 
-Follow the [README](README.md#get-started), then open a
+Follow the [README](README.md#development), then open a
 [bug report](https://github.com/23lambi/Cerberus-ai/issues/new/choose).
 Include your operating system, engine, model, and steps to reproduce the issue.
 Use sample data in screenshots and remove keys or private content from logs.

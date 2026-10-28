@@ -67,3 +67,29 @@ def test_database_uses_wal(db):
     # The mode is stored in the file, so every new connection gets it too.
     with database.get_db() as conn:
         assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+
+
+def test_snapshot_closes_both_database_handles(db, tmp_path, monkeypatch):
+    """An open target prevents Windows from cleaning up the backup folder."""
+    import sqlite3
+    original_connect = sqlite3.connect
+    connections = []
+
+    class TrackedConnection(sqlite3.Connection):
+        closed = False
+
+        def close(self):
+            self.closed = True
+            return super().close()
+
+    def connect(*args, **kwargs):
+        connection = original_connect(*args, factory=TrackedConnection, **kwargs)
+        connections.append(connection)
+        return connection
+
+    monkeypatch.setattr(database.sqlite3, "connect", connect)
+    target = tmp_path / "snapshot.db"
+    assert database.snapshot(target) == []
+    assert len(connections) == 2
+    assert all(connection.closed for connection in connections)
+    target.unlink()

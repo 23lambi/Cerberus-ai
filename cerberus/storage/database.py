@@ -8,7 +8,7 @@
 
 import json
 import sqlite3
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from datetime import datetime
 from pathlib import Path
 
@@ -31,7 +31,9 @@ def get_db():
 
 def snapshot(path):
     """SQLite's backup API makes a consistent copy, including WAL changes."""
-    with get_db() as source, sqlite3.connect(path) as target:
+    # SQLite's connection context manager commits/rolls back but does not
+    # close the file. Windows cannot remove the temporary backup while open.
+    with get_db() as source, closing(sqlite3.connect(path)) as target:
         source.backup(target)
         target.row_factory = sqlite3.Row
         return [dict(row) for row in target.execute("SELECT id, path FROM documents")]

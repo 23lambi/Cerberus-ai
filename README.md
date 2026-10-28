@@ -7,46 +7,55 @@ A desktop workspace for chat, documents, and research with local or cloud AI.
 [![Checks](https://github.com/23lambi/Cerberus-ai/actions/workflows/checks.yml/badge.svg)](https://github.com/23lambi/Cerberus-ai/actions/workflows/checks.yml)
 [![MIT license](https://img.shields.io/badge/license-MIT-737373)](LICENSE)
 
-[Get started](#get-started) · [AI engines](#ai-engines) · [User guide](docs/guide.md)
+[Downloads](#download) · [Features](#features) · [User guide](docs/guide.md) · [Report a bug](https://github.com/23lambi/Cerberus-ai/issues/new/choose)
 
-## Get started
+## Download
 
-**Packaged downloads are not published yet.** The launcher files must first be
-built and added to a stable GitHub release. Until then, the direct asset links
-would return **Not Found**.
+**First desktop release in preparation.** Downloads will appear after the
+cross-platform builds pass and a stable release is published.
 
-[Check available releases](https://github.com/23lambi/Cerberus-ai/releases) · [Build and release instructions](docs/launcher.md#build-and-publish)
+[![Windows x64](https://img.shields.io/badge/Windows-x64-24292f?style=for-the-badge)](https://github.com/23lambi/Cerberus-ai/releases)
+[![macOS](https://img.shields.io/badge/macOS-Apple_Silicon_%26_Intel-24292f?style=for-the-badge)](https://github.com/23lambi/Cerberus-ai/releases)
+[![Linux x64](https://img.shields.io/badge/Linux-x64-24292f?style=for-the-badge)](https://github.com/23lambi/Cerberus-ai/releases)
 
-When a release is available, choose the ZIP for your computer. **No Python,
-Git, or terminal setup is required for packaged downloads.**
+The Releases page will list each platform’s launcher ZIP once the first release is published.
+[Build status](https://github.com/23lambi/Cerberus-ai/actions/workflows/release.yml) · [Platform requirements](docs/launcher.md#supported-builds)
 
-| Your computer | Release file | Open after extracting the ZIP |
+Once a release is available:
+
+1. Download your launcher ZIP and extract it.
+2. Open the launcher → **Install Cerberus** → **Open Cerberus**.
+3. Choose your AI engine and model in **Settings → Setup check**.
+
+**No Python or Git setup is needed for packaged downloads.** The launcher
+handles app updates and repairs; your chats and settings are stored separately.
+Initial builds are unsigned.
+
+<details>
+<summary>Which download should I choose?</summary>
+
+| Your computer | Release file | Open |
 | --- | --- | --- |
 | Windows · 64-bit | `cerberus-launcher-windows-x86_64.zip` | `CerberusLauncher.exe` |
 | macOS · Apple Silicon | `cerberus-launcher-macos-arm64.zip` | `CerberusLauncher.app` |
 | macOS · Intel | `cerberus-launcher-macos-x86_64.zip` | `CerberusLauncher.app` |
 | Linux · 64-bit | `cerberus-launcher-linux-x86_64.zip` | `CerberusLauncher` |
 
-1. Download and extract your launcher ZIP.
-2. Open the launcher and choose **Install Cerberus**, then **Open Cerberus**.
-3. Choose your AI engine and model in **Settings → Setup check**.
+</details>
 
-The launcher detects your platform and handles app downloads, updates, and repairs.
-Your chats and settings are kept separately from the application.
+<p align="center">
+  <img src="docs/assets/chat.png" alt="Cerberus desktop chat with connection status, prompt suggestions, and a compact message composer" width="100%">
+</p>
+<p align="center"><sub>Chat interface shown with sample data.</sub></p>
 
-Downloads require a published stable release. Check [Releases](https://github.com/23lambi/Cerberus-ai/releases)
-for availability. Linux is tested locally; Windows and macOS still need native
-release testing. Initial packages are unsigned.
-[Platform requirements and help →](docs/launcher.md)
+## Features
 
-## Built for everyday work
-
-- **Chat your way** — regular conversations, Deep think, images, and tools.
-- **Keep work together** — projects, file attachments, and searchable documents.
-- **Write and revise** — Markdown editing, version history, and AI edits you review.
-- **Remember what matters** — saved facts available across your chats.
-- **Research with sources** — web search and reports with numbered citations.
-- **Own your data** — local storage, full backups, and Markdown or JSON exports.
+- **Chat & reasoning** — streaming answers, Deep think, images, and tools.
+- **Documents & projects** — searchable files, Markdown editing, version history,
+  and AI edits you review before applying.
+- **Memory** — saved facts available across your chats.
+- **Research** — web sources and reports with numbered citations.
+- **Data control** — local storage, full backups, and Markdown or JSON exports.
 
 ## AI engines
 
@@ -107,7 +116,7 @@ node tests/frontend.test.cjs
 
 </details>
 
-[User guide](docs/guide.md) · [Contributing](CONTRIBUTING.md) · [Project layout](docs/development/architecture.md) · [Build releases](docs/launcher.md#build-and-publish)
+[User guide](docs/guide.md) · [Contributing](CONTRIBUTING.md) · [Project layout](docs/development/architecture.md) · [Build releases](docs/releasing.md)
 
 ## Feedback & license
 

@@ -5,6 +5,7 @@
 import asyncio
 import io
 import json
+import os
 import sqlite3
 import stat
 import zipfile
@@ -217,7 +218,9 @@ def test_a_key_is_stored_privately_and_never_sent_back(client, monkeypatch):
     client.post("/setup/engine", json={"engine": "openai", "preset": "openai", "key": "sk-very-secret"})
 
     assert keys.get("openai_key") == "sk-very-secret"
-    assert stat.S_IMODE(keys.KEYS_FILE.stat().st_mode) == 0o600  # only you may read it
+    # Windows uses ACLs in the user profile, not POSIX group/other mode bits.
+    if os.name != "nt":
+        assert stat.S_IMODE(keys.KEYS_FILE.stat().st_mode) == 0o600
     for url in ("/settings", "/setup/engines", "/setup/status"):
         assert "sk-very-secret" not in client.get(url).text
     assert client.get("/settings").json()["openai_key_set"] == "yes"

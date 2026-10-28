@@ -4,6 +4,7 @@
 
 import asyncio
 import io
+import os
 import tarfile
 import zipfile
 
@@ -50,7 +51,8 @@ def test_unpack_a_tar_zst_and_find_the_program(tmp_path):
     make_tar_zst(archive, {"bin/ollama": b"#!/bin/sh\n", "lib/ollama/libggml.so": b"lib"})
     binary = engine.unpack(archive, tmp_path / "app", "bin/ollama")
     assert binary.read_bytes() == b"#!/bin/sh\n"
-    assert binary.stat().st_mode & 0o100  # may run as a program
+    if os.name != "nt":
+        assert binary.stat().st_mode & 0o100  # POSIX executable permission
 
 
 def test_a_tar_that_writes_outside_its_folder_is_refused(tmp_path):
@@ -77,7 +79,9 @@ def test_a_zip_gets_its_program_runnable_again(tmp_path):
     with zipfile.ZipFile(archive, "w") as zipped:
         zipped.writestr("Ollama.app/Contents/Resources/ollama", b"x")
     binary = engine.unpack(archive, tmp_path / "app", "Ollama.app/Contents/Resources/ollama")
-    assert binary.stat().st_mode & 0o100
+    assert binary.read_bytes() == b"x"
+    if os.name != "nt":
+        assert binary.stat().st_mode & 0o100
 
 
 # ---------- Downloading, with resume ----------
