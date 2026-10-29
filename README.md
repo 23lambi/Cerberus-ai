@@ -17,15 +17,16 @@
 
 <p align="center">
   <a href="#download">Download</a> ·
-  <a href="#what-it-does">What it does</a> ·
+  <a href="#see-it-in-action">Tour</a> ·
+  <a href="#what-it-does">Features</a> ·
   <a href="#ai-engines">AI engines</a> ·
   <a href="docs/guide.md">Guide</a> ·
-  <a href="https://github.com/23lambi/Cerberus-ai/issues/new/choose">Issues</a>
+  <a href="docs/roadmap.md">Roadmap</a>
 </p>
 
 <p align="center">
-  <img src="docs/assets/chat.png" alt="Cerberus desktop chat with prompt suggestions and a compact message composer" width="100%">
-  <br><sub>Chat interface shown with sample data.</sub>
+  <img src="docs/assets/chat.png" alt="A Cerberus chat explaining hash tables with a highlighted Python example, chats and a project in the sidebar" width="100%">
+  <br><sub>Shown with sample data and a local gemma3:4b model.</sub>
 </p>
 
 ## Download
@@ -39,11 +40,12 @@
 
 1. **Download** the launcher for your computer and extract the ZIP.
 2. **Open the launcher**, choose where to install, and click **Install Cerberus**.
-3. **Start chatting.** The launcher opens Cerberus when it's done.
+3. **Start chatting.** Cerberus opens when the install is done, and a short
+   setup gets your AI ready.
 
-Cerberus updates itself from **Settings → Updates**. Your chats and settings stay
-in your user data folder. No Python or Git setup is needed.
-[All releases](https://github.com/23lambi/Cerberus-ai/releases)
+Cerberus updates itself from **Settings → Updates**, and shows what's new before
+you download. Your chats and settings stay in your own data folder. No Python or
+Git needed. [All releases](https://github.com/23lambi/Cerberus-ai/releases)
 
 <details>
 <summary><b>Which file do I need?</b></summary>
@@ -74,14 +76,52 @@ once before opening it:
 
 </details>
 
+## See it in action
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>Ready in three steps</h3>
+      Choose where your AI runs, get a model that fits your computer, and say hi.
+      The mascot tells you when something's missing, and when it works.
+      <br><br>
+      <img src="docs/assets/setup.png" alt="Setup window: all steps done, the mascot says it works, and a first answer from the model">
+    </td>
+    <td width="50%" valign="top">
+      <h3>Tune every model</h3>
+      Choose how much of the chat a model sees at once, with the memory each size
+      takes and a suggestion for your computer, and how creative it answers.
+      <br><br>
+      <img src="docs/assets/model-settings.png" alt="Model settings: context length with memory per size, and temperature">
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <h3>Projects that know your files</h3>
+      Keep chats and documents together. Answers cite the documents they used,
+      and you can open each source.
+      <br><br>
+      <img src="docs/assets/project.png" alt="A project chat answering from a watering guide, with the source listed">
+    </td>
+    <td valign="top">
+      <h3>A companion while it works</h3>
+      The pixel mascot's three heads bob while Cerberus thinks, and nod while it
+      writes the answer.
+      <br><br>
+      <img src="docs/assets/mascot-thinking.png" alt="The mascot while Cerberus is thinking">
+      <img src="docs/assets/mascot-answering.png" alt="The mascot while Cerberus writes its answer">
+    </td>
+  </tr>
+</table>
+
 ## What it does
 
 <table>
   <tr>
     <td width="50%" valign="top">
       <h3>💬 Chat</h3>
-      Streaming answers, image input, and tools. <b>Deep think</b> drafts,
-      reviews, then answers: three heads, one answer.
+      Streaming answers, image input, and tools like a calculator and memory
+      search. <b>Deep think</b> drafts, reviews, then answers: three heads, one answer.
     </td>
     <td width="50%" valign="top">
       <h3>📄 Documents</h3>
@@ -100,10 +140,16 @@ once before opening it:
     </td>
   </tr>
   <tr>
-    <td colspan="2" valign="top">
+    <td valign="top">
+      <h3>🧩 Works with any model</h3>
+      Pick any model you like. Reasoning written between think tags goes to
+      "Show thinking", and tool calls in every common format really run,
+      instead of showing up as raw text.
+    </td>
+    <td valign="top">
       <h3>🔒 Your data stays yours</h3>
-      Chats and documents live on your computer. Create backups and export chats
-      as Markdown or JSON at any time.
+      Chats and documents live on your computer. Back up everything, or export
+      a chat as Markdown or JSON, at any time.
     </td>
   </tr>
 </table>
@@ -118,8 +164,8 @@ Other OpenAI-compatible servers work too. Image and tool support depends on the
 engine and model. Cerberus can start its managed llama.cpp server or install its
 own Ollama. Optional web search and Research use SearXNG.
 
-In the app, open **Models** to manage Ollama models, find downloads, or connect
-to a running local app. Choose **Use in chat** to select a model.
+In the app, open **Models** to download models, connect to a running local app,
+or open a model's **Settings**. Choose **Use in chat** to select a model.
 [Engine setup guide →](docs/guide.md#choosing-an-ai-engine)
 
 ## Privacy
@@ -129,6 +175,12 @@ to a running local app. Choose **Use in chat** to select a model.
 > your messages and the context you provide go to that service. Web search also
 > contacts the configured search service and the pages it opens. API keys are
 > stored separately from the chat database and are excluded from backups.
+
+## What's next
+
+Coming up, in order: API keys that stay with their own connection, editing a
+sent message with both versions kept, a developer mode with custom assistants,
+and MCP tools. See the [roadmap](docs/roadmap.md).
 
 ## Build from source
 
@@ -166,16 +218,24 @@ venv/bin/python -m pytest -q
 node tests/frontend.test.cjs
 ```
 
+With Ollama running, check real models too:
+
+```bash
+venv/bin/python scripts/check_models.py    # clean answers from every installed model
+venv/bin/python scripts/check_prompts.py   # does the model make things up about itself?
+```
+
 The pixel mascot is drawn by `scripts/make_mascot.py`; edit its pixel rows and
 run it again to change the mascot and its animations.
 
 </details>
 
-[User guide](docs/guide.md) · [Contributing](CONTRIBUTING.md) · [Project layout](docs/development/architecture.md) · [Release process](docs/releasing.md)
+[User guide](docs/guide.md) · [Contributing](CONTRIBUTING.md) · [Project layout](docs/development/architecture.md) · [Release process](docs/releasing.md) · [Roadmap](docs/roadmap.md)
 
 ## Feedback and license
 
 Found a bug or have an idea? [Open an issue](https://github.com/23lambi/Cerberus-ai/issues/new/choose).
+Settings → Help → **Copy diagnostics** collects the details a bug report needs.
 
 Cerberus project code is licensed under [Apache 2.0](LICENSE); bundled libraries
 retain their [own licenses](static/vendor/README.md).
