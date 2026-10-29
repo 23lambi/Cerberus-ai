@@ -119,35 +119,35 @@ once before opening it:
 <table>
   <tr>
     <td width="50%" valign="top">
-      <h3>💬 Chat</h3>
+      <h3>Chat</h3>
       Streaming answers, image input, and tools like a calculator and memory
       search. <b>Deep think</b> drafts, reviews, then answers: three heads, one answer.
     </td>
     <td width="50%" valign="top">
-      <h3>📄 Documents</h3>
+      <h3>Documents</h3>
       Organize projects, search files, edit Markdown, and review AI changes
       before applying them.
     </td>
   </tr>
   <tr>
     <td valign="top">
-      <h3>🔎 Research</h3>
+      <h3>Research</h3>
       Search the web and get reports with citations, saved as documents.
     </td>
     <td valign="top">
-      <h3>🧠 Memory</h3>
+      <h3>Memory</h3>
       Save useful facts once, and Cerberus remembers them in every conversation.
     </td>
   </tr>
   <tr>
     <td valign="top">
-      <h3>🧩 Works with any model</h3>
+      <h3>Works with any model</h3>
       Pick any model you like. Reasoning written between think tags goes to
       "Show thinking", and tool calls in every common format really run,
       instead of showing up as raw text.
     </td>
     <td valign="top">
-      <h3>🔒 Your data stays yours</h3>
+      <h3>Your data stays yours</h3>
       Chats and documents live on your computer. Back up everything, or export
       a chat as Markdown or JSON, at any time.
     </td>
@@ -156,7 +156,7 @@ once before opening it:
 
 ## AI engines
 
-| 🖥️ Run locally | ☁️ Connect to cloud |
+| Run locally | Connect to cloud |
 | --- | --- |
 | Ollama · llama.cpp · LM Studio · Jan | Hugging Face · OpenAI · Groq · OpenRouter |
 
