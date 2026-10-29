@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cerberus · Private AI workspace for your desktop</title>
+  <meta name="description" content="A desktop workspace for chat, documents, and research. Run AI locally with Ollama, llama.cpp, LM Studio or Jan, or connect a cloud model. Free and open source.">
+  <link rel="icon" href="assets/mascot.svg" type="image/svg+xml">
+  <!-- Link previews on Discord, Reddit, X, Mastodon and others. -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Cerberus · Private AI workspace for your desktop">
+  <meta property="og:description" content="Chat, documents and research with local or cloud AI. Free and open source for Windows, macOS and Linux.">
+  <meta property="og:url" content="https://23lambi.github.io/Cerberus-ai/">
+  <meta property="og:image" content="https://23lambi.github.io/Cerberus-ai/assets/social-preview.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <style>
+    :root {
+      --bg: #17181d;
+      --side: #121317;
+      --panel: #1e2027;
+      --raised: #272a33;
+      --border: #2c2f38;
+      --text: #e6e8ed;
+      --muted: #9aa0ad;
+      --faint: #6c7281;
+      --accent: #e8707e;
+      --accent-strong: #f28996;
+      --accent-bg: rgba(232, 112, 126, 0.12);
+      --crimson: #dc143c;
+      --radius: 12px;
+      --font: "Noto Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+      --mono: "JetBrains Mono", ui-monospace, "Cascadia Code", "DejaVu Sans Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.6 var(--font);
+    }
+
+    a { color: var(--accent); }
+
+    .wrap {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ---------- Top bar ---------- */
+    header.top {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(18, 19, 23, 0.85);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    header.top .wrap {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      height: 60px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text);
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-decoration: none;
+      text-transform: uppercase;
+      font-family: var(--mono);
+      font-size: 15px;
+    }
+
+    .brand img { width: 32px; height: 24px; image-rendering: pixelated; }
+
+    nav.links {
+      display: flex;
+      gap: 20px;
+      margin-left: auto;
+      font-size: 14.5px;
+    }
+
+    nav.links a { color: var(--muted); text-decoration: none; }
+    nav.links a:hover { color: var(--text); }
+
+    /* ---------- Buttons ---------- */
+    .button {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--raised);
+      color: var(--text);
+      font: 600 15px var(--font);
+      text-decoration: none;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .button:hover { border-color: var(--accent); }
+
+    .button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #1b1b1f;
+    }
+
+    .button.primary:hover { background: var(--accent-strong); }
+
+    /* ---------- Hero ---------- */
+    .hero {
+      text-align: center;
+      padding: 72px 0 40px;
+      background: radial-gradient(ellipse at 50% 0%, rgba(220, 20, 60, 0.16), transparent 60%);
+    }
+
+    .hero .mascot {
+      width: 216px;
+      height: 162px;
+      image-rendering: pixelated;
+    }
+
+    .hero h1 {
+      margin: 18px 0 10px;
+      font-family: var(--mono);
+      font-size: clamp(38px, 7vw, 64px);
+      letter-spacing: 10px;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .hero .tagline {
+      margin: 0 auto;
+      max-width: 640px;
+      font-size: clamp(18px, 2.4vw, 22px);
+      color: var(--text);
+    }
+
+    .hero .sub {
+      margin: 10px auto 30px;
+      max-width: 560px;
+      color: var(--muted);
+    }
+
+    .cta {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .hero .note {
+      margin-top: 14px;
+      color: var(--faint);
+      font-size: 13.5px;
+    }
+
+    .screenshot {
+      display: block;
+      width: 100%;
+      margin: 48px auto 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+    }
+
+    /* ---------- Sections ---------- */
+    section { padding: 64px 0; }
+    section + section { border-top: 1px solid var(--border); }
+
+    h2 {
+      margin: 0 0 8px;
+      font-size: clamp(26px, 3.4vw, 34px);
+    }
+
+    .lead {
+      margin: 0 0 32px;
+      max-width: 680px;
+      color: var(--muted);
+      font-size: 17px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      padding: 20px 22px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+
+    .card h3 { margin: 0 0 6px; font-size: 17px; }
+    .card p { margin: 0; color: var(--muted); font-size: 15px; }
+
+    .tour {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+      gap: 22px;
+    }
+
+    .tour figure {
+      margin: 0;
+      padding: 18px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+
+    .tour figcaption { margin-bottom: 14px; }
+    .tour figcaption strong { display: block; font-size: 17px; margin-bottom: 2px; }
+    .tour figcaption span { color: var(--muted); font-size: 15px; }
+
+    .tour img {
+      display: block;
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .tour .mascots img { margin-top: 8px; }
+
+    /* ---------- Get Cerberus ---------- */
+    .ways {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 22px;
+      align-items: start;
+    }
+
+    .way h3 { margin: 0 0 4px; font-size: 20px; }
+    .way > p { margin: 0 0 18px; color: var(--muted); }
+
+    .downloads {
+      display: grid;
+      gap: 10px;
+    }
+
+    .downloads .button { justify-content: space-between; }
+    .downloads .button small { color: var(--faint); font-weight: 400; }
+    .downloads .button.primary small { color: rgba(27, 27, 31, 0.7); }
+
+    ol.steps {
+      margin: 18px 0 0;
+      padding-left: 20px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    ol.steps strong { color: var(--text); }
+
+    .tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .tabs button {
+      padding: 7px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: none;
+      color: var(--muted);
+      font: 14px var(--font);
+      cursor: pointer;
+    }
+
+    .tabs button[aria-selected="true"] {
+      background: var(--accent-bg);
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    .code {
+      position: relative;
+      margin: 0 0 10px;
+      background: var(--side);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    .code pre {
+      margin: 0;
+      padding: 14px 16px;
+      padding-right: 76px;
+      overflow-x: auto;
+      font: 13.5px/1.7 var(--mono);
+      color: var(--text);
+    }
+
+    .code pre .comment { color: var(--faint); }
+
+    .code .copy {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--raised);
+      color: var(--muted);
+      font: 12.5px var(--font);
+      cursor: pointer;
+    }
+
+    .code .copy:hover { color: var(--text); border-color: var(--accent); }
+
+    .small { color: var(--faint); font-size: 14px; }
+
+    /* ---------- Engines ---------- */
+    .engines {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 16px;
+    }
+
+    .engines ul {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 12px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .engines li {
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: var(--raised);
+      border: 1px solid var(--border);
+      font-size: 14px;
+    }
+
+    /* ---------- FAQ ---------- */
+    details {
+      padding: 16px 20px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 10px;
+    }
+
+    summary { cursor: pointer; font-weight: 600; }
+    details p { margin: 10px 0 0; color: var(--muted); }
+
+    footer {
+      padding: 36px 0 48px;
+      border-top: 1px solid var(--border);
+      color: var(--faint);
+      font-size: 14px;
+    }
+
+    footer .wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 24px;
+      justify-content: space-between;
+    }
+
+    footer a { color: var(--muted); }
+
+    @media (max-width: 720px) {
+      nav.links { display: none; }
+      .tour, .ways { grid-template-columns: 1fr; }
+      section { padding: 48px 0; }
+    }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <a class="brand" href="#"><img src="assets/mascot.svg" alt="">Cerberus</a>
+      <nav class="links" aria-label="Sections">
+        <a href="#tour">Tour</a>
+        <a href="#features">Features</a>
+        <a href="#get">Download</a>
+        <a href="#faq">FAQ</a>
+        <a href="https://github.com/23lambi/Cerberus-ai">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="hero">
+      <div class="wrap">
+        <img class="mascot" src="assets/mascot-idle.svg" alt="Cerberus mascot: a crimson pixel-art dog with three heads">
+        <h1>Cerberus</h1>
+        <p class="tagline">A desktop workspace for chat, documents, and research.</p>
+        <p class="sub">Run AI privately on your own computer, or connect a cloud model when you need one. Free and open source.</p>
+        <div class="cta">
+          <a class="button primary" id="hero-download" href="#get">Download</a>
+          <a class="button" href="#source">Run from source</a>
+          <a class="button" href="https://github.com/23lambi/Cerberus-ai">View on GitHub</a>
+        </div>
+        <p class="note">Windows · macOS · Linux · Apache 2.0</p>
+        <img class="screenshot" src="assets/chat.png" alt="A Cerberus chat explaining hash tables with a highlighted Python example">
+      </div>
+    </div>
+
+    <section id="tour">
+      <div class="wrap">
+        <h2>See it in action</h2>
+        <p class="lead">From first start to a long project, Cerberus stays simple: one window for your chats, your documents and your models.</p>
+        <div class="tour">
+          <figure>
+            <figcaption><strong>Ready in three steps</strong><span>Choose where your AI runs, get a model that fits your computer, and say hi.</span></figcaption>
+            <img src="assets/setup.png" alt="Setup: all steps done and a first answer from the model" loading="lazy">
+          </figure>
+          <figure>
+            <figcaption><strong>Tune every model</strong><span>Context length with the memory each size takes, and how creative it answers.</span></figcaption>
+            <img src="assets/model-settings.png" alt="Model settings with context length and temperature" loading="lazy">
+          </figure>
+          <figure>
+            <figcaption><strong>Projects that know your files</strong><span>Answers cite the documents they used, and every source opens with a click.</span></figcaption>
+            <img src="assets/project.png" alt="A project chat answering from a watering guide, with its source" loading="lazy">
+          </figure>
+          <figure class="mascots">
+            <figcaption><strong>A companion while it works</strong><span>The mascot's three heads bob while Cerberus thinks, and nod while it writes.</span></figcaption>
+            <img src="assets/mascot-thinking.png" alt="The mascot while Cerberus is thinking" loading="lazy">
+            <img src="assets/mascot-answering.png" alt="The mascot while Cerberus writes its answer" loading="lazy">
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section id="features">
+      <div class="wrap">
+        <h2>Everything in one place</h2>
+        <p class="lead">Not just a chat window: a workspace that remembers, researches and works with your documents.</p>
+        <div class="grid">
+          <div class="card"><h3>Chat</h3><p>Streaming answers, image input, and tools. Deep think drafts, reviews, then answers.</p></div>
+          <div class="card"><h3>Documents</h3><p>Organize projects, search files, edit Markdown, and review AI changes before applying them.</p></div>
+          <div class="card"><h3>Research</h3><p>Search the web and get reports with citations, saved as documents.</p></div>
+          <div class="card"><h3>Memory</h3><p>Save useful facts once, and Cerberus remembers them in every conversation.</p></div>
+          <div class="card"><h3>Works with any model</h3><p>Reasoning goes to "Show thinking", and tool calls in every common format really run.</p></div>
+          <div class="card"><h3>Your data stays yours</h3><p>Chats and documents live on your computer. Back up or export any time.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="get">
+      <div class="wrap">
+        <h2>Get Cerberus</h2>
+        <p class="lead">Download the app, or run it from source with Git.</p>
+        <div class="ways">
+          <div class="way card">
+            <h3>Download the app</h3>
+            <p>A small launcher installs Cerberus and opens it. No Python or Git needed. Cerberus updates itself afterwards.</p>
+            <div class="downloads" id="downloads">
+              <a class="button" data-os="windows" href="https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-windows-x86_64.zip">Windows <small>64-bit</small></a>
+              <a class="button" data-os="mac" href="https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-macos-arm64.zip">macOS <small>Apple Silicon (M1 and newer)</small></a>
+              <a class="button" data-os="mac" href="https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-macos-x86_64.zip">macOS <small>Intel</small></a>
+              <a class="button" data-os="linux" href="https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-linux-x86_64.zip">Linux <small>64-bit</small></a>
+            </div>
+            <ol class="steps">
+              <li><strong>Extract</strong> the ZIP and open the launcher.</li>
+              <li><strong>Choose</strong> where to install, then click Install Cerberus.</li>
+              <li><strong>Say hi.</strong> A short setup gets your AI ready.</li>
+            </ol>
+            <p class="small">The launcher isn't signed yet. Windows: choose More info → Run anyway. macOS: System Settings → Privacy &amp; Security → Open Anyway. <a href="https://github.com/23lambi/Cerberus-ai/releases">All releases</a></p>
+          </div>
+
+          <div class="way card" id="source">
+            <h3>Run from source with Git</h3>
+            <p>For developers, or to try the newest changes. Needs <a href="https://git-scm.com/downloads">Git</a> and <a href="https://www.python.org/downloads/">Python 3.14</a>.</p>
+            <div class="tabs" role="tablist">
+              <button type="button" role="tab" aria-selected="true" data-tab="unix">Linux &amp; macOS</button>
+              <button type="button" role="tab" aria-selected="false" data-tab="windows">Windows</button>
+            </div>
+            <div data-panel="unix">
+              <div class="code"><pre><span class="comment"># 1. Download the code</span>
+git clone https://github.com/23lambi/Cerberus-ai.git
+cd Cerberus-ai
+
+<span class="comment"># 2. Install what it needs</span>
+python3 -m venv venv
+venv/bin/pip install -r requirements.txt
+
+<span class="comment"># 3. Start Cerberus</span>
+venv/bin/python desktop.py</pre><button type="button" class="copy">Copy</button></div>
+              <p class="small">Want it in your app menu? Run <code>sh install-desktop.sh</code> once.</p>
+            </div>
+            <div data-panel="windows" hidden>
+              <div class="code"><pre><span class="comment"># 1. Download the code</span>
+git clone https://github.com/23lambi/Cerberus-ai.git
+cd Cerberus-ai
+
+<span class="comment"># 2. Install what it needs</span>
+py -3.14 -m venv venv
+venv\Scripts\pip install -r requirements.txt
+
+<span class="comment"># 3. Start Cerberus</span>
+venv\Scripts\python desktop.py</pre><button type="button" class="copy">Copy</button></div>
+              <p class="small">Want it in your Start menu? Run <code>powershell -ExecutionPolicy Bypass -File install-desktop.ps1</code> once.</p>
+            </div>
+            <p class="small">To update later: <code>git pull</code>, then install again with step 2.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="engines">
+      <div class="wrap">
+        <h2>Your choice of AI</h2>
+        <p class="lead">Keep everything on your computer, or connect a cloud service with your own key. Other OpenAI-compatible servers work too.</p>
+        <div class="engines">
+          <div class="card">
+            <h3>Run locally</h3>
+            <p>Private and offline. Cerberus can install Ollama for you.</p>
+            <ul><li>Ollama</li><li>llama.cpp</li><li>LM Studio</li><li>Jan</li></ul>
+          </div>
+          <div class="card">
+            <h3>Connect to cloud</h3>
+            <p>Messages and the context you share go to that service.</p>
+            <ul><li>Hugging Face</li><li>OpenAI</li><li>Groq</li><li>OpenRouter</li></ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="faq">
+      <div class="wrap">
+        <h2>Questions</h2>
+        <details>
+          <summary>Is it free?</summary>
+          <p>Yes. Cerberus is free and open source under the Apache 2.0 license. Cloud AI services you connect may charge for their use.</p>
+        </details>
+        <details>
+          <summary>Does my data leave my computer?</summary>
+          <p>Not with a local engine: chats and documents stay on your computer. With a cloud engine, your messages and the context you share go to that service. Web search contacts your search service and the pages it opens.</p>
+        </details>
+        <details>
+          <summary>What computer do I need?</summary>
+          <p>A 64-bit Windows, macOS or Linux computer. For local AI, 8 GB of memory runs small models; 16 GB or more is more comfortable. Setup suggests a model that fits.</p>
+        </details>
+        <details>
+          <summary>Which models can I use?</summary>
+          <p>Any chat model your engine offers: Llama, Qwen, Gemma, Mistral and many more. Cerberus reads reasoning and tool calls in all the common formats.</p>
+        </details>
+        <details>
+          <summary>How do I report a bug or suggest an idea?</summary>
+          <p>Open an issue on <a href="https://github.com/23lambi/Cerberus-ai/issues/new/choose">GitHub</a>. In the app, Settings → Help → Copy diagnostics collects the details a bug report needs.</p>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>Cerberus · Apache 2.0 · Made with care, and a three-headed dog.</span>
+      <span>
+        <a href="https://github.com/23lambi/Cerberus-ai">GitHub</a> ·
+        <a href="https://github.com/23lambi/Cerberus-ai/blob/main/docs/guide.md">User guide</a> ·
+        <a href="https://github.com/23lambi/Cerberus-ai/blob/main/docs/roadmap.md">Roadmap</a> ·
+        <a href="https://github.com/23lambi/Cerberus-ai/releases">Releases</a>
+      </span>
+    </div>
+  </footer>
+
+  <script>
+    // The visitor's system first, and the main button names it. Macs can't
+    // reliably tell Apple Silicon from Intel, so both Mac downloads stay.
+    const ua = navigator.userAgent;
+    const os = /Windows/.test(ua) ? "windows" : /Mac/.test(ua) ? "mac" : /Linux|X11/.test(ua) && !/Android/.test(ua) ? "linux" : null;
+    if (os) {
+      const list = document.getElementById("downloads");
+      const mine = [...list.querySelectorAll(`[data-os="${os}"]`)];
+      mine.forEach((link) => link.classList.add("primary"));
+      list.prepend(...mine);
+      const names = { windows: "Windows", mac: "macOS", linux: "Linux" };
+      document.getElementById("hero-download").textContent = "Download for " + names[os];
+    }
+
+    // Linux & macOS / Windows tabs.
+    for (const tab of document.querySelectorAll("[data-tab]")) {
+      tab.addEventListener("click", () => {
+        for (const other of document.querySelectorAll("[data-tab]")) other.setAttribute("aria-selected", String(other === tab));
+        for (const panel of document.querySelectorAll("[data-panel]")) panel.hidden = panel.dataset.panel !== tab.dataset.tab;
+      });
+    }
+    if (os === "windows") document.querySelector('[data-tab="windows"]').click();
+
+    // Copy buttons: only the commands, without the comment lines.
+    for (const button of document.querySelectorAll(".copy")) {
+      button.addEventListener("click", async () => {
+        const text = button.previousElementSibling.innerText.split("\n").filter((line) => !line.startsWith("#")).join("\n").trim();
+        try {
+          await navigator.clipboard.writeText(text);
+          button.textContent = "Copied";
+        } catch (_) {
+          button.textContent = "Select and copy";
+        }
+        setTimeout(() => (button.textContent = "Copy"), 1600);
+      });
+    }
+  </script>
+</body>
+</html>
