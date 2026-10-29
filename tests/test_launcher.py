@@ -351,12 +351,20 @@ def test_source_checkout_does_not_offer_in_app_updates():
     assert client.post("/updates/uninstall").status_code == 409
 
 
-def test_readme_downloads_match_every_launcher_build():
+def test_platform_labels_match_every_launcher_build():
     from launcher.presentation import PLATFORM_LABELS
-    readme = Path('README.md').read_text(encoding='utf-8')  # emoji: Windows defaults to cp1252
     assert set(PLATFORM_LABELS) == launcher.TARGETS
-    for target in launcher.TARGETS:
-        assert f"cerberus-launcher-{target}.zip" in readme
+
+
+@pytest.mark.parametrize("path", ["README.md", "site/index.html"])
+def test_public_installation_uses_terminal_instead_of_launcher(path):
+    text = Path(path).read_text(encoding="utf-8")
+    assert "git clone https://github.com/23lambi/Cerberus-ai.git" in text
+    assert "venv/bin/python -m pip install -r requirements.txt" in text
+    assert r".\venv\Scripts\python.exe -m pip install -r requirements.txt" in text
+    assert "venv/bin/python desktop.py" in text
+    assert r".\venv\Scripts\python.exe desktop.py" in text
+    assert "cerberus-launcher-" not in text
 
 
 def test_certificates_are_found_outside_the_build_machines_folder(tmp_path, monkeypatch):
