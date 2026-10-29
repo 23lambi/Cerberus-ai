@@ -11,6 +11,7 @@ import os
 import platform
 import re
 import shutil
+import ssl
 import subprocess
 import sys
 import tarfile
@@ -159,9 +160,34 @@ def release_url(tag, name):
     return f"https://github.com/{REPOSITORY}/releases/download/{tag}/{name}"
 
 
+# Where Linux distributions and macOS keep their trusted certificates.
+CERTIFICATE_FILES = (
+    "/etc/ssl/certs/ca-certificates.crt",  # Debian, Ubuntu, Arch
+    "/etc/pki/tls/certs/ca-bundle.crt",  # Fedora, RHEL
+    "/etc/ssl/ca-bundle.pem",  # openSUSE
+    "/etc/ssl/cert.pem",  # Alpine, macOS
+)
+
+
+def tls_context(candidates=CERTIFICATE_FILES):
+    """Verified HTTPS on every system.
+
+    The bundled OpenSSL looks for certificates where the build machine
+    (Ubuntu) keeps them. Other systems keep them elsewhere, so when none
+    were found, use the system's own file from its usual place.
+    """
+    context = ssl.create_default_context()
+    if not context.cert_store_stats()["x509_ca"]:
+        for path in candidates:
+            if os.path.isfile(path):
+                context.load_verify_locations(cafile=path)
+                break
+    return context
+
+
 def open_url(url, timeout=30):
     request = urllib.request.Request(url, headers={"User-Agent": "Cerberus-Launcher", "Accept": "application/json"})
-    return urllib.request.urlopen(request, timeout=timeout)
+    return urllib.request.urlopen(request, timeout=timeout, context=tls_context())
 
 
 def read_json(url):

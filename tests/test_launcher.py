@@ -357,3 +357,11 @@ def test_readme_downloads_match_every_launcher_build():
     assert set(PLATFORM_LABELS) == launcher.TARGETS
     for target in launcher.TARGETS:
         assert f"cerberus-launcher-{target}.zip" in readme
+
+
+def test_certificates_are_found_outside_the_build_machines_folder(tmp_path, monkeypatch):
+    import ssl
+    import certifi
+    monkeypatch.setattr(launcher.ssl, "create_default_context", lambda: ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT))
+    context = launcher.tls_context([str(tmp_path / "missing.pem"), certifi.where()])
+    assert context.cert_store_stats()["x509_ca"] > 0
