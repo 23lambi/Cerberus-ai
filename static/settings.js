@@ -24,12 +24,42 @@ const TEXT_SETTINGS = {
 
 // ---------- Building blocks ----------
 
-// A small heading between groups of cards, like "Helper models".
+// The dialog has a menu on the left and one page on the right. Each
+// sectionTitle starts a new page, with its entry in the menu; the cards
+// after it go on that page.
+let settingsNav = null;
+let settingsPages = null;
+let settingsPage = null; // the page cards are added to right now
+let openPage = "General"; // the page on screen, kept between openings
+
 function sectionTitle(text) {
-  const title = document.createElement("h3");
-  title.className = "setting-section";
-  title.textContent = text;
-  settingsFields.appendChild(title);
+  const item = document.createElement("button");
+  item.type = "button";
+  item.className = "settings-nav-item";
+  item.textContent = text;
+  item.addEventListener("click", () => showSettingsPage(text));
+  settingsNav.appendChild(item);
+
+  settingsPage = document.createElement("section");
+  settingsPage.className = "settings-page";
+  settingsPage.dataset.page = text;
+  const heading = document.createElement("h3");
+  heading.className = "settings-page-title";
+  heading.textContent = text;
+  settingsPage.appendChild(heading);
+  settingsPages.appendChild(settingsPage);
+}
+
+function showSettingsPage(name) {
+  if (!settingsPages.querySelector(`[data-page="${name}"]`)) name = "General";
+  openPage = name;
+  for (const page of settingsPages.children) page.hidden = page.dataset.page !== name;
+  for (const item of settingsNav.children) {
+    if (item.textContent === name) item.setAttribute("aria-current", "page");
+    else item.removeAttribute("aria-current");
+  }
+  settingsPages.scrollTop = 0;
+  growAll(); // a page's text boxes only get a real height once it's shown
 }
 
 // One card: a title and a short explanation, and optionally a switch on
@@ -51,7 +81,7 @@ function settingCard(title, hint, aside = null) {
   if (aside) head.appendChild(aside);
 
   card.appendChild(head);
-  settingsFields.appendChild(card);
+  settingsPage.appendChild(card);
   return card;
 }
 
@@ -60,12 +90,16 @@ function settingCard(title, hint, aside = null) {
 // Builds every card, filled with the current values.
 function fillSettings(values) {
   settingsFields.innerHTML = "";
+  settingsFields.classList.add("settings-layout");
+  settingsNav = document.createElement("nav");
+  settingsNav.className = "settings-nav";
+  settingsNav.setAttribute("aria-label", "Settings pages");
+  settingsPages = document.createElement("div");
+  settingsPages.className = "settings-pages";
+  settingsPages.tabIndex = -1; // focusable from code only, for scrolling
+  settingsFields.append(settingsNav, settingsPages);
 
-  sectionTitle("Setup");
-  const setupCard = settingCard(
-    "Setup check",
-    "Choose where your AI runs and get ready to chat. Optional features can wait."
-  );
+  sectionTitle("General");
   const openSetupButton = document.createElement("button");
   openSetupButton.type = "button";
   openSetupButton.textContent = "Open setup";
@@ -73,9 +107,12 @@ function fillSettings(values) {
     settingsDialog.close();
     openSetup(); // setup.js
   });
-  setupCard.appendChild(openSetupButton);
+  settingCard(
+    "Setup check",
+    "Choose where your AI runs and get ready to chat. Optional features can wait.",
+    openSetupButton
+  );
 
-  sectionTitle("Updates");
   addUpdateCard();
 
   sectionTitle("Assistant");
@@ -124,6 +161,8 @@ function fillSettings(values) {
 
   sectionTitle("Help");
   addHelpCard();
+
+  showSettingsPage(openPage);
 }
 
 // Web search: where SearXNG listens. The Web pill in the chat turns it
@@ -497,6 +536,8 @@ async function openSettings() {
   fillSettings(values);
   settingsDialog.showModal(); // a modal dialog blocks the page behind it
   growAll(); // only now the boxes are visible and have a real height
+  // Start in the page, not on the close button: the arrow keys scroll it.
+  settingsPages.focus();
 }
 
 function growAll() {

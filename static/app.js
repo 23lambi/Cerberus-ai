@@ -140,8 +140,12 @@ function replyHead(label) {
   const match = /^(.*?)(?: \((.*)\))?:$/.exec(label) || [label, label, ""];
   const head = document.createElement("div");
   head.className = "reply-head";
-  // innerHTML is fine here: a fixed piece of HTML, nothing from the model.
-  head.innerHTML = '<svg class="avatar"><use href="#i-logo"/></svg>';
+  // The pixel mascot: talking while the answer streams, resting on the
+  // newest answer, still on older ones (style.css picks the picture).
+  const mascot = document.createElement("span");
+  mascot.className = "reply-mascot";
+  mascot.setAttribute("aria-hidden", "true");
+  head.appendChild(mascot);
   const name = document.createElement("strong");
   name.textContent = match[1];
   head.appendChild(name);
