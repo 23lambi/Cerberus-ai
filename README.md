@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/23lambi/Cerberus-ai/releases/latest"><img src="https://img.shields.io/github/v/release/23lambi/Cerberus-ai?label=release&color=dc143c" alt="Latest release"></a>
+  <a href="#download"><img src="https://img.shields.io/badge/install-terminal-dc143c" alt="Install from terminal"></a>
   <a href="https://github.com/23lambi/Cerberus-ai/actions/workflows/checks.yml"><img src="https://github.com/23lambi/Cerberus-ai/actions/workflows/checks.yml/badge.svg" alt="Checks"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-737373" alt="Apache 2.0"></a>
 </p>
@@ -32,47 +32,69 @@
 ## Download
 
 <p align="center">
-  <a href="https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-windows-x86_64.zip"><img src="https://img.shields.io/badge/Windows-64--bit-dc143c?style=for-the-badge" alt="Download for Windows"></a>
-  <a href="https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-macos-arm64.zip"><img src="https://img.shields.io/badge/macOS-Apple_Silicon-dc143c?style=for-the-badge" alt="Download for macOS, Apple Silicon"></a>
-  <a href="https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-macos-x86_64.zip"><img src="https://img.shields.io/badge/macOS-Intel-dc143c?style=for-the-badge" alt="Download for macOS, Intel"></a>
-  <a href="https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-linux-x86_64.zip"><img src="https://img.shields.io/badge/Linux-64--bit-dc143c?style=for-the-badge" alt="Download for Linux"></a>
+  <a href="#windows-powershell"><img src="https://img.shields.io/badge/Windows-64--bit-dc143c?style=for-the-badge" alt="Install on Windows"></a>
+  <a href="#linux-and-macos"><img src="https://img.shields.io/badge/macOS-Apple_Silicon-dc143c?style=for-the-badge" alt="Install on macOS, Apple Silicon"></a>
+  <a href="#linux-and-macos"><img src="https://img.shields.io/badge/macOS-Intel-dc143c?style=for-the-badge" alt="Install on macOS, Intel"></a>
+  <a href="#linux-and-macos"><img src="https://img.shields.io/badge/Linux-64--bit-dc143c?style=for-the-badge" alt="Install on Linux"></a>
 </p>
 
-1. **Download** the launcher for your computer and extract the ZIP.
-2. **Open the launcher**, choose where to install, and click **Install Cerberus**.
-3. **Start chatting.** Cerberus opens when the install is done, and a short
-   setup gets your AI ready.
+1. **Install prerequisites:** [Python 3.14](https://www.python.org/downloads/)
+   and [Git](https://git-scm.com/downloads).
+2. **Open a terminal** and copy the commands for your computer below.
+3. **Start chatting.** A short setup gets your AI ready on the first launch.
 
-Cerberus updates itself from **Settings → Updates**, and shows what's new before
-you download. Your chats and settings stay in your own data folder. No Python or
-Git needed. [All releases](https://github.com/23lambi/Cerberus-ai/releases)
+### Windows (PowerShell)
+
+```powershell
+git clone https://github.com/23lambi/Cerberus-ai.git
+cd Cerberus-ai
+py -3.14 -m venv venv
+.\venv\Scripts\python.exe -m pip install -r requirements.txt
+.\venv\Scripts\python.exe desktop.py
+```
+
+### Linux and macOS
+
+```bash
+git clone https://github.com/23lambi/Cerberus-ai.git
+cd Cerberus-ai
+python3.14 -m venv venv
+venv/bin/python -m pip install -r requirements.txt
+venv/bin/python desktop.py
+```
 
 <details>
-<summary><b>Which file do I need?</b></summary>
+<summary><b>Add Cerberus to your app menu</b></summary>
 
-| Computer | Download | Open |
-| --- | --- | --- |
-| Windows, 64-bit | `cerberus-launcher-windows-x86_64.zip` | `CerberusLauncher.exe` |
-| macOS, Apple Silicon | `cerberus-launcher-macos-arm64.zip` | `CerberusLauncher.app` |
-| macOS, Intel | `cerberus-launcher-macos-x86_64.zip` | `CerberusLauncher.app` |
-| Linux, 64-bit | `cerberus-launcher-linux-x86_64.zip` | `CerberusLauncher` |
+After installing, run once from the `Cerberus-ai` folder:
 
-See [supported platforms and requirements](docs/launcher.md#supported-builds).
+**Windows (PowerShell)**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File install-desktop.ps1
+```
+
+**Linux and macOS**
+
+```bash
+sh install-desktop.sh
+```
+
+Then open **Cerberus** from the Start menu on Windows, your app menu on Linux,
+or `~/Applications/Cerberus.app` on macOS. Keep the project folder in place;
+the shortcut uses it to start the app.
 
 </details>
 
 <details>
-<summary><b>"Windows protected your PC" or "macOS cannot verify"?</b></summary>
+<summary><b>Start again or update</b></summary>
 
-The launcher is not yet signed by a verified developer, so your system asks
-once before opening it:
+To start again, open a terminal in `Cerberus-ai` and run the last command for
+your platform above, or use your app-menu shortcut.
 
-- **Windows:** choose **More info → Run anyway**.
-- **macOS:** open `CerberusLauncher.app`; when macOS says it cannot verify it,
-  choose **Done**, then open **System Settings → Privacy & Security** and choose
-  **Open Anyway** next to CerberusLauncher.
-- **Linux:** if double-clicking does nothing, run `chmod +x CerberusLauncher`
-  in the extracted folder, then open it again.
+To update, close Cerberus, run `git pull` in that folder, then repeat the
+`pip install -r requirements.txt` command for your platform. Your chats and
+settings stay in your data folder.
 
 </details>
 
@@ -184,32 +206,11 @@ and MCP tools. See the [roadmap](docs/roadmap.md).
 
 ## Build from source
 
-The desktop app uses FastAPI, SQLite, JavaScript, and pywebview. Packaged releases
-do not require Python or Git.
+The desktop app uses FastAPI, SQLite, JavaScript, and pywebview. Follow the
+[terminal installation](#download) above to set up a source checkout.
 
 <details>
-<summary><b>Source setup · Python 3.14</b></summary>
-
-```bash
-git clone https://github.com/23lambi/Cerberus-ai.git
-cd Cerberus-ai
-```
-
-**Linux and macOS**
-
-```bash
-python3 -m venv venv
-venv/bin/pip install -r requirements.txt
-sh install-desktop.sh
-```
-
-**Windows PowerShell**
-
-```powershell
-py -3.14 -m venv venv
-venv\Scripts\pip install -r requirements.txt
-powershell -ExecutionPolicy Bypass -File install-desktop.ps1
-```
+<summary><b>Development checks · Python 3.14</b></summary>
 
 Run checks:
 

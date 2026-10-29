@@ -2,6 +2,10 @@
 
 [← README](../README.md)
 
+> **Experimental:** the launcher is not ready for general use. Install Cerberus
+> with the [terminal commands in the README](../README.md#download). The notes
+> below are retained for launcher development and testing.
+
 The launcher installs Cerberus once. After that, Cerberus updates itself from
 **Settings → Updates**. The launcher and application include their Python
 runtimes; users do not install Python, Git, or pip.

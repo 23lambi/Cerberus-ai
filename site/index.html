@@ -388,7 +388,7 @@
       <nav class="links" aria-label="Sections">
         <a href="#tour">Tour</a>
         <a href="#features">Features</a>
-        <a href="#get">Download</a>
+        <a href="#get">Install</a>
         <a href="#faq">FAQ</a>
         <a href="https://github.com/23lambi/Cerberus-ai">GitHub</a>
       </nav>
@@ -403,7 +403,7 @@
         <p class="tagline">A desktop workspace for chat, documents, and research.</p>
         <p class="sub">Run AI privately on your own computer, or connect a cloud model when you need one. Free and open source.</p>
         <div class="cta">
-          <a class="button primary" id="hero-download" href="#get">Download</a>
+          <a class="button primary" id="hero-download" href="#get">Install</a>
           <a class="button" href="#source">Run from source</a>
           <a class="button" href="https://github.com/23lambi/Cerberus-ai">View on GitHub</a>
         </div>
@@ -456,28 +456,26 @@
     <section id="get">
       <div class="wrap">
         <h2>Get Cerberus</h2>
-        <p class="lead">Download the app, or run it from source with Git.</p>
+        <p class="lead">Install from your terminal with Git and Python 3.14.</p>
         <div class="ways">
           <div class="way card">
-            <h3>Download the app</h3>
-            <p>A small launcher installs Cerberus and opens it. No Python or Git needed. Cerberus updates itself afterwards.</p>
+            <h3>Install Cerberus</h3>
+            <p>Use the terminal commands beside this card to install and open Cerberus on Windows, macOS or Linux.</p>
             <div class="downloads" id="downloads">
-              <a class="button" data-os="windows" href="https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-windows-x86_64.zip">Windows <small>64-bit</small></a>
-              <a class="button" data-os="mac" href="https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-macos-arm64.zip">macOS <small>Apple Silicon (M1 and newer)</small></a>
-              <a class="button" data-os="mac" href="https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-macos-x86_64.zip">macOS <small>Intel</small></a>
-              <a class="button" data-os="linux" href="https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-linux-x86_64.zip">Linux <small>64-bit</small></a>
+              <a class="button" data-os="windows" href="#source">Windows <small>PowerShell</small></a>
+              <a class="button" data-os="mac" href="#source">macOS <small>Terminal</small></a>
+              <a class="button" data-os="linux" href="#source">Linux <small>Terminal</small></a>
             </div>
             <ol class="steps">
-              <li><strong>Extract</strong> the ZIP and open the launcher.</li>
-              <li><strong>Choose</strong> where to install, then click Install Cerberus.</li>
+              <li><strong>Install</strong> Python 3.14 and Git.</li>
+              <li><strong>Copy</strong> the commands for your computer into a terminal.</li>
               <li><strong>Say hi.</strong> A short setup gets your AI ready.</li>
             </ol>
-            <p class="small">The launcher isn't signed yet. Windows: choose More info → Run anyway. macOS: System Settings → Privacy &amp; Security → Open Anyway. <a href="https://github.com/23lambi/Cerberus-ai/releases">All releases</a></p>
           </div>
 
           <div class="way card" id="source">
-            <h3>Run from source with Git</h3>
-            <p>For developers, or to try the newest changes. Needs <a href="https://git-scm.com/downloads">Git</a> and <a href="https://www.python.org/downloads/">Python 3.14</a>.</p>
+            <h3>Terminal installation</h3>
+            <p>Needs <a href="https://git-scm.com/downloads">Git</a> and <a href="https://www.python.org/downloads/">Python 3.14</a>.</p>
             <div class="tabs" role="tablist">
               <button type="button" role="tab" aria-selected="true" data-tab="unix">Linux &amp; macOS</button>
               <button type="button" role="tab" aria-selected="false" data-tab="windows">Windows</button>
@@ -488,8 +486,8 @@ git clone https://github.com/23lambi/Cerberus-ai.git
 cd Cerberus-ai
 
 <span class="comment"># 2. Install what it needs</span>
-python3 -m venv venv
-venv/bin/pip install -r requirements.txt
+python3.14 -m venv venv
+venv/bin/python -m pip install -r requirements.txt
 
 <span class="comment"># 3. Start Cerberus</span>
 venv/bin/python desktop.py</pre><button type="button" class="copy">Copy</button></div>
@@ -502,13 +500,13 @@ cd Cerberus-ai
 
 <span class="comment"># 2. Install what it needs</span>
 py -3.14 -m venv venv
-venv\Scripts\pip install -r requirements.txt
+.\venv\Scripts\python.exe -m pip install -r requirements.txt
 
 <span class="comment"># 3. Start Cerberus</span>
-venv\Scripts\python desktop.py</pre><button type="button" class="copy">Copy</button></div>
+.\venv\Scripts\python.exe desktop.py</pre><button type="button" class="copy">Copy</button></div>
               <p class="small">Want it in your Start menu? Run <code>powershell -ExecutionPolicy Bypass -File install-desktop.ps1</code> once.</p>
             </div>
-            <p class="small">To update later: <code>git pull</code>, then install again with step 2.</p>
+            <p class="small">To update later: close Cerberus, run <code>git pull</code>, then repeat the pip install command in step 2.</p>
           </div>
         </div>
       </div>
@@ -567,14 +565,13 @@ venv\Scripts\python desktop.py</pre><button type="button" class="copy">Copy</but
         <a href="https://github.com/23lambi/Cerberus-ai">GitHub</a> ·
         <a href="https://github.com/23lambi/Cerberus-ai/blob/main/docs/guide.md">User guide</a> ·
         <a href="https://github.com/23lambi/Cerberus-ai/blob/main/docs/roadmap.md">Roadmap</a> ·
-        <a href="https://github.com/23lambi/Cerberus-ai/releases">Releases</a>
+        <a href="#source">Terminal installation</a>
       </span>
     </div>
   </footer>
 
   <script>
-    // The visitor's system first, and the main button names it. Macs can't
-    // reliably tell Apple Silicon from Intel, so both Mac downloads stay.
+    // Put terminal installation for the visitor's system first.
     const ua = navigator.userAgent;
     const os = /Windows/.test(ua) ? "windows" : /Mac/.test(ua) ? "mac" : /Linux|X11/.test(ua) && !/Android/.test(ua) ? "linux" : null;
     if (os) {
@@ -583,7 +580,7 @@ venv\Scripts\python desktop.py</pre><button type="button" class="copy">Copy</but
       mine.forEach((link) => link.classList.add("primary"));
       list.prepend(...mine);
       const names = { windows: "Windows", mac: "macOS", linux: "Linux" };
-      document.getElementById("hero-download").textContent = "Download for " + names[os];
+      document.getElementById("hero-download").textContent = "Install for " + names[os];
     }
 
     // Linux & macOS / Windows tabs.

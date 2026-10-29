@@ -1,8 +1,7 @@
 name: Build desktop releases
 
+# Experimental packaging is manual-only while terminal installation is public.
 on:
-  push:
-    tags: ['v[0-9]*']
   workflow_dispatch:
     inputs:
       version:
@@ -12,7 +11,7 @@ on:
       create_draft:
         description: Create a draft release after all platform builds pass
         type: boolean
-        default: true
+        default: false
 
 permissions:
   contents: read

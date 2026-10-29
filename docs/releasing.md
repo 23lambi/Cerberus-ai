@@ -2,6 +2,12 @@
 
 [← README](../README.md) · [Launcher guide](launcher.md)
 
+> **Desktop releases are paused.** The public installation path is the
+> [terminal installation in the README](../README.md#download). Keep launcher
+> releases as drafts until the launcher is ready. The packaging workflow is
+> manual-only and does not create a draft unless explicitly requested.
+> The instructions below are retained for future packaging work.
+
 ## What is a release?
 
 A GitHub repository contains the source code. A release adds the ready-to-open
