@@ -4,6 +4,11 @@ import os
 import sys
 from pathlib import Path
 
+if "--check-release" in sys.argv:
+    # The in-app updater's connection to GitHub, before any window code loads.
+    from launcher.manager import check_release
+    sys.exit(check_release())
+
 if sys.platform.startswith("linux") and getattr(sys, "frozen", False):
     os.environ["QT_API"] = "pyside6"
 

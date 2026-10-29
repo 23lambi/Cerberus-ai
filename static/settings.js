@@ -214,6 +214,13 @@ function addUpdateCard() {
   );
   const line = document.createElement("p");
   line.className = "hint";
+  // What's new: the release notes' "What's new" part, from GitHub.
+  const notes = document.createElement("details");
+  notes.className = "update-notes";
+  notes.open = true;
+  const notesTitle = document.createElement("summary");
+  const notesBody = document.createElement("div");
+  notes.append(notesTitle, notesBody);
   const actions = document.createElement("div");
   actions.className = "setting-links";
   const action = document.createElement("button");
@@ -222,15 +229,22 @@ function addUpdateCard() {
   remove.type = "button";
   remove.textContent = "Uninstall Cerberus…";
   actions.append(action, remove);
-  card.append(line, actions);
+  card.append(line, notes, actions);
 
   function show(info, problem = "") {
-    const current = info.current === "dev" ? "the source version" : "version " + info.current;
+    const current = "version " + info.current;
     remove.hidden = !info.managed;
     action.hidden = !info.managed;
+    // Only for a version you don't have yet. The notes are Markdown from the
+    // release page: DOMPurify cleans them like every model answer.
+    notes.hidden = !(info.managed && info.notes && ["available", "downloading", "ready"].includes(info.state));
+    if (!notes.hidden) {
+      notesTitle.textContent = "What's new in " + info.latest;
+      notesBody.innerHTML = DOMPurify.sanitize(marked.parse(info.notes));
+    }
     action.disabled = false;
     if (!info.managed) {
-      line.textContent = "You're running " + current + " from source. Update it with git pull.";
+      line.textContent = "You're running Cerberus from source. Update it with git pull.";
       return;
     }
     const states = {

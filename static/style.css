@@ -727,13 +727,9 @@ main {
 }
 
 .home-logo {
-  color: var(--accent);
-  margin-bottom: 6px;
-}
-
-.home-logo .logo {
-  width: 64px;
-  height: 48px;
+  width: 144px; /* 4 screen pixels per mascot pixel: sharp edges */
+  height: 108px;
+  margin-bottom: 10px;
 }
 
 #home h1 {
@@ -2299,9 +2295,9 @@ dialog[open]::backdrop {
     padding-top: 16px;
   }
 
-  .home-logo .logo {
-    width: 44px;
-    height: 33px;
+  .home-logo {
+    width: 108px;
+    height: 81px;
   }
 
   #home h1 {
@@ -2743,6 +2739,19 @@ dialog[open]::backdrop {
 }
 /* Only shown when something needs fixing; a working connection stays quiet. */
 .chat-connection:not([data-state="error"]):not([data-state="empty"]) { display: none; }
+
+/* Then the sad mascot says it instead of a grey dot. */
+.chat-connection::before {
+  content: "";
+  flex-shrink: 0;
+  width: 36px;
+  height: 27px;
+  background: url("/static/mascot-sad.svg") no-repeat center / contain;
+}
+
+.chat-connection .connection-dot {
+  display: none;
+}
 .connection-dot { width: 7px; height: 7px; flex-shrink: 0; border-radius: 50%; background: var(--faint); }
 .chat-connection[data-state="ready"] .connection-dot { background: #7fd39b; }
 .chat-connection[data-state="error"] .connection-dot { background: var(--warn); }
@@ -2833,4 +2842,24 @@ dialog[open]::backdrop {
   height: 7px;
   border-radius: 50%;
   background: var(--accent);
+}
+
+/* What's new in an available update, inside Settings → Updates. */
+.update-notes {
+  margin: 4px 0 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--raised);
+  font-size: 13px;
+}
+
+.update-notes summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.update-notes ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
 }

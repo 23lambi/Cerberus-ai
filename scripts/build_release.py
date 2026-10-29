@@ -65,6 +65,7 @@ def build(component, version):
             "--specpath", str(work), "--noconfirm", "--windowed", "--noupx"]
     if component == "launcher":
         args += ["--add-data", f"{ROOT / 'static/cerberus.svg'}:.", "--add-data", f"{ROOT / 'static/cerberus.png'}:.",
+                 "--add-data", f"{ROOT / 'static/mascot-small.png'}:.",
                  "--add-data", f"{ROOT / 'LICENSE'}:.", "--add-data", f"{ROOT / 'NOTICE'}:."]
     if component == "launcher" and sys.platform != "darwin":
         args += ["--onefile"]

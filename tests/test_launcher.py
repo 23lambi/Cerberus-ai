@@ -365,3 +365,31 @@ def test_certificates_are_found_outside_the_build_machines_folder(tmp_path, monk
     monkeypatch.setattr(launcher.ssl, "create_default_context", lambda: ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT))
     context = launcher.tls_context([str(tmp_path / "missing.pem"), certifi.where()])
     assert context.cert_store_stats()["x509_ca"] > 0
+
+
+def test_release_check_fails_when_https_cannot_be_verified(monkeypatch, capsys):
+    import ssl
+    empty = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)  # no certificates at all, like the old bug
+    monkeypatch.setattr(launcher, "tls_context", lambda: empty)
+    monkeypatch.setattr(launcher.urllib.request, "urlopen", lambda request, timeout, context: (_ for _ in ()).throw(
+        ssl.SSLCertVerificationError("certificate verify failed")))
+    assert launcher.check_release() == 1
+    assert "Release check failed" in capsys.readouterr().err
+
+
+def test_ci_token_is_only_sent_to_the_github_api(monkeypatch):
+    monkeypatch.setenv("CERBERUS_GITHUB_TOKEN", "secret")
+    sent = {}
+    monkeypatch.setattr(launcher.urllib.request, "urlopen",
+                        lambda request, timeout, context: sent.update({request.full_url: request.get_header("Authorization")}))
+    launcher.open_url("https://api.github.com/repos/23lambi/Cerberus-ai/releases/latest")
+    launcher.open_url("https://github.com/23lambi/Cerberus-ai/releases/download/v0.5.0/release-manifest.json")
+    assert sent == {"https://api.github.com/repos/23lambi/Cerberus-ai/releases/latest": "Bearer secret",
+                    "https://github.com/23lambi/Cerberus-ai/releases/download/v0.5.0/release-manifest.json": None}
+
+
+def test_whats_new_is_taken_from_the_release_notes():
+    notes = "# Cerberus desktop\r\n\r\n## What's new\r\n\r\n- Mascot\r\n- Updates in the app\r\n\r\n## Install\r\n\r\n1. Download"
+    assert launcher.whats_new(notes) == "- Mascot\n- Updates in the app"
+    assert launcher.whats_new("## Install\n\n1. Download") == ""
+    assert launcher.whats_new(None) == ""

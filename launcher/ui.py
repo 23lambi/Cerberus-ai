@@ -172,11 +172,13 @@ class Window:
         root.configure(bg=BACKGROUND)
         root.resizable(False, False)
         root.protocol("WM_DELETE_WINDOW", self.close)
-        logo = resource("cerberus.png")
-        if logo:
-            self.icon = tk.PhotoImage(file=str(logo))
-            self.logo = self.icon.subsample(8)  # 512 px → 64 px
+        icon = resource("cerberus.png")
+        if icon:
+            self.icon = tk.PhotoImage(file=str(icon))
             root.iconphoto(True, self.icon.subsample(4))
+        logo = resource("mascot-small.png")  # made by scripts/make_mascot.py
+        if logo:
+            self.logo = tk.PhotoImage(file=str(logo)).zoom(3)  # whole pixels stay sharp
 
         body = tk.Frame(root, bg=BACKGROUND, padx=36, pady=32)
         body.pack(fill="both", expand=True)

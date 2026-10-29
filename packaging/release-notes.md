@@ -2,6 +2,13 @@
 
 A desktop workspace for chat, documents, and research with local or cloud AI.
 
+## What's new
+
+- **Meet the mascot.** A pixel Cerberus keeps you company in the chat: its
+  three heads bob while it thinks and nod while it writes the answer.
+- **See what's new before you update.** Settings → Updates now shows these
+  notes for the version you're about to download.
+
 ## Install
 
 1. Download the launcher ZIP for your computer from **Assets** below.

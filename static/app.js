@@ -706,10 +706,11 @@ function showHome() {
   const home = document.createElement("div");
   home.id = "home";
 
-  // The logo above the name. A fixed piece of HTML, so innerHTML is safe.
-  const logo = document.createElement("div");
+  // The pixel mascot above the question; it wags its tail now and then.
+  const logo = document.createElement("img");
   logo.className = "home-logo";
-  logo.innerHTML = '<svg class="logo"><use href="#i-logo"/></svg>';
+  logo.src = "/static/mascot-idle.svg";
+  logo.alt = "";
 
   const title = document.createElement("h1");
   title.textContent = "What would you like to work on?"

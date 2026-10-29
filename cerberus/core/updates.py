@@ -17,7 +17,7 @@ from launcher.presentation import is_newer
 from launcher.shortcuts import launcher_executable
 
 _lock = threading.Lock()
-_job = {"state": "idle", "latest": None, "done": 0, "total": 0, "message": ""}
+_job = {"state": "idle", "latest": None, "done": 0, "total": 0, "message": "", "notes": ""}
 _release = None
 
 
@@ -55,7 +55,7 @@ def check():
         if _job["state"] in ("idle", "error", "current", "available"):
             newer = is_newer(release["version"], VERSION)
             _job.update(state="available" if newer else "current", latest=release["version"],
-                        total=release["size"], done=0, message="")
+                        total=release["size"], done=0, message="", notes=release["notes"])
     return status()
 
 

@@ -49,6 +49,12 @@ enough for its Install button to work.
 
 ## Later updates
 
+Before each release, rewrite the **What's new** section at the top of
+`packaging/release-notes.md` for that version: a few short points, written for
+users. The workflow puts the file on the release page, and Cerberus shows that
+section in **Settings → Updates** before people download the update. Keep the
+heading exactly `## What's new`.
+
 Choose a new version and repeat the build/review/publish flow. Use a new version
 if a tag already exists for different code; do not move an existing release tag.
 Installed launchers find the latest published stable version through GitHub.
@@ -68,3 +74,12 @@ version (for example `v0.4.1` if `v0.4.0` is taken). Start a new workflow run;
 
 The workflow checks this before the four platform builds and checks again before
 creating the draft, in case the tag changes while builds are running.
+
+## Linux distribution checks
+
+CI builds the Linux downloads on Ubuntu. After the builds, the workflow runs the
+built launcher and app in **Fedora**, **Arch Linux**, and **openSUSE** containers
+with `--check-release`: each must reach GitHub over verified HTTPS using its own
+bundled SSL library and read the latest published release. The draft is created
+only when these pass. This catches problems like a bundled library that looks
+for system files only where Ubuntu keeps them.

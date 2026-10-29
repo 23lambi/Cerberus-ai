@@ -115,9 +115,50 @@ jobs:
           if-no-files-found: error
           compression-level: 0
 
+  linux-distros:
+    # CI builds on Ubuntu. These run the built Linux downloads elsewhere and
+    # make them really reach GitHub with their own bundled SSL library, which
+    # once looked for certificates only where Ubuntu keeps them.
+    name: Release check on ${{ matrix.distro }}
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distro: Fedora
+            image: fedora:latest
+            prepare: dnf install -y unzip tar gzip
+          - distro: Arch Linux
+            image: archlinux:latest
+            prepare: pacman -Sy --noconfirm unzip
+          - distro: openSUSE
+            image: opensuse/tumbleweed:latest
+            prepare: zypper --non-interactive install unzip tar gzip
+    container: ${{ matrix.image }}
+    env:
+      CERBERUS_GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: desktop-linux-x86_64
+          path: release
+      - name: Install archive tools
+        run: ${{ matrix.prepare }}
+      - name: Launcher reaches GitHub
+        run: |
+          unzip -q release/cerberus-launcher-linux-x86_64.zip -d launcher
+          launcher/CerberusLauncher --check-release
+      - name: In-app updater reaches GitHub
+        run: |
+          mkdir app
+          tar -xzf release/cerberus-linux-x86_64.tar.gz -C app
+          app/Cerberus/Cerberus --check-release
+
   assemble:
     name: Assemble verified downloads
-    needs: build
+    needs: [build, linux-distros]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:

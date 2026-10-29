@@ -186,7 +186,13 @@ def tls_context(candidates=CERTIFICATE_FILES):
 
 
 def open_url(url, timeout=30):
-    request = urllib.request.Request(url, headers={"User-Agent": "Cerberus-Launcher", "Accept": "application/json"})
+    headers = {"User-Agent": "Cerberus-Launcher", "Accept": "application/json"}
+    # CI shares IP addresses, and GitHub limits anonymous API calls per address.
+    # The release checks there pass a token; it only ever goes to the API.
+    token = os.environ.get("CERBERUS_GITHUB_TOKEN")
+    if token and url.startswith("https://api.github.com/"):
+        headers["Authorization"] = "Bearer " + token
+    request = urllib.request.Request(url, headers=headers)
     return urllib.request.urlopen(request, timeout=timeout, context=tls_context())
 
 
@@ -203,6 +209,21 @@ def read_json(url):
         raise LauncherError(f"GitHub returned error {error.code}. Please try again later.") from None
     except (OSError, ValueError) as error:
         raise LauncherError(f"Could not check releases: {error}") from None
+
+
+def whats_new(notes, limit=4000):
+    """The "## What's new" part of the release notes, shown in the app."""
+    if not isinstance(notes, str):
+        return ""
+    lines, inside = [], False
+    for line in notes.replace("\r\n", "\n").split("\n"):
+        if line.startswith("## "):
+            if inside:
+                break
+            inside = line[3:].strip().lower() == "what's new"
+        elif inside:
+            lines.append(line)
+    return "\n".join(lines).strip()[:limit]
 
 
 def latest_release(target):
@@ -227,7 +248,23 @@ def latest_release(target):
     if type(size) is not int or not 0 < size <= MAX_DOWNLOAD:
         raise LauncherError("The release download size is invalid.")
     return {"version": tag, "target": target, "file": expected, "sha256": digest,
-            "size": size, "url": release_url(tag, expected)}
+            "size": size, "url": release_url(tag, expected), "notes": whats_new(release.get("body"))}
+
+
+def check_release():
+    """For CI: prove this build reaches GitHub over verified HTTPS on this system.
+
+    Run as `CerberusLauncher --check-release` (or `Cerberus --check-release`).
+    It uses the program's own bundled SSL library, which is what broke on
+    Linux systems other than the build machine's.
+    """
+    try:
+        build = latest_release(target_name())
+    except LauncherError as error:
+        print("Release check failed:", error, file=sys.stderr)
+        return 1
+    print(f"Release check passed: {build['version']} for {build['target']}")
+    return 0
 
 
 @contextlib.contextmanager
