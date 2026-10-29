@@ -1,26 +1,52 @@
-<img src="static/cerberus.svg" alt="Cerberus logo" width="48" align="right">
+<p align="center">
+  <img src="static/mascot.svg" alt="Cerberus mascot: a crimson pixel-art dog with three heads" width="200">
+</p>
 
-# Cerberus
+<h1 align="center">Cerberus</h1>
 
-**A desktop workspace for chat, documents, and research.** Use local AI for
-private work or connect a cloud model when you need one.
+<p align="center">
+  <b>A desktop workspace for chat, documents, and research.</b><br>
+  Local AI for private work. A cloud model when you need one.
+</p>
 
-[![Checks](https://github.com/23lambi/Cerberus-ai/actions/workflows/checks.yml/badge.svg)](https://github.com/23lambi/Cerberus-ai/actions/workflows/checks.yml)
-[![Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-737373)](LICENSE)
+<p align="center">
+  <a href="https://github.com/23lambi/Cerberus-ai/releases/latest"><img src="https://img.shields.io/github/v/release/23lambi/Cerberus-ai?label=release&color=dc143c" alt="Latest release"></a>
+  <a href="https://github.com/23lambi/Cerberus-ai/actions/workflows/checks.yml"><img src="https://github.com/23lambi/Cerberus-ai/actions/workflows/checks.yml/badge.svg" alt="Checks"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-737373" alt="Apache 2.0"></a>
+</p>
 
-[Download](#download) · [What it does](#what-it-does) · [AI engines](#ai-engines) · [Guide](docs/guide.md) · [Issues](https://github.com/23lambi/Cerberus-ai/issues/new/choose)
+<p align="center">
+  <a href="#download">Download</a> ·
+  <a href="#what-it-does">What it does</a> ·
+  <a href="#ai-engines">AI engines</a> ·
+  <a href="docs/guide.md">Guide</a> ·
+  <a href="https://github.com/23lambi/Cerberus-ai/issues/new/choose">Issues</a>
+</p>
+
+<p align="center">
+  <img src="docs/assets/chat.png" alt="Cerberus desktop chat with prompt suggestions and a compact message composer" width="100%">
+  <br><sub>Chat interface shown with sample data.</sub>
+</p>
 
 ## Download
 
-[Windows](https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-windows-x86_64.zip) · [macOS, Apple Silicon](https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-macos-arm64.zip) · [macOS, Intel](https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-macos-x86_64.zip) · [Linux](https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-linux-x86_64.zip) · [All releases](https://github.com/23lambi/Cerberus-ai/releases)
+<p align="center">
+  <a href="https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-windows-x86_64.zip"><img src="https://img.shields.io/badge/Windows-64--bit-dc143c?style=for-the-badge" alt="Download for Windows"></a>
+  <a href="https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-macos-arm64.zip"><img src="https://img.shields.io/badge/macOS-Apple_Silicon-dc143c?style=for-the-badge" alt="Download for macOS, Apple Silicon"></a>
+  <a href="https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-macos-x86_64.zip"><img src="https://img.shields.io/badge/macOS-Intel-dc143c?style=for-the-badge" alt="Download for macOS, Intel"></a>
+  <a href="https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-linux-x86_64.zip"><img src="https://img.shields.io/badge/Linux-64--bit-dc143c?style=for-the-badge" alt="Download for Linux"></a>
+</p>
 
-Download the launcher ZIP for your computer, extract it, and open the launcher.
-Choose where to install, then **Install Cerberus**; the launcher opens the app
-when it's done. Cerberus updates itself from **Settings → Updates**, and your
-chats and settings stay in your user data folder. No Python or Git setup is needed.
+1. **Download** the launcher for your computer and extract the ZIP.
+2. **Open the launcher**, choose where to install, and click **Install Cerberus**.
+3. **Start chatting.** The launcher opens Cerberus when it's done.
+
+Cerberus updates itself from **Settings → Updates**. Your chats and settings stay
+in your user data folder. No Python or Git setup is needed.
+[All releases](https://github.com/23lambi/Cerberus-ai/releases)
 
 <details>
-<summary>Choose the right launcher</summary>
+<summary><b>Which file do I need?</b></summary>
 
 | Computer | Download | Open |
 | --- | --- | --- |
@@ -29,36 +55,62 @@ chats and settings stay in your user data folder. No Python or Git setup is need
 | macOS, Intel | `cerberus-launcher-macos-x86_64.zip` | `CerberusLauncher.app` |
 | Linux, 64-bit | `cerberus-launcher-linux-x86_64.zip` | `CerberusLauncher` |
 
-**First start of an unsigned build.** The launcher is not yet signed by a
-verified developer, so your system asks once before opening it:
+See [supported platforms and requirements](docs/launcher.md#supported-builds).
 
-- **Windows:** on "Windows protected your PC", choose **More info → Run anyway**.
+</details>
+
+<details>
+<summary><b>"Windows protected your PC" or "macOS cannot verify"?</b></summary>
+
+The launcher is not yet signed by a verified developer, so your system asks
+once before opening it:
+
+- **Windows:** choose **More info → Run anyway**.
 - **macOS:** open `CerberusLauncher.app`; when macOS says it cannot verify it,
   choose **Done**, then open **System Settings → Privacy & Security** and choose
   **Open Anyway** next to CerberusLauncher.
 - **Linux:** if double-clicking does nothing, run `chmod +x CerberusLauncher`
   in the extracted folder, then open it again.
 
-See [supported platforms and requirements](docs/launcher.md#supported-builds).
-
 </details>
-
-<p align="center">
-  <img src="docs/assets/chat.png" alt="Cerberus desktop chat with prompt suggestions, and a compact message composer" width="100%">
-</p>
-<p align="center"><sub>Chat interface shown with sample data.</sub></p>
 
 ## What it does
 
-- **Chat:** streaming responses, Deep think, image input, and tools.
-- **Documents:** organize projects, search files, edit Markdown, and review AI changes before applying them.
-- **Memory:** save useful facts across conversations.
-- **Research:** search the web and get reports with citations.
-- **Your data:** keep chats and documents locally; create backups and Markdown or JSON exports.
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>💬 Chat</h3>
+      Streaming answers, image input, and tools. <b>Deep think</b> drafts,
+      reviews, then answers: three heads, one answer.
+    </td>
+    <td width="50%" valign="top">
+      <h3>📄 Documents</h3>
+      Organize projects, search files, edit Markdown, and review AI changes
+      before applying them.
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <h3>🔎 Research</h3>
+      Search the web and get reports with citations, saved as documents.
+    </td>
+    <td valign="top">
+      <h3>🧠 Memory</h3>
+      Save useful facts once, and Cerberus remembers them in every conversation.
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" valign="top">
+      <h3>🔒 Your data stays yours</h3>
+      Chats and documents live on your computer. Create backups and export chats
+      as Markdown or JSON at any time.
+    </td>
+  </tr>
+</table>
 
 ## AI engines
 
-| Run locally | Connect to cloud |
+| 🖥️ Run locally | ☁️ Connect to cloud |
 | --- | --- |
 | Ollama · llama.cpp · LM Studio · Jan | Hugging Face · OpenAI · Groq · OpenRouter |
 
@@ -68,22 +120,23 @@ own Ollama. Optional web search and Research use SearXNG.
 
 In the app, open **Models** to manage Ollama models, find downloads, or connect
 to a running local app. Choose **Use in chat** to select a model.
-[Engine setup guide](docs/guide.md#choosing-an-ai-engine)
+[Engine setup guide →](docs/guide.md#choosing-an-ai-engine)
 
 ## Privacy
 
-Local chats and documents stay on your computer. When you use a cloud engine,
-your messages and the context you provide go to that service. Web search also
-contacts the configured search service and the pages it opens. API keys are
-stored separately from the chat database and are excluded from backups.
+> [!NOTE]
+> Local chats and documents stay on your computer. When you use a cloud engine,
+> your messages and the context you provide go to that service. Web search also
+> contacts the configured search service and the pages it opens. API keys are
+> stored separately from the chat database and are excluded from backups.
 
 ## Build from source
 
 The desktop app uses FastAPI, SQLite, JavaScript, and pywebview. Packaged releases
-do not require Python or Git. Source setup and test commands are in the section below.
+do not require Python or Git.
 
 <details>
-<summary>Source setup · Python 3.14</summary>
+<summary><b>Source setup · Python 3.14</b></summary>
 
 ```bash
 git clone https://github.com/23lambi/Cerberus-ai.git
@@ -113,10 +166,16 @@ venv/bin/python -m pytest -q
 node tests/frontend.test.cjs
 ```
 
+The pixel mascot is drawn by `scripts/make_mascot.py`; edit its pixel rows and
+run it again to change the mascot and its animations.
+
 </details>
 
 [User guide](docs/guide.md) · [Contributing](CONTRIBUTING.md) · [Project layout](docs/development/architecture.md) · [Release process](docs/releasing.md)
 
 ## Feedback and license
 
-[Report a bug or suggest an improvement](https://github.com/23lambi/Cerberus-ai/issues/new/choose). Cerberus project code is licensed under [Apache 2.0](LICENSE); bundled libraries retain their [own licenses](static/vendor/README.md).
+Found a bug or have an idea? [Open an issue](https://github.com/23lambi/Cerberus-ai/issues/new/choose).
+
+Cerberus project code is licensed under [Apache 2.0](LICENSE); bundled libraries
+retain their [own licenses](static/vendor/README.md).

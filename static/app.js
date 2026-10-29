@@ -921,6 +921,7 @@ async function readReply(response, bubble, who, onOther, requireDone = false) {
         }
         result.reply += ev.text;
         showReply(bubble, who, result.reply);
+        bubble.classList.add("streaming"); // the mascot nods while the words arrive
       } else if (ev.type === "stats") {
         result.stats = ev;
       } else if (ev.type === "tool") {
@@ -937,6 +938,8 @@ async function readReply(response, bubble, who, onOther, requireDone = false) {
     // Any other error goes up to the caller.
     if (error.name !== "AbortError") throw error;
     result.stopped = true;
+  } finally {
+    bubble.classList.remove("streaming");
   }
   if (requireDone && !result.done && !result.stopped && !result.failure) {
     result.failure = "The connection ended before saving was confirmed. Reopen the chat to check its saved messages.";

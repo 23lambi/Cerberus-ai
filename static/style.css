@@ -2203,6 +2203,36 @@ dialog .dialog-close:hover {
   animation: rise-in 0.25s ease-out, shimmer 1.6s linear infinite;
 }
 
+/* The pixel mascot keeps you company while Cerberus works. Its three heads
+   bob in turn while it thinks, and nod while it writes the answer. The
+   movement is inside the images (made by scripts/make_mascot.py), so it
+   keeps going while the text around it changes. */
+.pending::before,
+.reply.streaming .reply-head::before {
+  content: "";
+  display: inline-block;
+  flex-shrink: 0;
+  width: 36px;
+  height: 27px;
+  background: url("/static/mascot-thinking.svg") no-repeat center / contain;
+  /* Not clipped to the text like the shimmer around it. */
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+}
+
+.pending::before {
+  margin-right: 10px;
+  vertical-align: middle;
+}
+
+.reply.streaming .reply-head::before {
+  background-image: url("/static/mascot-talking.svg");
+}
+
+.reply.streaming .reply-head .avatar {
+  display: none; /* the mascot stands in for the logo until the answer is done */
+}
+
 /* Buttons give way a little when pressed. */
 button:not(:disabled):active {
   transform: scale(0.97);
