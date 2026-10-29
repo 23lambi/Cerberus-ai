@@ -1,48 +1,162 @@
 // The Setup window: is everything Cerberus needs ready, and if not, fix it
-// from here. Choose where AI runs, get a model, then add optional features.
+// from here, one step at a time: choose where AI runs, get a model, then say
+// hi to check that it all works. The pixel mascot guides you through it.
 // The server checks (cerberus/core/setup.py); this file shows the result and
 // the buttons that make sense for it.
 
 const setupDialog = document.getElementById("setup-dialog");
 const setupBody = document.getElementById("setup-body");
+const setupBack = document.getElementById("setup-back");
+const setupNext = document.getElementById("setup-next");
 let setupBusy = false; // a download is running: don't redraw over it
+let setupState = null; // the last answer from /setup/status
+let setupStepIndex = null; // the step on screen; null = the first unfinished one
+
+const SETUP_STEPS = ["Choose your AI", "Get a model", "Say hi"];
 
 async function openSetup() {
   if (!setupDialog.open) setupDialog.showModal();
+  setupStepIndex = null;
   await renderSetup();
 }
 
-// Asks the server what's ready, then draws the three steps.
+// Which steps are done. "Say hi" is always open: it's the check itself.
+function setupDone(state) {
+  return [state.engine.running, state.chat_models.length > 0, false];
+}
+
+// Asks the server what's ready, then draws the step on screen.
 async function renderSetup() {
   if (setupBusy) return;
   setupBody.innerHTML = "";
   setupBody.appendChild(makeBox("hint", "Checking…"));
-  let state;
   try {
     // Both at the same time: what's ready, and the engines to choose from.
     const [statusResponse, enginesResponse] = await Promise.all([fetch("/setup/status"), fetch("/setup/engines")]);
     if (!statusResponse.ok) throw new Error(await responseError(statusResponse));
     if (!enginesResponse.ok) throw new Error(await responseError(enginesResponse));
-    state = await statusResponse.json();
-    state.engines = await enginesResponse.json();
+    setupState = await statusResponse.json();
+    setupState.engines = await enginesResponse.json();
   } catch (error) {
     setupBody.innerHTML = "";
     setupBody.appendChild(makeBox("hint", "Could not reach Cerberus: " + error.message));
     return;
   }
+  const done = setupDone(setupState);
+  if (setupStepIndex === null) setupStepIndex = done.indexOf(false);
+  // A later step needs the earlier ones: never show it before they're done.
+  setupStepIndex = Math.min(setupStepIndex, done.indexOf(false));
+  drawSetupStep();
+}
+
+function drawSetupStep() {
+  const state = setupState;
+  const done = setupDone(state);
+  const step = setupStepIndex;
   setupBody.innerHTML = "";
-  const ready = state.engine.running && state.chat_models.length > 0;
-  const intro = document.createElement("div");
-  intro.className = "setup-intro";
-  const title = document.createElement("h3");
-  title.textContent = ready ? "You're ready to chat" : "Let's get you ready to chat";
-  intro.append(title, makeBox("hint", ready
-    ? "Your AI is connected. You can start chatting or adjust your setup below."
-    : "Choose where your AI runs. We'll help you with the next step."));
-  const optional = setupDisclosure("Optional · Web search", state.searxng.status === "ok" ? "Connected" : "Set up later");
-  optional.body.appendChild(searchStep(state));
-  setupBody.append(intro, engineStep(state), modelsStep(state), optional.root);
-  document.getElementById("setup-done").textContent = ready ? "Start chatting" : "Close for now";
+  setupBody.append(setupProgress(done, step), setupGuide(state, step));
+  if (step === 0) setupBody.appendChild(engineStep(state));
+  if (step === 1) setupBody.appendChild(modelsStep(state));
+  if (step === 2) {
+    setupBody.appendChild(helloStep(state));
+    const optional = setupDisclosure("Optional · Web search", state.searxng.status === "ok" ? "Connected" : "Set up later");
+    optional.body.appendChild(searchStep(state));
+    setupBody.appendChild(optional.root);
+  }
+  setupBack.hidden = step === 0;
+  setupNext.textContent = step === SETUP_STEPS.length - 1 ? "Start chatting" : "Next";
+  setupNext.disabled = step < SETUP_STEPS.length - 1 && !done[step];
+}
+
+// The row of steps on top: done ones get a ✓, the current one stands out.
+function setupProgress(done, current) {
+  const list = document.createElement("ol");
+  list.className = "setup-progress";
+  SETUP_STEPS.forEach((name, index) => {
+    const item = document.createElement("li");
+    if (index === current) item.className = "current";
+    else if (done[index]) item.className = "done";
+    item.textContent = (done[index] && index !== current ? "✓ " : index + 1 + " ") + name;
+    list.appendChild(item);
+  });
+  return list;
+}
+
+// The mascot and one sentence about the step: happy when it's done, sad when
+// something is missing. Its picture changes while the hello streams in.
+function setupGuide(state, step) {
+  const guide = document.createElement("div");
+  guide.className = "setup-guide";
+  const mascot = document.createElement("img");
+  mascot.id = "setup-mascot";
+  mascot.alt = "";
+  const engine = state.engine.name || "Ollama";
+  const lines = [
+    state.engine.running
+      ? ["mascot-idle", "Connected to " + engine + ". Next, a model to chat with."]
+      : ["mascot-sad", "Let's connect your AI. Ollama is the easiest: it runs on this computer, privately."],
+    state.chat_models.length
+      ? ["mascot-idle", state.chat_models.length + " chat models ready. One last step."]
+      : ["mascot-idle", "Now a model: the brain Cerberus talks with. We'll suggest one that fits your computer."],
+    ["mascot-idle", "Say hi to check that everything works."],
+  ];
+  const [picture, text] = lines[step];
+  mascot.src = "/static/" + picture + ".svg";
+  guide.append(mascot, makeBox("setup-guide-text", text));
+  return guide;
+}
+
+function setMascot(picture) {
+  const mascot = document.getElementById("setup-mascot");
+  if (mascot) mascot.src = "/static/" + picture + ".svg";
+}
+
+// ---------- 3. Say hi ----------
+
+// A first real answer from the chosen model, streamed in. Nothing is saved.
+function helloStep(state) {
+  const card = setupStep(3, "Say hi", false, "", "Last step");
+  card.querySelector(".setup-badge").hidden = true;
+  const model = modelSelect.value || state.chat_models[0]; // app.js
+  card.appendChild(makeBox("hint", "Cerberus sends a short first message to " + model + "."));
+  const answer = makeBox("setup-hello", "");
+  answer.hidden = true;
+  const send = setupButton("Say hi", async () => {
+    setupBusy = true;
+    send.disabled = true;
+    answer.hidden = false;
+    answer.textContent = "";
+    answer.classList.remove("error");
+    setMascot("mascot-thinking");
+    let failure = "";
+    try {
+      const response = await fetch("/setup/hello", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model }),
+      });
+      if (!response.ok) throw new Error(await responseError(response));
+      await readEvents(response, (event) => { // app.js
+        if (event.error) failure = event.error;
+        if (event.text) {
+          setMascot("mascot-talking");
+          answer.textContent += event.text;
+        }
+      });
+      if (failure) throw new Error(failure);
+      if (!answer.textContent.trim()) throw new Error("The model answered with nothing. Try another model.");
+      setMascot("mascot");
+      send.textContent = "Say hi again";
+      document.querySelector(".setup-guide-text").textContent = "It works! You're ready to chat.";
+    } catch (error) {
+      setMascot("mascot-sad");
+      answer.classList.add("error");
+      answer.textContent = error.message;
+    } finally {
+      setupBusy = false;
+      send.disabled = false;
+    }
+  }, true);
+  card.append(send, answer);
+  return card;
 }
 
 // ---------- Building blocks ----------
@@ -101,12 +215,8 @@ function commandLine(command) {
   const code = document.createElement("code");
   code.textContent = command;
   const copy = setupButton("Copy", async () => {
-    try {
-      await navigator.clipboard.writeText(command);
-      copy.textContent = "Copied!";
-    } catch (_) {
-      copy.textContent = "Select and copy it";
-    }
+    // settings.js: copies without asking for clipboard permission first.
+    copy.textContent = (await copyShown(code, command)) ? "Copied!" : "Press Ctrl+C";
     setTimeout(() => (copy.textContent = "Copy"), 1500);
   });
   row.append(code, copy);
@@ -544,6 +654,20 @@ async function searxngHelp(card, status) {
 
 document.getElementById("setup-recheck").addEventListener("click", renderSetup);
 document.getElementById("setup-done").addEventListener("click", () => setupDialog.close());
+setupBack.addEventListener("click", () => {
+  if (setupBusy) return;
+  setupStepIndex = Math.max(0, setupStepIndex - 1);
+  drawSetupStep();
+});
+setupNext.addEventListener("click", () => {
+  if (setupBusy) return;
+  if (setupStepIndex === SETUP_STEPS.length - 1) {
+    setupDialog.close();
+    return;
+  }
+  setupStepIndex += 1;
+  drawSetupStep();
+});
 document.getElementById("setup-close").addEventListener("click", () => setupDialog.close());
 // Closing with Escape while something downloads: keep it open instead.
 setupDialog.addEventListener("cancel", (event) => {

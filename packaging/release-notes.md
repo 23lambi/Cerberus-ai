@@ -9,7 +9,11 @@ A desktop workspace for chat, documents, and research with local or cloud AI.
 - **See what's new before you update.** Settings → Updates now shows these
   notes for the version you're about to download.
 - **More honest answers about itself.** Cerberus no longer claims to watch or
-  manage your computer; it says plainly that it's a chat assistant.
+  manage your computer, and says so when it doesn't know something.
+- **Friendlier setup.** One step at a time, with the mascot as your guide, and
+  a first "Say hi" message at the end so you know everything works.
+- **Copy diagnostics.** Settings → Help collects the details a bug report
+  needs, shown to you before you share them.
 
 ## Install
 

@@ -4,10 +4,10 @@ import hashlib
 import re
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse
 from pydantic import BaseModel
 
-from cerberus.core import settings
+from cerberus.core import diagnostics, settings
 from cerberus.core.version import VERSION
 from cerberus.core.config import DATA_DIR, EMBED_MODEL, STATIC_DIR
 from cerberus.engines.ollama import (
@@ -43,6 +43,12 @@ def home():
 def about():
     # data_dir: where your chats and files are, shown in Settings.
     return {"name": "Cerberus", "version": VERSION, "data_dir": str(DATA_DIR)}
+
+
+@router.get("/diagnostics")
+async def diagnostics_report(model: str = ""):
+    # Settings → Help → Copy diagnostics. model: the one chosen in the page.
+    return PlainTextResponse(await diagnostics.report(model))
 
 
 @router.get("/models")

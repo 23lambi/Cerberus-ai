@@ -2863,3 +2863,79 @@ dialog[open]::backdrop {
   margin: 8px 0 0;
   padding-left: 20px;
 }
+
+/* Settings → Help: the diagnostics, readable before they are copied. */
+.diagnostics {
+  max-height: 220px;
+  overflow: auto;
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--bg);
+  font-size: 12px;
+  white-space: pre-wrap;
+  user-select: text;
+}
+
+/* Setup, one step at a time: the row of steps, then the mascot guide. */
+.setup-progress {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+  font-size: 12.5px;
+}
+
+.setup-progress li {
+  flex: 1;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.setup-progress li.done {
+  color: #7fd39b;
+}
+
+.setup-progress li.current {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.setup-guide {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 0 14px;
+}
+
+.setup-guide img {
+  flex-shrink: 0;
+  width: 72px; /* 2 screen pixels per mascot pixel */
+  height: 54px;
+}
+
+.setup-guide-text {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* The first answer from the model, in the "Say hi" step. */
+.setup-hello {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--raised);
+  line-height: 1.6;
+}
+
+.setup-hello.error {
+  color: var(--warn);
+}

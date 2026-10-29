@@ -201,3 +201,15 @@ def test_unchanged_personality_follows_improved_defaults(client):
     # A real change is kept exactly.
     client.put("/settings", json={"system_prompt": "You are a pirate."})
     assert client.get("/settings").json()["system_prompt"] == "You are a pirate."
+
+
+def test_setup_hello_streams_a_first_answer_without_saving_a_chat(client, fake):
+    import json
+    from cerberus.chat.prompts import SETUP_HELLO
+    response = client.post("/setup/hello", json={"model": "small:3b"})
+    pieces = [json.loads(line) for line in response.text.splitlines() if line]
+    assert "".join(piece.get("text", "") for piece in pieces) == "Hello from the fake model"
+    messages = fake.calls[-1]["messages"]
+    assert messages[0]["role"] == "system" and "Cerberus" in messages[0]["content"]
+    assert messages[-1]["content"] == SETUP_HELLO
+    assert client.get("/chats").json()["chats"] == []  # a check, not a conversation

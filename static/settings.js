@@ -121,6 +121,9 @@ function fillSettings(values) {
       "are filled in by Cerberus. To change them, edit cerberus/prompts.py."
   );
   prompts.appendChild(builtInPrompts());
+
+  sectionTitle("Help");
+  addHelpCard();
 }
 
 // Web search: where SearXNG listens. The Web pill in the chat turns it
@@ -303,6 +306,87 @@ function addUpdateCard() {
   (updateInfo ? Promise.resolve(updateInfo) : updateRequest("/updates", "GET"))
     .then((info) => show(info))
     .catch(() => { line.textContent = "Version information is unavailable."; });
+}
+
+// ---------- Help ----------
+
+// Copy diagnostics: version, system, engine and the end of the log, for a bug
+// report. It's shown before it's copied, so you see exactly what you share.
+function addHelpCard() {
+  const card = settingCard(
+    "Report a problem",
+    "Copy the diagnostics into your bug report. They hold no chats or API keys, " +
+      "and your home folder shows as ~. Read them first if you like."
+  );
+  const details = document.createElement("details");
+  details.className = "built-in";
+  const summary = document.createElement("summary");
+  summary.textContent = "Show diagnostics";
+  const text = document.createElement("pre");
+  text.className = "diagnostics";
+  details.append(summary, text);
+
+  const status = document.createElement("p");
+  status.className = "hint";
+  const links = document.createElement("div");
+  links.className = "setting-links";
+  const copy = document.createElement("button");
+  copy.type = "button";
+  copy.textContent = "Copy diagnostics";
+  const report = document.createElement("a");
+  report.className = "button-link";
+  report.href = "https://github.com/23lambi/Cerberus-ai/issues/new/choose";
+  report.target = "_blank"; // opens in your browser, not inside Cerberus
+  report.textContent = "Report a problem on GitHub";
+  links.append(copy, report);
+  card.append(details, links, status);
+
+  async function load() {
+    const response = await fetch("/diagnostics?model=" + encodeURIComponent(modelSelect.value)); // app.js
+    if (!response.ok) throw new Error(await responseError(response));
+    text.textContent = await response.text();
+    return text.textContent;
+  }
+  details.addEventListener("toggle", () => {
+    if (details.open && !text.textContent) load().catch((error) => { text.textContent = error.message; });
+  });
+  copy.addEventListener("click", async () => {
+    copy.disabled = true;
+    status.textContent = "Collecting…";
+    try {
+      const diagnostics = await load();
+      details.open = true;
+      status.textContent = (await copyShown(text, diagnostics))
+        ? "Copied. Paste it into your bug report."
+        : "Selected. Press Ctrl+C (⌘C on a Mac) to copy it.";
+    } catch (error) {
+      status.textContent = "Could not collect diagnostics: " + error.message;
+    } finally {
+      copy.disabled = false;
+    }
+  });
+}
+
+// Copies text that is shown in element; true when it worked. Selecting and
+// copying needs no permission. The newer clipboard API may ask for one, and
+// some desktop windows never answer, so it only gets two seconds.
+async function copyShown(element, text) {
+  const range = document.createRange();
+  range.selectNodeContents(element);
+  getSelection().removeAllRanges();
+  getSelection().addRange(range); // stays selected for Ctrl+C if copying fails
+  try {
+    if (document.execCommand("copy")) return true;
+  } catch (_) { /* not supported: try the clipboard API */ }
+  try {
+    await Promise.race([
+      navigator.clipboard.writeText(text),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("no answer")), 2000)),
+    ]);
+    return true;
+  } catch (_) {
+    return false;
+  }
 }
 
 // Makes a textarea exactly as tall as its text, so you see all of it

@@ -8,6 +8,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from cerberus.engines import engine, llamacpp, ollama, openai_api
+from cerberus.chat.prompts import SETUP_HELLO
 from cerberus.core import settings, setup
 
 router = APIRouter(prefix="/setup")
@@ -32,6 +33,27 @@ async def download_ollama():
             yield json.dumps({"step": "running"}) + "\n"
         except engine.EngineError as error:
             yield json.dumps({"step": "error", "text": str(error)}) + "\n"
+
+    return StreamingResponse(generate(), media_type="application/x-ndjson")
+
+
+class HelloRequest(BaseModel):
+    model: str = Field(min_length=1, max_length=200)
+
+
+@router.post("/hello")
+async def hello(req: HelloRequest):
+    """The last setup step: a first short answer from the chosen model, so you
+    see that everything works. It streams as NDJSON; nothing is saved."""
+    messages = [{"role": "system", "content": settings.brain()},
+                {"role": "user", "content": SETUP_HELLO}]
+
+    async def generate():
+        try:
+            async for piece in ollama.stream_chat(req.model, messages, max_tokens=120):
+                yield json.dumps({"text": piece}) + "\n"
+        except ollama.OllamaError as error:
+            yield json.dumps({"error": str(error)}) + "\n"
 
     return StreamingResponse(generate(), media_type="application/x-ndjson")
 
