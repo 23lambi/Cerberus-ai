@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from cerberus.storage import database, keeper
 from cerberus.chat import turns
+from cerberus.core import model_settings
 from cerberus.core.config import MAX_UPLOAD_MB
 from cerberus.engines import ollama
 from cerberus.chat.budget import ContextTooLarge, fit
@@ -103,7 +104,7 @@ async def propose_edit(document_id: int, body: EditIn):
         {"role": "user", "content": f"Instruction:\n{body.instruction}\n\nDocument:\n{doc['content']}"},
     ]
     try:
-        fit(messages, 1800)
+        fit(messages, 1800, num_ctx=model_settings.num_ctx(body.model))
     except ContextTooLarge:
         raise HTTPException(413, "This document is too large for AI editing. Shorten it first.") from None
     content = ""

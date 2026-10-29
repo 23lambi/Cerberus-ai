@@ -378,6 +378,23 @@
     </footer>
   </dialog>
 
+  <!-- One model's settings (models.js): context length and temperature. -->
+  <dialog id="model-settings-dialog" aria-labelledby="model-settings-title">
+    <form id="model-settings-form">
+      <header class="dialog-header">
+        <h2 id="model-settings-title">Model settings</h2>
+        <button type="button" class="dialog-close" id="model-settings-close" aria-label="Close">&times;</button>
+      </header>
+      <div class="dialog-body" id="model-settings-body"></div>
+      <footer class="dialog-buttons">
+        <button type="button" id="model-settings-reset">Use defaults</button>
+        <span class="spacer"></span>
+        <button type="button" id="model-settings-cancel">Cancel</button>
+        <button type="submit" class="primary">Save</button>
+      </footer>
+    </form>
+  </dialog>
+
   <!-- <dialog> is a built-in popup. settings.js opens it with showModal(). -->
   <!-- The header and the buttons stay in place; only the middle scrolls. -->
   <dialog id="settings-dialog">

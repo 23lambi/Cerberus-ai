@@ -20,7 +20,7 @@ from fastapi import HTTPException
 
 from cerberus.chat import guard, recap, summary
 from cerberus.storage import keeper, database
-from cerberus.core import settings
+from cerberus.core import model_settings, settings
 from cerberus.search import web
 from cerberus.chat.budget import ContextTooLarge, fit
 from cerberus.core.config import DEFAULT_MAX_TOKENS, THINK_MAX_TOKENS
@@ -170,7 +170,7 @@ async def prepare(req):
     reserve = DEFAULT_MAX_TOKENS + (THINK_MAX_TOKENS if req.think else 0)
     try:
         history = fit([{"role": "system", "content": system_prompt}] + history,
-                      reserve + 1000)[1:]
+                      reserve + 1000, num_ctx=model_settings.num_ctx(req.model))[1:]
     except ContextTooLarge as error:
         raise HTTPException(413, str(error)) from None
 
@@ -250,7 +250,7 @@ async def prepare(req):
     )
     while True:
         try:
-            fit(result.messages(), reserve)
+            fit(result.messages(), reserve, num_ctx=model_settings.num_ctx(req.model))
             return result
         except ContextTooLarge as error:
             # Too big: web pages are the extra you asked for, not what you

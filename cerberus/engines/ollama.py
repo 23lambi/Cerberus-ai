@@ -9,6 +9,7 @@ import json
 import httpx  # an HTTP client like "requests", but it also works with async
 from cerberus.storage import database
 from cerberus.engines import openai_api
+from cerberus.core import model_settings
 from cerberus.chat.budget import ContextTooLarge, fit
 
 from cerberus.core.config import (
@@ -16,7 +17,6 @@ from cerberus.core.config import (
     EMBED_MODEL,
     KEEP_ALIVE,
     MAX_HISTORY_MESSAGES,
-    NUM_CTX,
     OLLAMA_URL,
     THINK_MAX_TOKENS,
 )
@@ -86,7 +86,52 @@ async def list_models():
 
 # Model name -> its abilities. A model's abilities never change, so we ask
 # Ollama once per model and remember the answer. This is called a cache.
-capabilities_cache = {}
+model_facts_cache = {}
+
+
+def kv_bytes_per_token(model_info):
+    """Memory one token of context takes (the model's "KV cache"), in bytes.
+
+    Each layer keeps a key and a value per token: layers x KV heads x (key +
+    value length) x 2 bytes. None when the model info doesn't say.
+    """
+    def field(suffix):
+        value = next((v for k, v in model_info.items() if k.endswith(suffix)), None)
+        return max(value) if isinstance(value, list) and value else value
+    layers, kv_heads = field(".block_count"), field(".attention.head_count_kv")
+    key, value = field(".attention.key_length"), field(".attention.value_length")
+    if not (key and value):
+        embedding, heads = field(".embedding_length"), field(".attention.head_count")
+        key = value = embedding // heads if embedding and heads else None
+    if not all(isinstance(n, int) and n > 0 for n in (layers, kv_heads, key, value)):
+        return None
+    return layers * kv_heads * (key + value) * 2
+
+
+async def model_facts(model):
+    """What a model can do, its longest context, and its memory per token."""
+    if model not in model_facts_cache:
+        # /api/show describes a model: abilities like ["completion", "thinking"],
+        # and its build (layers, heads, longest context) in model_info.
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                response = await client.post(f"{OLLAMA_URL}/api/show", json={"model": model})
+            info = response.json()
+        except (httpx.HTTPError, ValueError):
+            return {"capabilities": [], "context_length": None, "kv_bytes": None}  # not cached: maybe starting
+        found = list(info.get("capabilities", []))
+        model_info = info.get("model_info") or {}
+        # Some models only come in a thinking edition, like "Qwen3 Thinking"
+        # (qwen3:4b): they think even when asked not to. The edition's
+        # name is in the model info, or in a tag like qwen3:4b-thinking.
+        names = [str(value) for key, value in model_info.items()
+                 if key.endswith((".finetune", ".basename"))] + [model]
+        if "thinking" in found and any("thinking" in name.lower() for name in names):
+            found.append("always-thinking")
+        longest = next((v for k, v in model_info.items() if k.endswith(".context_length")), None)
+        model_facts_cache[model] = {"capabilities": found, "kv_bytes": kv_bytes_per_token(model_info),
+                                    "context_length": longest if isinstance(longest, int) else None}
+    return model_facts_cache[model]
 
 
 async def capabilities(model):
@@ -95,24 +140,7 @@ async def capabilities(model):
         # every model try tools and pictures: if one can't, the engine's own
         # error says so, instead of Cerberus quietly holding a picture back.
         return ["completion", "tools", "vision"]
-    # /api/show lists what a model can do, like ["completion", "thinking"].
-    if model not in capabilities_cache:
-        try:
-            async with httpx.AsyncClient(timeout=10) as client:
-                response = await client.post(f"{OLLAMA_URL}/api/show", json={"model": model})
-            info = response.json()
-            found = list(info.get("capabilities", []))
-            # Some models only come in a thinking edition, like "Qwen3 Thinking"
-            # (qwen3:4b): they think even when asked not to. The edition's
-            # name is in the model info, or in a tag like qwen3:4b-thinking.
-            names = [str(value) for key, value in (info.get("model_info") or {}).items()
-                     if key.endswith((".finetune", ".basename"))] + [model]
-            if "thinking" in found and any("thinking" in name.lower() for name in names):
-                found.append("always-thinking")
-            capabilities_cache[model] = found
-        except (httpx.HTTPError, ValueError):
-            return []  # don't cache: maybe Ollama is just starting
-    return capabilities_cache[model]
+    return (await model_facts(model))["capabilities"]
 
 
 async def can_think(model):
@@ -238,9 +266,15 @@ class ThinkingSplitter:
 async def engine_events(
     model, messages, max_tokens=DEFAULT_MAX_TOKENS, temperature=None, think=False, tools=None
 ):
+    # The model's own settings (Models → Settings): its context window, and
+    # its temperature unless the caller needs a specific one (0 for jobs).
+    chosen = model_settings.get(model)
+    num_ctx = chosen["num_ctx"]
+    if temperature is None:
+        temperature = chosen["temperature"]
     if engine() == "openai":
         try:
-            async for event in openai_api.stream_events(model, messages, max_tokens, temperature, think, tools, NUM_CTX):
+            async for event in openai_api.stream_events(model, messages, max_tokens, temperature, think, tools, num_ctx):
                 yield event
         except openai_api.EngineError as error:
             raise OllamaError(str(error)) from None
@@ -248,10 +282,10 @@ async def engine_events(
     # num_predict = the most tokens the model may write (thinking included!);
     # num_ctx = the context window.
     try:
-        messages = fit(messages, max_tokens, tools)
+        messages = fit(messages, max_tokens, tools, num_ctx)
     except ContextTooLarge as error:
         raise OllamaError(str(error)) from None
-    options = {"num_predict": max_tokens, "num_ctx": NUM_CTX}
+    options = {"num_predict": max_tokens, "num_ctx": num_ctx}
     if temperature is not None:
         # 0 = always the most likely word, higher = more random and creative.
         options["temperature"] = temperature
@@ -307,7 +341,7 @@ async def engine_events(
                             "seconds": chunk.get("eval_duration", 0) / 1e9,
                             # prompt + answer = how full the context window got
                             "context": chunk.get("prompt_eval_count", 0) + tokens,
-                            "num_ctx": NUM_CTX,
+                            "num_ctx": num_ctx,
                             # "length" = it stopped at max_tokens, not by choice
                             "cut_off": chunk.get("done_reason") == "length",
                         }
@@ -442,7 +476,7 @@ async def pull(model):
         raise OllamaError(NOT_RUNNING) from None
     except (httpx.HTTPError, ValueError) as error:
         raise OllamaError(f"The download stopped: {error}") from None
-    capabilities_cache.pop(model, None)  # a new version may do new things
+    model_facts_cache.pop(model, None)  # a new version may do new things
 
 
 async def delete(model):
@@ -455,4 +489,4 @@ async def delete(model):
         raise OllamaError(NOT_RUNNING) from None
     if response.status_code != 200:
         raise OllamaError(error_message(response.content))
-    capabilities_cache.pop(model, None)
+    model_facts_cache.pop(model, None)

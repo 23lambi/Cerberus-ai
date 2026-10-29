@@ -154,6 +154,14 @@ function installedRow(model) {
     use.addEventListener("click", () => useInstalledModel(model.name));
     actions.appendChild(use);
   }
+  if (currentEngine.kind === "ollama" && model.capabilities.includes("completion")) {
+    const tune = document.createElement("button");
+    tune.type = "button";
+    tune.textContent = "Settings";
+    tune.setAttribute("aria-label", "Settings for " + model.name);
+    tune.addEventListener("click", () => openModelSettings(model.name));
+    actions.appendChild(tune);
+  }
   const remove = document.createElement("button");
   remove.type = "button";
   remove.textContent = "Delete";
@@ -727,3 +735,143 @@ try {
   const saved = localStorage.getItem("cerberus-model-source");
   if (["huggingface", "local"].includes(saved)) showSource(saved);
 } catch (_) { /* nothing remembered */ }
+
+// ---------- One model's settings ----------
+
+// How much of the chat a model sees at once (its context window), and how
+// creative it answers (temperature). The server works out how much memory
+// each context size takes for this model, and suggests one for this computer.
+const modelSettingsDialog = document.getElementById("model-settings-dialog");
+const modelSettingsBody = document.getElementById("model-settings-body");
+let modelSettingsName = "";
+let modelSettingsInfo = null;
+
+function contextLabel(tokens) {
+  return Math.round(tokens / 1024) + "K tokens";
+}
+
+function temperatureWord(value) {
+  return value <= 0.3 ? "Precise" : value < 1 ? "Balanced" : "Creative";
+}
+
+async function openModelSettings(name) {
+  modelSettingsName = name;
+  document.getElementById("model-settings-title").textContent = name;
+  modelSettingsBody.innerHTML = "";
+  modelSettingsBody.appendChild(makeBox("hint", "Loading…")); // app.js
+  modelSettingsDialog.showModal();
+  try {
+    const response = await fetch("/models/settings?name=" + encodeURIComponent(name));
+    if (!response.ok) throw new Error(await responseError(response));
+    modelSettingsInfo = await response.json();
+  } catch (error) {
+    modelSettingsBody.innerHTML = "";
+    modelSettingsBody.appendChild(makeBox("hint", error.message));
+    return;
+  }
+  drawModelSettings(modelSettingsInfo.num_ctx, modelSettingsInfo.temperature);
+}
+
+function drawModelSettings(numCtx, temperature) {
+  const info = modelSettingsInfo;
+  modelSettingsBody.innerHTML = "";
+
+  // Context length.
+  const context = document.createElement("section");
+  context.className = "setting-card";
+  const contextTitle = document.createElement("h3");
+  contextTitle.textContent = "Context length";
+  context.append(contextTitle, makeBox("hint",
+    "How much of the chat the model sees at once. Bigger remembers more of long chats and " +
+    "documents, but Ollama sets aside its memory as soon as the model loads."));
+  const select = document.createElement("select");
+  select.id = "model-context";
+  select.setAttribute("aria-label", "Context length");
+  for (const choice of info.choices) {
+    const parts = [contextLabel(choice.tokens)];
+    if (choice.memory_gb !== null) parts.push(choice.memory_gb + " GB memory");
+    if (choice.tokens === info.suggested) parts.push("suggested");
+    else if (choice.tokens === info.default_ctx) parts.push("default");
+    select.appendChild(new Option(parts.join(" · "), choice.tokens));
+  }
+  select.value = String(numCtx);
+  const fitNote = makeBox("hint", "");
+  const updateFit = () => {
+    const choice = info.choices.find((c) => c.tokens === Number(select.value));
+    const needed = choice && choice.memory_gb !== null ? choice.memory_gb + (info.model_gb || 0) : null;
+    const tooBig = info.ram_gb && needed !== null && needed > info.ram_gb - 4;
+    fitNote.classList.toggle("warning", Boolean(tooBig));
+    fitNote.textContent = tooBig
+      ? "⚠ With the model, this needs about " + needed.toFixed(1) + " GB of your " + info.ram_gb +
+        " GB. It may be very slow, or the system may stop Ollama."
+      : info.ram_gb && needed !== null
+        ? "With the model: about " + needed.toFixed(1) + " GB of your " + info.ram_gb + " GB of memory."
+        : "";
+  };
+  select.addEventListener("change", updateFit);
+  context.append(select, fitNote);
+  if (info.longest) context.appendChild(makeBox("hint", "This model reads at most " + info.longest.toLocaleString() + " tokens."));
+  updateFit();
+
+  // Temperature.
+  const creativity = document.createElement("section");
+  creativity.className = "setting-card";
+  const creativityTitle = document.createElement("h3");
+  creativityTitle.textContent = "Temperature";
+  creativity.append(creativityTitle, makeBox("hint",
+    "Low gives precise, repeatable answers: good for code and facts. High gives more varied, " +
+    "creative ones: good for stories and ideas."));
+  const own = document.createElement("label");
+  own.className = "model-own";
+  const ownCheck = document.createElement("input");
+  ownCheck.type = "checkbox";
+  ownCheck.id = "model-temperature-own";
+  ownCheck.checked = temperature === null;
+  own.append(ownCheck, " Use the model's own setting");
+  const slider = document.createElement("input");
+  slider.type = "range";
+  slider.id = "model-temperature";
+  slider.min = "0";
+  slider.max = "2";
+  slider.step = "0.1";
+  slider.value = String(temperature === null ? 0.8 : temperature);
+  slider.setAttribute("aria-label", "Temperature");
+  const value = makeBox("model-temperature-value", "");
+  const updateTemperature = () => {
+    slider.disabled = ownCheck.checked;
+    value.textContent = ownCheck.checked ? "" : Number(slider.value).toFixed(1) + " · " + temperatureWord(Number(slider.value));
+  };
+  ownCheck.addEventListener("change", updateTemperature);
+  slider.addEventListener("input", updateTemperature);
+  updateTemperature();
+  creativity.append(own, slider, value);
+
+  modelSettingsBody.append(context, creativity);
+}
+
+document.getElementById("model-settings-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const own = document.getElementById("model-temperature-own");
+  if (!own) return; // still loading
+  const body = {
+    name: modelSettingsName,
+    num_ctx: Number(document.getElementById("model-context").value),
+    temperature: own.checked ? null : Number(document.getElementById("model-temperature").value),
+  };
+  try {
+    const response = await fetch("/models/settings", {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    if (!response.ok) throw new Error(await responseError(response));
+    modelSettingsDialog.close();
+    installedStatus.textContent = "Saved. " + modelSettingsName + " now reads " + contextLabel(body.num_ctx) + ".";
+  } catch (error) {
+    modelSettingsBody.appendChild(makeBox("hint warning", error.message));
+  }
+});
+document.getElementById("model-settings-reset").addEventListener("click", () => {
+  if (modelSettingsInfo) drawModelSettings(modelSettingsInfo.default_ctx, null);
+});
+for (const id of ["model-settings-close", "model-settings-cancel"]) {
+  document.getElementById(id).addEventListener("click", () => modelSettingsDialog.close());
+}

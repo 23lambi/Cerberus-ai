@@ -7,8 +7,12 @@ import re
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from cerberus.core import model_settings
+from cerberus.core.config import NUM_CTX
+from cerberus.core.schemas import ModelName
+from cerberus.core.setup import total_ram_gb
 from cerberus.models import huggingface, library
 from cerberus.engines import ollama, openai_api
 
@@ -135,3 +139,48 @@ async def delete(name: str):
     except ollama.OllamaError as error:
         raise HTTPException(404 if "not found" in str(error) else 502, str(error)) from None
     return {"deleted": name}
+
+
+# ---------- One model's settings (the Settings button on a model) ----------
+
+
+class ModelSettingsRequest(BaseModel):
+    name: ModelName
+    num_ctx: int
+    temperature: float | None = Field(default=None, ge=0, le=2)  # None = the model's own
+
+
+@router.get("/settings")
+async def get_model_settings(name: ModelName):
+    """The model's settings, plus what's needed to choose well: its longest
+    context, the memory each context size takes, and a suggestion."""
+    local = ollama.engine() == "ollama"
+    facts = await ollama.model_facts(name) if local else {"context_length": None, "kv_bytes": None}
+    sizes = {m["name"]: m["size"] / 1024**3 for m in await ollama.installed()} if local else {}
+    ram = total_ram_gb()
+    longest = facts["context_length"]
+    choices = [c for c in model_settings.CONTEXT_CHOICES if not longest or c <= longest]
+    kv = facts["kv_bytes"]
+    return {
+        **model_settings.get(name),
+        "default_ctx": NUM_CTX,
+        "longest": longest,
+        "choices": [{"tokens": c, "memory_gb": round(model_settings.context_gb(c, kv), 1) if kv else None}
+                    for c in choices],
+        "suggested": model_settings.suggest(ram, sizes.get(name), kv, longest),
+        "ram_gb": round(ram, 1) if ram else None,
+        "model_gb": round(sizes[name], 1) if name in sizes else None,
+        "local": local,
+    }
+
+
+@router.put("/settings")
+async def save_model_settings(req: ModelSettingsRequest):
+    if req.num_ctx not in model_settings.CONTEXT_CHOICES:
+        raise HTTPException(422, "Choose one of the offered context sizes.")
+    if ollama.engine() == "ollama":
+        longest = (await ollama.model_facts(req.name))["context_length"]
+        if longest and req.num_ctx > longest:
+            raise HTTPException(422, f"{req.name} reads at most {longest:,} tokens.")
+    model_settings.save(req.name, req.num_ctx, req.temperature)
+    return model_settings.get(req.name)

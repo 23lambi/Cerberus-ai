@@ -114,7 +114,7 @@ async def choose_engine(body: EngineIn):
         settings.update({"engine": "openai", "openai_preset": body.preset, "openai_url": url, "openai_key": body.key})
     else:
         settings.update({"engine": "ollama"})
-    ollama.capabilities_cache.clear()  # another engine: other models
+    ollama.model_facts_cache.clear()  # another engine: other models
     try:
         models = await ollama.list_models()
     except ollama.OllamaError as error:
@@ -137,7 +137,7 @@ async def start_llamacpp(body: LlamaCppIn):
     settings.update({"llamacpp_binary": body.binary, "llamacpp_model": body.model,
                      "llamacpp_port": str(body.port), "llamacpp_on": "yes", "engine": "openai",
                      "openai_preset": "llamacpp", "openai_url": f"http://127.0.0.1:{body.port}/v1"})
-    ollama.capabilities_cache.clear()
+    ollama.model_facts_cache.clear()
     return {"running": True}
 
 

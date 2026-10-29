@@ -26,14 +26,14 @@ def estimate(messages, tools=None):
     return total
 
 
-def fit(messages, max_tokens, tools=None):
+def fit(messages, max_tokens, tools=None, num_ctx=NUM_CTX):
     """Drop oldest complete turns; always retain instructions and the new question.
 
     Tool requests/results belong to the latest turn and are kept together.
     An oversized current turn fails clearly instead of silently losing its text.
     """
     messages = list(messages)
-    limit = NUM_CTX - max_tokens - 256
+    limit = num_ctx - max_tokens - 256
     while estimate(messages, tools) > limit:
         users = [i for i, m in enumerate(messages) if m["role"] == "user"]
         if len(users) < 2:

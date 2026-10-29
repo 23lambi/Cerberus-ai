@@ -173,7 +173,7 @@ async def stream_events(model, messages, max_tokens, temperature=None, think=Fal
     """Like ollama.stream_events, for an OpenAI-compatible engine."""
     engine = current()
     try:
-        messages = fit(messages, max_tokens, tools)
+        messages = fit(messages, max_tokens, tools, num_ctx)
     except ContextTooLarge as error:
         raise EngineError(str(error)) from None
     body = {

@@ -12,6 +12,9 @@ A desktop workspace for chat, documents, and research with local or cloud AI.
   manage your computer, and says so when it doesn't know something.
 - **Friendlier setup.** One step at a time, with the mascot as your guide, and
   a first "Say hi" message at the end so you know everything works.
+- **Model settings.** In Models, each model has Settings: choose how much of
+  the chat it sees at once (context length, with the memory each size takes and
+  a suggestion for your computer) and how creative it answers (temperature).
 - **Copy diagnostics.** Settings → Help collects the details a bug report
   needs, shown to you before you share them.
 - **Fixes:** a second Cerberus window keeps working after you close the first

@@ -2939,3 +2939,29 @@ dialog[open]::backdrop {
 .setup-hello.error {
   color: var(--warn);
 }
+
+/* Models → a model's Settings: context length and temperature. */
+#model-settings-dialog .setting-card select,
+#model-settings-dialog .setting-card input[type="range"] {
+  width: 100%;
+  margin-top: 10px;
+}
+
+#model-settings-dialog .hint.warning {
+  color: var(--warn);
+}
+
+.model-own {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 13.5px;
+}
+
+.model-temperature-value {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--muted);
+  min-height: 1.2em;
+}

@@ -21,7 +21,7 @@ from contextlib import aclosing
 
 from cerberus.storage import database, keeper
 from cerberus.engines import ollama
-from cerberus.core import settings
+from cerberus.core import model_settings, settings
 from cerberus.search import web, websearch
 from cerberus.chat.budget import ContextTooLarge, fit
 from cerberus.core.config import (
@@ -158,7 +158,7 @@ async def run(ctx, model, chat_id=None):
     messages = ctx.messages(extra=RESEARCH_WRITE)
     while True:
         try:
-            fit(messages, max_tokens)
+            fit(messages, max_tokens, num_ctx=model_settings.num_ctx(model))
             break
         except ContextTooLarge:
             # Too much to read: drop web sources from the end, like context.py.
