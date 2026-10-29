@@ -169,3 +169,108 @@ def test_only_a_few_files_are_kept_in_memory(client):
     for number in range(5):
         client.post(f"/reverse?name=f{number}", content=b"file number %d" % number)
     assert len(recent_files) == 3
+
+
+# ---------- Tool calls written as text ----------
+
+def test_a_tool_call_written_as_text_is_run(client, fake):
+    # qwen2.5-coder answers with the call as its message instead of asking.
+    fake.script = [answer('{"name": "calculate", "arguments": {"expression": "1234*5678"}}'),
+                   answer("It's 7,006,652.")]
+    found = events(client.post("/chat", json=chat_body("What is 1234 * 5678?")))
+    assert [e["type"] for e in found] == ["stats", "tool", "content", "stats", "done"]
+    assert found[1]["result"] == "7006652"
+    assert "".join(e["text"] for e in found if e["type"] == "content") == "It's 7,006,652."
+
+
+@pytest.mark.parametrize("text", [
+    '{"color": "red", "size": 3}',  # JSON the user asked for
+    '{"name": "Ada", "arguments": "none"}',  # looks close, but no call
+    "`code` is a word in backticks",
+])
+def test_other_answers_that_look_like_json_are_shown_unchanged(client, fake, text):
+    fake.script = [answer(text)]
+    found = events(client.post("/chat", json=chat_body("Show me")))
+    assert [e["type"] for e in found] == ["content", "stats", "done"]
+    assert found[0]["text"] == text
+
+
+CALC = {"expression": "2*3"}
+
+
+@pytest.mark.parametrize("text,names", [
+    # Every common way models write calls as text:
+    ('{"name": "calculate", "arguments": {"expression": "2*3"}}', ["calculate"]),
+    ('{"name": "calculate", "parameters": {"expression": "2*3"}}', ["calculate"]),  # llama3.2
+    ('{"name": "calculate", "arguments": "{\\"expression\\": \\"2*3\\"}"}', ["calculate"]),
+    ('{"type": "function", "function": {"name": "calculate", "arguments": {"expression": "2*3"}}}', ["calculate"]),
+    ('[TOOL_CALLS] [{"name": "calculate", "arguments": {"expression": "2*3"}}]', ["calculate"]),  # Mistral
+    ('[TOOL_CALLS][{"name": "calculate", "arguments": {}}, {"name": "current_time", "arguments": {}}]',
+     ["calculate", "current_time"]),
+    ('<|python_tag|>{"name": "calculate", "parameters": {"expression": "2*3"}}', ["calculate"]),  # Llama 3.1
+    ('<tool_call>\n{"name": "calculate", "arguments": {}}\n</tool_call>\n'
+     '<tool_call>\n{"name": "current_time", "arguments": {}}\n</tool_call>', ["calculate", "current_time"]),  # Qwen
+    ('<function=calculate>{"expression": "2*3"}</function>', ["calculate"]),
+    ('```json\n{"name": "calculate", "arguments": {"expression": "2*3"}}\n```', ["calculate"]),
+    ('{"name": "calculate", "parameters": {"expression": "2*3"}}\n\nThis computes it.', ["calculate"]),
+    # Calls to tools that don't exist, and garbled calls llama3.2 really wrote:
+    ('{"name": "print", "parameters": {"expression": "hi"}}', tools.UNKNOWN_TOOL),
+    ('{"name":"calculate","parameters{"expression":"15% * 240"}}', tools.UNKNOWN_TOOL),
+    ('{"name":"calculate","parameters":{"expression":"["\\"Rain\\"","\\"drops', tools.UNKNOWN_TOOL),
+    # Normal answers:
+    ('{"color": "red", "size": 3}', None),
+    ('{"name": "Ada", "age": 36}', None),
+    ('[1, 2, 3]', None),
+    ('[Python](https://python.org) is a language.', None),
+])
+def test_written_tool_calls_in_every_common_format(text, names):
+    found = tools.calls_written_as_text(text, tools.CHAT_TOOLS)
+    assert ([call["function"]["name"] for call in found] if isinstance(found, list) else found) == names
+
+
+@pytest.mark.parametrize("start,waits", [
+    ('{"name": "calc', True),
+    ("[TOOL_CALLS]", True),
+    ("[Python](https://python.org) is a lovely language", False),
+    ("<b>Bold</b> statement here, long enough to tell for sure", False),
+    ("Hello", False),
+])
+def test_only_answers_that_may_be_calls_wait(start, waits):
+    assert tools.might_be_call(start) is waits
+
+
+def test_markdown_answers_still_stream(client, fake):
+    fake.script = [[("content", "[Python](https://python.org) "), ("content", "is a language for "),
+                    ("content", "beginners and experts alike."), ("content", " Try it.")]]
+    found = events(client.post("/chat", json=chat_body("Link?")))
+    assert [e["type"] for e in found] == ["content"] * 4 + ["stats", "done"]
+
+
+def test_a_made_up_tool_gets_a_normal_answer_instead(client, fake):
+    # llama3.2 asked to say hello "calls" a print tool that doesn't exist.
+    fake.script = [answer('{"name": "print", "parameters": {"expression": "Hello there"}}'),
+                   answer("Hello there, nice to meet you!")]
+    found = events(client.post("/chat", json=chat_body("Say hello in five words.")))
+    assert "".join(e["text"] for e in found if e["type"] == "content") == "Hello there, nice to meet you!"
+    assert not any(e["type"] == "tool" for e in found)
+    assert fake.calls[-1]["tools"] is None  # asked again without tools
+
+
+# ---------- Models that always think ----------
+
+def test_a_model_that_always_thinks_keeps_its_reasoning_apart(client, fake, monkeypatch):
+    from cerberus.engines import ollama
+    async def always(model):
+        return ["completion", "thinking", "always-thinking"]
+    monkeypatch.setattr(ollama, "capabilities", always)
+    client.post("/chat", json={"model": "qwen3:4b", "messages": [{"role": "user", "content": "Hi"}]})
+    assert fake.calls[-1]["think"] is True  # even with the Think switch off
+
+
+def test_a_model_that_can_stop_thinking_is_not_slowed_down(client, fake, monkeypatch):
+    from cerberus.engines import ollama
+    async def can_switch(model):
+        return ["completion", "thinking"]
+    monkeypatch.setattr(ollama, "capabilities", can_switch)
+    client.post("/chat", json={"model": "deepseek-r1:8b", "messages": [{"role": "user", "content": "Hi"}]})
+    assert fake.calls[-1]["think"] is False

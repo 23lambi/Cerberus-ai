@@ -1,6 +1,7 @@
 # The page itself, plus small info URLs.
 
 import hashlib
+import os
 import re
 
 from fastapi import APIRouter, HTTPException
@@ -42,7 +43,10 @@ def home():
 @router.get("/about")
 def about():
     # data_dir: where your chats and files are, shown in Settings.
-    return {"name": "Cerberus", "version": VERSION, "data_dir": str(DATA_DIR)}
+    # window: this server belongs to a desktop window (desktop.py), not to
+    # uvicorn started by hand. Other windows may take over when it closes.
+    return {"name": "Cerberus", "version": VERSION, "data_dir": str(DATA_DIR),
+            "window": os.environ.get("CERBERUS_WINDOW") == "1"}
 
 
 @router.get("/diagnostics")

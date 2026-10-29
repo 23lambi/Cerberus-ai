@@ -51,13 +51,35 @@ def address():
     return f"http://{HOST}:{PORT}/"
 
 
-def already_running():
-    """True when Cerberus already answers on the port (started by hand with uvicorn)."""
+def running_server():
+    """What Cerberus on the port says about itself (/about), or None."""
     try:
         with urllib.request.urlopen(address() + "about", timeout=1) as response:
-            return json.load(response).get("name") == "Cerberus"
-    except (OSError, ValueError):
-        return False
+            about = json.load(response)
+        return about if about.get("name") == "Cerberus" else None
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+def already_running():
+    """True when Cerberus already answers on the port (another window, or uvicorn by hand)."""
+    return running_server() is not None
+
+
+def take_over_when_gone(window, ours):
+    """This window uses another Cerberus window's server. Closing that window
+    stops its server; then this one starts its own and reloads, instead of
+    showing "Failed to fetch" everywhere. ours keeps the new server, so it
+    is stopped again when this window closes."""
+    while not ours:
+        time.sleep(1)
+        if already_running():
+            continue
+        try:
+            ours.extend(start_server())
+        except SystemExit:
+            continue  # something else took the port: check again
+        window.load_url(address())
 
 
 def wait_for_previous_version():
@@ -127,10 +149,14 @@ def use_qt():
 
 
 def main():
-    server = None
+    # /about tells other windows that this server belongs to a window
+    # (pages.py), so they may take over when this window closes.
+    os.environ["CERBERUS_WINDOW"] = "1"
+    ours = []  # [server, thread] when this window runs the server
     wait_for_previous_version()
-    if not already_running():
-        server, thread = start_server()
+    other = running_server()
+    if not other:
+        ours.extend(start_server())
 
     gui = choose_gui()
     if gui == "qt":
@@ -140,7 +166,7 @@ def main():
     # browser, never inside Cerberus.
     webview.settings["OPEN_EXTERNAL_LINKS_IN_BROWSER"] = True
 
-    webview.create_window(
+    window = webview.create_window(
         "Cerberus",
         address(),
         width=1320,
@@ -149,6 +175,10 @@ def main():
         background_color="#17181d",  # the app's own dark color while loading
         confirm_close=False,
     )
+    if other and other.get("window"):
+        # Not when you run uvicorn by hand: during --reload it is briefly
+        # gone, and this window must not take its port.
+        threading.Thread(target=take_over_when_gone, args=(window, ours), daemon=True).start()
     STORAGE.mkdir(parents=True, exist_ok=True)
     webview.start(
         gui=gui,
@@ -161,7 +191,8 @@ def main():
 
     # The window is closed. Stop the server we started (not one you
     # started by hand), and give a running answer a moment to save.
-    if server is not None:
+    if ours:
+        server, thread = ours
         server.should_exit = True
         thread.join(timeout=10)
 

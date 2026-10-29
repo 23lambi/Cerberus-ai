@@ -19,6 +19,7 @@ import ast
 import json
 import math
 import operator
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable
@@ -262,6 +263,91 @@ async def run_tool(tools, name, arguments, context):
     return result
 
 
+# ---------- Tool calls written as text ----------
+# Models should ask for a tool in the engine's own format. Many write the call
+# into their answer instead, each in its own style. These read every common
+# one, so the tool runs whatever model the user picked.
+
+# A call that names no tool of ours, or a garbled one: the model wanted a tool
+# that doesn't exist (llama3.2 invents "print"). See stream_with_tools.
+UNKNOWN_TOOL = "unknown tool"
+# Words some models put before the call: Llama 3.1, Mistral, Qwen, Markdown.
+CALL_MARKER = re.compile(r"^\s*(?:<\|python_tag\|>|\[TOOL_CALLS\]|<tool_call>|```(?:json|tool_call)?)\s*", re.I)
+# Llama's other style: <function=calculate>{"expression": "2*3"}</function>
+FUNCTION_TAG = re.compile(r"<function=([\w.-]+)>\s*(\{.*?\})\s*</function>", re.S)
+# The start of a call in JSON: {"name": ..., [{"name": ..., {"function": ...
+ATTEMPTED_CALL = re.compile(r'^\[?\s*\{\s*"(name|function|type)"\s*:')
+
+
+def might_be_call(text):
+    """Could the start of this answer still turn into a written tool call?"""
+    start = text.lstrip()
+    if not start or start.startswith(("<function=", "<|", "[TOOL_CALLS]")):
+        return True
+    if not start.startswith(("{", "[", "<", "`")):
+        return False
+    body = CALL_MARKER.sub("", start, count=1)
+    if len(body) < 40:  # too short to tell yet
+        return True
+    return bool(ATTEMPTED_CALL.match(body))
+
+
+def read_call(item):
+    """(name, arguments) when item is one call in any common shape, else None."""
+    if not isinstance(item, dict):
+        return None
+    if isinstance(item.get("function"), dict) and set(item) <= {"function", "type", "id"}:
+        return read_call(item["function"])  # OpenAI style
+    if not isinstance(item.get("name"), str) or not set(item) <= {"name", "arguments", "parameters", "id", "type"}:
+        return None
+    arguments = item.get("arguments", item.get("parameters", {}))
+    if isinstance(arguments, str):  # some send the arguments as a JSON string
+        try:
+            arguments = json.loads(arguments or "{}")
+        except ValueError:
+            return None
+    return (item["name"], arguments) if isinstance(arguments, dict) else None
+
+
+def calls_written_as_text(text, tools):
+    """The tool calls a model wrote into its answer.
+
+    Returns a list of calls for the offered tools, UNKNOWN_TOOL for a call to
+    a tool that doesn't exist or a garbled one, and None for a normal answer,
+    like JSON the user asked for.
+    """
+    text = text.strip()
+    found = [(name, body) for name, body in FUNCTION_TAG.findall(text)]
+    if found:
+        items = []
+        for name, body in found:
+            try:
+                items.append({"name": name, "arguments": json.loads(body)})
+            except ValueError:
+                return UNKNOWN_TOOL
+    else:
+        blocks = re.findall(r"<tool_call>\s*(.*?)\s*(?:</tool_call>|$)", text, re.S) or [text]
+        items = []
+        for block in blocks:
+            body = CALL_MARKER.sub("", block, count=1)
+            try:
+                # raw_decode reads the JSON at the start and ignores any chatter after it.
+                data, _ = json.JSONDecoder().raw_decode(body)
+            except ValueError:
+                return UNKNOWN_TOOL if ATTEMPTED_CALL.match(body) else None
+            items += data if isinstance(data, list) else [data]
+    names = {tool.name for tool in tools}
+    calls = []
+    for item in items:
+        call = read_call(item)
+        if call is None:
+            return None  # not a call after all: a normal answer
+        if call[0] not in names:
+            return UNKNOWN_TOOL
+        calls.append({"function": {"name": call[0], "arguments": call[1]}})
+    return calls or None
+
+
 async def stream_with_tools(model, messages, max_tokens, think=False, tools=(), context=None):
     """Like ollama.stream_events, but runs the tools the model asks for.
 
@@ -275,15 +361,35 @@ async def stream_with_tools(model, messages, max_tokens, think=False, tools=(), 
     for _ in range(MAX_ROUNDS):
         calls = []
         text = ""
+        # While the answer might still be a tool call written as text, its
+        # events wait here (in order). Once it clearly isn't, they flow on.
+        held = [] if definitions else None
         async with aclosing(ollama.stream_events(
             model, messages, max_tokens, think=think, tools=definitions
         )) as events:
             async for kind, value in events:
                 if kind == "tool_calls":
                     calls += value
-                else:
-                    if kind == "content":
-                        text += value
+                    continue
+                if kind == "content":
+                    text += value
+                    if held is not None and not might_be_call(text):
+                        for waiting in held:
+                            yield waiting
+                        held = None
+                if held is not None:
+                    held.append((kind, value))
+                    continue
+                yield kind, value
+        if held is not None:
+            written = None if calls or not text.strip() else calls_written_as_text(text, tools)
+            if written == UNKNOWN_TOOL:
+                break  # no such tool: ask once more without tools (below)
+            if written:
+                calls = written
+                text = ""
+            for kind, value in held:
+                if not (written and kind == "content"):
                     yield kind, value
         if not calls:
             return  # a normal answer: we're done
@@ -298,8 +404,9 @@ async def stream_with_tools(model, messages, max_tokens, think=False, tools=(), 
             yield "tool", {"name": name, "arguments": arguments, "result": result}
             messages.append({"role": "tool", "tool_name": name, "content": result})
 
-    # Still asking for tools after MAX_ROUNDS: one last time WITHOUT tools,
-    # so it has to answer with what it has. No endless loops.
+    # Still asking for tools after MAX_ROUNDS, or asking for a tool that
+    # doesn't exist: one last time WITHOUT tools, so it has to answer with
+    # what it has. No endless loops, and no made-up tool call as the answer.
     async with aclosing(ollama.stream_events(model, messages, max_tokens, think=think)) as events:
         async for kind, value in events:
             yield kind, value

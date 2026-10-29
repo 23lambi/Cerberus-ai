@@ -42,6 +42,24 @@ before and after numbers in your pull request. When you change the default
 personality, move the previous text into `OLD_SYSTEM_PROMPTS`, so people who
 never customized it get the new one.
 
+## Checking models
+
+Users can pick any model, and models differ: some think even when told not to,
+some write tool calls as text in their own format. Cerberus reads reasoning
+between `<think>`-style tags and the common written tool-call formats
+(`cerberus/engines/ollama.py` and `cerberus/chat/tools.py`). To see how every
+installed model behaves through Cerberus's own pipeline:
+
+```bash
+venv/bin/python scripts/check_models.py
+```
+
+It prints a table per model: a plain answer with Think off, a calculator call,
+and an everyday question with Tools on. A ✗ usually means a model writes
+reasoning or tool calls in a way Cerberus doesn't read yet; run it again with
+`--model <name> --show` to see the answers. Models bigger than half of your
+memory are skipped unless you name them.
+
 See [architecture](docs/development/architecture.md) for the file layout and
 [roadmap](docs/roadmap.md) for areas to improve. Contributions to project-owned
 code are provided under the [Apache License 2.0](LICENSE). Bundled libraries retain

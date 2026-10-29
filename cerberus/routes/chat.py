@@ -22,7 +22,7 @@ from cerberus.storage import database
 from cerberus.chat import recap, tools, turns
 from cerberus.core import settings
 from cerberus.core.config import DEFAULT_MAX_TOKENS, THINK_MAX_TOKENS
-from cerberus.engines.ollama import OllamaError, can_think, can_use_tools, stream_chat
+from cerberus.engines.ollama import OllamaError, can_use_tools, should_think, stream_chat
 from cerberus.chat.prompts import TOOLS_NOTE
 from cerberus.core.schemas import ChatRequest
 
@@ -41,7 +41,7 @@ async def chat(req: ChatRequest):
     async def produce(ctx):
         toolbox = tools.CHAT_TOOLS if req.tools and await can_use_tools(req.model) else []
         messages = ctx.messages(extra=TOOLS_NOTE if toolbox else "")
-        think = req.think and await can_think(req.model)
+        think = await should_think(req.model, req.think)
         max_tokens = DEFAULT_MAX_TOKENS + (THINK_MAX_TOKENS if think else 0)
         if ctx.seen:
             yield {"type": "seen", "text": ctx.seen, "model": ctx.eyes}

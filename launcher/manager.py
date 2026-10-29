@@ -33,6 +33,10 @@ class LauncherError(Exception):
     """An actionable error suitable for display in the launcher."""
 
 
+class NoRelease(LauncherError):
+    """GitHub answered, but no stable release is published."""
+
+
 def target_name(system=None, machine=None):
     system = system or sys.platform
     machine = (machine or platform.machine()).lower()
@@ -204,8 +208,10 @@ def read_json(url):
             raise LauncherError("The release information is too large.")
         return json.loads(data)
     except urllib.error.HTTPError as error:
+        if error.code == 404 and url == RELEASE_API:
+            raise NoRelease("No downloadable release is published yet. Try again after the first release is available.") from None
         if error.code == 404:
-            raise LauncherError("No downloadable release is published yet. Try again after the first release is available.") from None
+            raise LauncherError("A file of the latest release is missing. Please try again later.") from None
         raise LauncherError(f"GitHub returned error {error.code}. Please try again later.") from None
     except (OSError, ValueError) as error:
         raise LauncherError(f"Could not check releases: {error}") from None
@@ -260,6 +266,11 @@ def check_release():
     """
     try:
         build = latest_release(target_name())
+    except NoRelease:
+        # GitHub answered over verified HTTPS: that's what this checks. The
+        # very first release (or one after all were deleted) has nothing to read.
+        print("Release check passed: connected to GitHub; no release is published yet")
+        return 0
     except LauncherError as error:
         print("Release check failed:", error, file=sys.stderr)
         return 1

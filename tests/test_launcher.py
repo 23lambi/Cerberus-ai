@@ -393,3 +393,14 @@ def test_whats_new_is_taken_from_the_release_notes():
     assert launcher.whats_new(notes) == "- Mascot\n- Updates in the app"
     assert launcher.whats_new("## Install\n\n1. Download") == ""
     assert launcher.whats_new(None) == ""
+
+
+def test_release_check_passes_when_github_answers_without_releases(monkeypatch, capsys):
+    import urllib.error
+    def not_found(request, timeout, context):
+        raise urllib.error.HTTPError(request.full_url, 404, "Not Found", {}, None)
+    monkeypatch.setattr(launcher.urllib.request, "urlopen", not_found)
+    assert launcher.check_release() == 0  # connected: the SSL part works
+    assert "no release is published yet" in capsys.readouterr().out
+    with pytest.raises(launcher.NoRelease):
+        launcher.latest_release("linux-x86_64")

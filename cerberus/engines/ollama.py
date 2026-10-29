@@ -100,7 +100,16 @@ async def capabilities(model):
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 response = await client.post(f"{OLLAMA_URL}/api/show", json={"model": model})
-            capabilities_cache[model] = response.json().get("capabilities", [])
+            info = response.json()
+            found = list(info.get("capabilities", []))
+            # Some models only come in a thinking edition, like "Qwen3 Thinking"
+            # (qwen3:4b): they think even when asked not to. The edition's
+            # name is in the model info, or in a tag like qwen3:4b-thinking.
+            names = [str(value) for key, value in (info.get("model_info") or {}).items()
+                     if key.endswith((".finetune", ".basename"))] + [model]
+            if "thinking" in found and any("thinking" in name.lower() for name in names):
+                found.append("always-thinking")
+            capabilities_cache[model] = found
         except (httpx.HTTPError, ValueError):
             return []  # don't cache: maybe Ollama is just starting
     return capabilities_cache[model]
@@ -109,6 +118,17 @@ async def capabilities(model):
 async def can_think(model):
     # Models like qwen3 or deepseek-r1 can reason before they answer.
     return "thinking" in await capabilities(model)
+
+
+async def should_think(model, wanted):
+    """Whether to ask the model to think, with its reasoning kept apart.
+
+    wanted: the Think switch. A model that always thinks gets it anyway: told
+    not to, it thinks regardless, and then Ollama can't tell its reasoning
+    from the answer, so the reasoning would show up as the answer.
+    """
+    found = await capabilities(model)
+    return "thinking" in found and (wanted or "always-thinking" in found)
 
 
 async def can_see(model):
@@ -137,6 +157,85 @@ async def can_chat(model):
 #   ("tool_calls", list) the model asks to run tools (only with tools=...)
 #   ("stats", dict)     once at the end: token counts and speed
 async def stream_events(
+    model, messages, max_tokens=DEFAULT_MAX_TOKENS, temperature=None, think=False, tools=None
+):
+    # Every answer, from every engine, passes the thinking filter: reasoning a
+    # model writes into its answer between <think> tags goes where it belongs.
+    split = ThinkingSplitter()
+    async with aclosing(engine_events(model, messages, max_tokens, temperature, think, tools)) as events:
+        async for kind, value in events:
+            if kind != "content":
+                yield kind, value
+                continue
+            for piece in split.feed(value):
+                yield piece
+    for piece in split.finish():
+        yield piece
+
+
+THINKING_TAGS = ("think", "thinking", "reasoning")
+
+
+class ThinkingSplitter:
+    """Moves <think>...</think> out of an answer while it streams.
+
+    Some models (or engines without a matching chat template) write their
+    reasoning into the answer, between tags like <think> and </think>. The
+    tag can arrive split over two pieces ("<thi" + "nk>"), so only text that
+    could still become a tag waits; everything else streams on at once.
+    """
+
+    def __init__(self):
+        self.pending = ""  # text that may still turn out to be a tag
+        self.closing = None  # inside reasoning: the tag that ends it
+
+    def feed(self, text):
+        self.pending += text
+        pieces = []
+        while self.pending:
+            target = self.closing or "<"
+            at = self.pending.find(target) if self.closing else self.opening_at()
+            if at < 0:
+                # No tag yet. Keep only an end that could be a tag's start.
+                keep = self.partial_tag_length()
+                ready, self.pending = self.pending[:len(self.pending) - keep], self.pending[len(self.pending) - keep:]
+                if ready:
+                    pieces.append(("thinking" if self.closing else "content", ready))
+                break
+            if at:
+                pieces.append(("thinking" if self.closing else "content", self.pending[:at]))
+            if self.closing:
+                self.pending = self.pending[at + len(self.closing):].lstrip("\n")
+                self.closing = None
+            else:
+                name = self.pending[at + 1:self.pending.index(">", at)]
+                self.pending = self.pending[at + len(name) + 2:]
+                self.closing = f"</{name}>"
+        return pieces
+
+    def opening_at(self):
+        """Where a complete opening tag starts, or -1."""
+        lower = self.pending.lower()
+        found = [lower.find(f"<{name}>") for name in THINKING_TAGS]
+        found = [at for at in found if at >= 0]
+        return min(found) if found else -1
+
+    def partial_tag_length(self):
+        """How many characters at the end could still be the start of a tag."""
+        tags = [self.closing] if self.closing else [f"<{name}>" for name in THINKING_TAGS]
+        lower = self.pending.lower()
+        for size in range(min(len(lower), max(map(len, tags)) - 1), 0, -1):
+            if any(tag.startswith(lower[-size:]) for tag in tags):
+                return size
+        return 0
+
+    def finish(self):
+        """The rest, when the answer ends (an unclosed tag stays reasoning)."""
+        rest, self.pending = self.pending, ""
+        return [("thinking" if self.closing else "content", rest)] if rest else []
+
+
+async def engine_events(
     model, messages, max_tokens=DEFAULT_MAX_TOKENS, temperature=None, think=False, tools=None
 ):
     if engine() == "openai":

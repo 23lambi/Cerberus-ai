@@ -14,6 +14,10 @@ A desktop workspace for chat, documents, and research with local or cloud AI.
   a first "Say hi" message at the end so you know everything works.
 - **Copy diagnostics.** Settings → Help collects the details a bug report
   needs, shown to you before you share them.
+- **Fixes:** a second Cerberus window keeps working after you close the first
+  one (no more "Failed to fetch"); thinking models like qwen3:4b no longer show
+  their reasoning as the answer; tool calls some models write as text (like
+  qwen2.5-coder and llama3.2) now run instead of appearing as raw JSON.
 
 ## Install
 

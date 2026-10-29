@@ -240,3 +240,29 @@ def test_searxng_check(monkeypatch, answer, expected):
     monkeypatch.setattr(setup.websearch, "new_client",
                         lambda timeout: httpx.AsyncClient(transport=httpx.MockTransport(handler)))
     assert asyncio.run(setup.searxng_check("http://127.0.0.1:8888")) == expected
+
+
+# ---------- Reasoning written into the answer ----------
+
+def split_all(pieces):
+    from cerberus.engines.ollama import ThinkingSplitter
+    splitter, found = ThinkingSplitter(), {}
+    for piece in pieces:
+        for kind, text in splitter.feed(piece):
+            found[kind] = found.get(kind, "") + text
+    for kind, text in splitter.finish():
+        found[kind] = found.get(kind, "") + text
+    return found
+
+
+@pytest.mark.parametrize("pieces,expected", [
+    (["<think>I should greet", "</think>\n\nHello!"], {"thinking": "I should greet", "content": "Hello!"}),
+    (["<thi", "nk>reason", "ing</th", "ink>Answer"], {"thinking": "reasoning", "content": "Answer"}),  # split tags
+    (["<thinking>plan</thinking>Done"], {"thinking": "plan", "content": "Done"}),
+    (["<REASONING>plan</REASONING>Done"], {"thinking": "plan", "content": "Done"}),
+    (["Use <b>bold</b> and a < sign"], {"content": "Use <b>bold</b> and a < sign"}),
+    (["<think>never closed"], {"thinking": "never closed"}),
+    (["ends with <thin"], {"content": "ends with <thin"}),
+])
+def test_reasoning_between_tags_leaves_the_answer(pieces, expected):
+    assert split_all(pieces) == expected

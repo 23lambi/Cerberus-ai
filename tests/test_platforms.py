@@ -80,3 +80,24 @@ def test_interface_assets_get_new_urls_when_their_contents_change(client, monkey
     assert all("?v=" in url for url in first_urls)
     assert first_urls[0] == second_urls[0]  # Unchanged CSS keeps its URL.
     assert first_urls[1] != second_urls[1]
+
+
+def test_window_takes_over_when_the_other_windows_server_stops(monkeypatch):
+    # The other window's server answers twice, then its window closes.
+    answers = iter([True, True, False])
+    monkeypatch.setattr(desktop, "already_running", lambda: next(answers))
+    monkeypatch.setattr(desktop.time, "sleep", lambda seconds: None)
+    started = []
+    monkeypatch.setattr(desktop, "start_server", lambda: started.append(1) or ("server", "thread"))
+    loaded = []
+    window = type("Window", (), {"load_url": lambda self, url: loaded.append(url)})()
+    ours = []
+    desktop.take_over_when_gone(window, ours)
+    assert ours == ["server", "thread"]  # stopped again when this window closes
+    assert started == [1] and loaded == [desktop.address()]
+
+
+def test_about_says_whether_a_window_owns_the_server(client, monkeypatch):
+    assert client.get("/about").json()["window"] is False  # uvicorn by hand, or tests
+    monkeypatch.setenv("CERBERUS_WINDOW", "1")
+    assert client.get("/about").json()["window"] is True

@@ -9,7 +9,7 @@ from cerberus.analysis import reverse, signs
 from cerberus.core import settings
 from cerberus.chat import tools
 from cerberus.core.config import MAX_UPLOAD_MB, THINK_MAX_TOKENS
-from cerberus.engines.ollama import OllamaError, can_think, can_use_tools, trim_history
+from cerberus.engines.ollama import OllamaError, can_use_tools, should_think, trim_history
 from cerberus.chat.prompts import REVERSE_FACTS, REVERSE_TOOLS_NOTE
 from cerberus.routes.chat import line
 from cerberus.core.schemas import Message
@@ -76,7 +76,7 @@ async def chat(req: ReverseChat):
     history = [{"role": m.role, "content": m.content} for m in trim_history(req.messages)]
     messages = [{"role": "system", "content": system}] + history
 
-    think = req.think and await can_think(req.model)
+    think = await should_think(req.model, req.think)
     max_tokens = REVERSE_MAX_TOKENS + (THINK_MAX_TOKENS if think else 0)
 
     # The file itself, for the tools (None if it was dropped long ago).
