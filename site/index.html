@@ -236,33 +236,11 @@
     .tour .mascots img { margin-top: 8px; }
 
     /* ---------- Get Cerberus ---------- */
-    .ways {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-      gap: 22px;
-      align-items: start;
-    }
-
-    .way h3 { margin: 0 0 4px; font-size: 20px; }
+    .ways { max-width: 900px; }
+    .way { min-width: 0; padding: 28px; }
+    .way h3 { margin: 0 0 8px; font-size: 20px; }
     .way > p { margin: 0 0 18px; color: var(--muted); }
-
-    .downloads {
-      display: grid;
-      gap: 10px;
-    }
-
-    .downloads .button { justify-content: space-between; }
-    .downloads .button small { color: var(--faint); font-weight: 400; }
-    .downloads .button.primary small { color: rgba(27, 27, 31, 0.7); }
-
-    ol.steps {
-      margin: 18px 0 0;
-      padding-left: 20px;
-      color: var(--muted);
-      font-size: 15px;
-    }
-
-    ol.steps strong { color: var(--text); }
+    .way > p:last-child { margin-bottom: 0; }
 
     .tabs {
       display: flex;
@@ -458,25 +436,10 @@
         <h2>Get Cerberus</h2>
         <p class="lead">Install from your terminal with Git and Python 3.14.</p>
         <div class="ways">
-          <div class="way card">
-            <h3>Install Cerberus</h3>
-            <p>Use the terminal commands beside this card to install and open Cerberus on Windows, macOS or Linux.</p>
-            <div class="downloads" id="downloads">
-              <a class="button" data-os="windows" href="#source">Windows <small>PowerShell</small></a>
-              <a class="button" data-os="mac" href="#source">macOS <small>Terminal</small></a>
-              <a class="button" data-os="linux" href="#source">Linux <small>Terminal</small></a>
-            </div>
-            <ol class="steps">
-              <li><strong>Install</strong> Python 3.14 and Git.</li>
-              <li><strong>Copy</strong> the commands for your computer into a terminal.</li>
-              <li><strong>Say hi.</strong> A short setup gets your AI ready.</li>
-            </ol>
-          </div>
-
           <div class="way card" id="source">
-            <h3>Terminal installation</h3>
-            <p>Needs <a href="https://git-scm.com/downloads">Git</a> and <a href="https://www.python.org/downloads/">Python 3.14</a>.</p>
-            <div class="tabs" role="tablist">
+            <h3>Install from your terminal</h3>
+            <p>Install <a href="https://git-scm.com/downloads">Git</a> and <a href="https://www.python.org/downloads/">Python 3.14</a> first. Choose your system, then copy the commands into a terminal. Cerberus opens when you run the last command.</p>
+            <div class="tabs" role="tablist" aria-label="Installation platform">
               <button type="button" role="tab" aria-selected="true" data-tab="unix">Linux &amp; macOS</button>
               <button type="button" role="tab" aria-selected="false" data-tab="windows">Windows</button>
             </div>
@@ -506,6 +469,7 @@ py -3.14 -m venv venv
 .\venv\Scripts\python.exe desktop.py</pre><button type="button" class="copy">Copy</button></div>
               <p class="small">Want it in your Start menu? Run <code>powershell -ExecutionPolicy Bypass -File install-desktop.ps1</code> once.</p>
             </div>
+            <p class="small">On first launch, a short setup helps you choose your AI and model.</p>
             <p class="small">To update later: close Cerberus, run <code>git pull</code>, then repeat the pip install command in step 2.</p>
           </div>
         </div>
@@ -571,14 +535,10 @@ py -3.14 -m venv venv
   </footer>
 
   <script>
-    // Put terminal installation for the visitor's system first.
+    // Match the install button and command tab to the visitor's system.
     const ua = navigator.userAgent;
     const os = /Windows/.test(ua) ? "windows" : /Mac/.test(ua) ? "mac" : /Linux|X11/.test(ua) && !/Android/.test(ua) ? "linux" : null;
     if (os) {
-      const list = document.getElementById("downloads");
-      const mine = [...list.querySelectorAll(`[data-os="${os}"]`)];
-      mine.forEach((link) => link.classList.add("primary"));
-      list.prepend(...mine);
       const names = { windows: "Windows", mac: "macOS", linux: "Linux" };
       document.getElementById("hero-download").textContent = "Install for " + names[os];
     }
