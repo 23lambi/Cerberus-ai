@@ -469,6 +469,11 @@ def set_setting(key, value):
         )
 
 
+def delete_setting(key):
+    with get_db() as conn:
+        conn.execute("DELETE FROM settings WHERE key = ?", (key,))
+
+
 def clear_settings():
     with get_db() as conn:
         conn.execute("DELETE FROM settings")

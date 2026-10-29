@@ -187,3 +187,17 @@ def test_settings_show_every_built_in_prompt(client):
     assert "Guard" in names and "Reverse: skill" in names
     # Every prompt has text and an explanation; none is empty by mistake.
     assert all(prompt["text"] and prompt["about"] for prompt in prompts)
+
+
+def test_unchanged_personality_follows_improved_defaults(client):
+    from cerberus.chat.prompts import OLD_SYSTEM_PROMPTS, SYSTEM_PROMPT
+    from cerberus.storage import database
+    # Settings → Save used to store the old default word for word.
+    database.set_setting("system_prompt", OLD_SYSTEM_PROMPTS[0])
+    assert client.get("/settings").json()["system_prompt"] == SYSTEM_PROMPT.strip()
+    # Saving it unchanged now stores nothing, so it keeps following the default.
+    client.put("/settings", json={"system_prompt": SYSTEM_PROMPT.strip()})
+    assert database.get_setting("system_prompt") is None
+    # A real change is kept exactly.
+    client.put("/settings", json={"system_prompt": "You are a pirate."})
+    assert client.get("/settings").json()["system_prompt"] == "You are a pirate."

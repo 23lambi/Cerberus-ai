@@ -3,7 +3,7 @@
 
 from cerberus.storage import database, keys
 from cerberus.engines.ollama import OllamaError, list_models
-from cerberus.chat.prompts import SKILLS, SYSTEM_PROMPT
+from cerberus.chat.prompts import OLD_SYSTEM_PROMPTS, SKILLS, SYSTEM_PROMPT
 
 # Only the brain's personality can be edited. Skills are part of the features.
 DEFAULTS = {
@@ -37,6 +37,8 @@ def get(key):
     value = database.get_setting(key)
     if value is None:
         return DEFAULTS[key]
+    if key == "system_prompt" and value.strip() in OLD_SYSTEM_PROMPTS:
+        return DEFAULTS[key]  # an unchanged old default: use the new one
     return value
 
 
@@ -56,7 +58,12 @@ def update(values):
     for key, value in values.items():
         # Ignore unknown keys, so nobody can fill the table with junk.
         if key in DEFAULTS:
-            database.set_setting(key, value)
+            # The unchanged personality is not stored, so it keeps following
+            # the default when a new version improves it.
+            if key == "system_prompt" and value.strip() in (DEFAULTS[key], *OLD_SYSTEM_PROMPTS):
+                database.delete_setting(key)
+            else:
+                database.set_setting(key, value)
 
 
 def reset():

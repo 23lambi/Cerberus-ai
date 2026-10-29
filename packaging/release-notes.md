@@ -8,6 +8,8 @@ A desktop workspace for chat, documents, and research with local or cloud AI.
   three heads bob while it thinks and nod while it writes the answer.
 - **See what's new before you update.** Settings → Updates now shows these
   notes for the version you're about to download.
+- **More honest answers about itself.** Cerberus no longer claims to watch or
+  manage your computer; it says plainly that it's a chat assistant.
 
 ## Install
 
