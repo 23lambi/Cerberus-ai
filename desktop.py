@@ -60,6 +60,15 @@ def already_running():
         return False
 
 
+def wait_for_previous_version():
+    """After an in-app update, the new version starts while the old one closes."""
+    if os.environ.pop("CERBERUS_REPLACES", None):
+        for _ in range(600):  # up to a minute: a running answer may be saving
+            if not already_running():
+                return
+            time.sleep(0.1)
+
+
 def start_server():
     """Start Cerberus in a background thread. Returns the server, to stop it later."""
     from main import app
@@ -119,6 +128,7 @@ def use_qt():
 
 def main():
     server = None
+    wait_for_previous_version()
     if not already_running():
         server, thread = start_server()
 

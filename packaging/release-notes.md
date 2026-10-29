@@ -6,7 +6,8 @@ A desktop workspace for chat, documents, and research with local or cloud AI.
 
 1. Download the launcher ZIP for your computer from **Assets** below.
 2. Extract it and open **CerberusLauncher**.
-3. Choose **Install Cerberus**, then **Open Cerberus**.
+3. Optionally choose another install folder, then choose **Install Cerberus**.
+   Cerberus opens when the install is done.
 4. In the app, choose your AI engine and model under **Settings → Setup check**.
 
 No Python or Git setup is required. The launcher chooses and downloads the
@@ -22,10 +23,12 @@ matching application package automatically.
 ## Notes
 
 - New installations start with their own empty database.
-- Updates and app uninstall preserve personal data stored outside the app.
+- Cerberus updates itself from **Settings → Updates**. Updates and uninstall
+  keep your personal data.
 - AI models and external engines are installed separately.
-- Initial builds are unsigned. See the platform requirements and signing status
-  in the [launcher guide](https://github.com/23lambi/Cerberus-ai/blob/main/docs/launcher.md).
+- Initial builds are unsigned. On Windows choose **More info → Run anyway**; on
+  macOS choose **System Settings → Privacy & Security → Open Anyway**. Details are
+  in the [launcher guide](https://github.com/23lambi/Cerberus-ai/blob/main/docs/launcher.md#first-start-of-an-unsigned-build).
 - The app archives and manifest in Assets are used by the launcher; most users
   should download the launcher ZIP, rather than GitHub's source-code archives.
 

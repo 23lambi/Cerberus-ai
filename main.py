@@ -25,6 +25,7 @@ from cerberus.routes import (
     reverse,
     settings,
     setup,
+    updates,
 )
 from cerberus.engines import engine, llamacpp
 
@@ -86,6 +87,7 @@ app.include_router(memories.router)
 app.include_router(models.router)
 app.include_router(documents.router)
 app.include_router(reverse.router)
+app.include_router(updates.router)
 
 # Serve the files in the static folder (HTML, CSS, JS) at /static/...
 # so the browser can download them.

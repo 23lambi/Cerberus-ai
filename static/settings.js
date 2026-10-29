@@ -75,6 +75,9 @@ function fillSettings(values) {
   });
   setupCard.appendChild(openSetupButton);
 
+  sectionTitle("Updates");
+  addUpdateCard();
+
   sectionTitle("Assistant");
   // Object.entries turns { a: 1 } into [["a", 1]], so we get key and info.
   for (const [key, info] of Object.entries(TEXT_SETTINGS)) {
@@ -177,6 +180,115 @@ function addBackupCard() {
     }
   }
   card.appendChild(links);
+}
+
+// ---------- Updates ----------
+
+// The installed app updates itself here; the launcher only installs it
+// once. Run from source, git pull updates Cerberus instead.
+let updateInfo = null;
+
+async function updateRequest(path, method = "POST") {
+  const response = await fetch(path, { method });
+  if (!response.ok) throw new Error(await responseError(response)); // app.js
+  updateInfo = await response.json();
+  openSettingsButton.classList.toggle("has-update", ["available", "ready"].includes(updateInfo.state));
+  return updateInfo;
+}
+
+// A quiet check soon after start: a dot on Settings when a version waits.
+setTimeout(async () => {
+  try {
+    if ((await updateRequest("/updates", "GET")).managed) await updateRequest("/updates/check");
+  } catch (_) { /* offline: Settings can check again */ }
+}, 4000);
+
+function megabytes(bytes) {
+  return Math.round(bytes / 1024 / 1024) + " MB";
+}
+
+function addUpdateCard() {
+  const card = settingCard(
+    "Cerberus version",
+    "New versions come from GitHub. Updating keeps your chats, settings and models."
+  );
+  const line = document.createElement("p");
+  line.className = "hint";
+  const actions = document.createElement("div");
+  actions.className = "setting-links";
+  const action = document.createElement("button");
+  action.type = "button";
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.textContent = "Uninstall Cerberus…";
+  actions.append(action, remove);
+  card.append(line, actions);
+
+  function show(info, problem = "") {
+    const current = info.current === "dev" ? "the source version" : "version " + info.current;
+    remove.hidden = !info.managed;
+    action.hidden = !info.managed;
+    action.disabled = false;
+    if (!info.managed) {
+      line.textContent = "You're running " + current + " from source. Update it with git pull.";
+      return;
+    }
+    const states = {
+      idle: ["You have " + current + ".", "Check for updates", check],
+      current: ["You have " + current + ". It's the latest.", "Check again", check],
+      available: [info.latest + " is available (" + megabytes(info.total) + "). You have " + current + ".",
+        "Download update", download],
+      downloading: ["Downloading " + info.latest + "… " + Math.round((info.done / (info.total || 1)) * 100) + "%",
+        "Downloading…", null],
+      ready: [info.latest + " is ready. Restart Cerberus to finish updating.", "Restart now", restart],
+      error: [info.message || "The update failed.", "Try again", check],
+    };
+    const [text, label, handler] = states[info.state] || states.idle;
+    line.textContent = problem || text;
+    action.textContent = label;
+    action.disabled = !handler;
+    action.onclick = handler;
+    if (info.state === "downloading" && card.isConnected) {
+      setTimeout(() => updateRequest("/updates", "GET").then(show).catch(() => {}), 500);
+    }
+  }
+
+  async function run(path, busyText) {
+    action.disabled = true;
+    line.textContent = busyText;
+    try {
+      show(await updateRequest(path));
+    } catch (error) {
+      show(updateInfo || { managed: true, current: "", state: "idle" }, error.message);
+    }
+  }
+  function check() { run("/updates/check", "Checking for updates…"); }
+  function download() { run("/updates/download", "Starting the download…"); }
+  async function restart() {
+    action.disabled = true;
+    line.textContent = "Restarting Cerberus…";
+    try {
+      await updateRequest("/updates/restart");
+    } catch (error) {
+      show(updateInfo, error.message);
+    }
+  }
+  remove.addEventListener("click", async () => {
+    if (!confirm("Uninstall Cerberus? The app closes and is removed. Your chats, settings and models are kept.")) return;
+    remove.disabled = true;
+    try {
+      await updateRequest("/updates/uninstall");
+      line.textContent = "Closing Cerberus…";
+    } catch (error) {
+      line.textContent = error.message;
+      remove.disabled = false;
+    }
+  });
+
+  line.textContent = "Checking your version…";
+  (updateInfo ? Promise.resolve(updateInfo) : updateRequest("/updates", "GET"))
+    .then((info) => show(info))
+    .catch(() => { line.textContent = "Version information is unavailable."; });
 }
 
 // Makes a textarea exactly as tall as its text, so you see all of it

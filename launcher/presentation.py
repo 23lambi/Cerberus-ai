@@ -12,19 +12,16 @@ def version_number(value):
     return tuple(int(part) for part in value.lstrip("v").split("-")[0].split(".")[:3])
 
 
-def install_action(installed, latest):
-    if not installed:
-        return "Install Cerberus", bool(latest)
-    if not latest:
-        return "Check for updates", False
-    if version_number(latest) > version_number(installed):
-        return "Update Cerberus", True
-    return "Up to date", False
+def is_newer(latest, installed):
+    """True when latest is a newer release than installed."""
+    return version_number(latest) > version_number(installed)
 
 
-def ready_message(installed, latest):
-    if not installed:
-        return "Choose Install Cerberus to get started. The launcher downloads the app for your computer. AI models are set up separately."
-    if version_number(latest) > version_number(installed):
-        return "An update is ready. Close Cerberus, then choose Update Cerberus. Your chats and settings will be kept."
-    return "You're ready. Choose Open Cerberus to start chatting."
+def size_label(size):
+    return f"{size / 1024**2:.0f} MB" if size >= 1024**2 else f"{max(size, 0) / 1024:.0f} KB"
+
+
+def progress_label(done, total):
+    if not total:
+        return "Preparing…"
+    return f"{done / total:.0%} · {size_label(done)} of {size_label(total)}"

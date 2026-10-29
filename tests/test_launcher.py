@@ -221,9 +221,13 @@ def test_linux_shortcut_quotes_executable_paths_without_shell_execution(tmp_path
     monkeypatch.setattr(shortcuts.sys, "executable", str(source))
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "menu"))
     shortcuts.register(root)
-    text = (tmp_path / "menu/applications/cerberus-launcher.desktop").read_text()
+    entry = tmp_path / "menu/applications/cerberus-launcher.desktop"
+    text = entry.read_text()
     assert 'Exec="' in text and r'\$test' in text
+    assert "Name=Cerberus\n" in text
     assert (root / "CerberusLauncher").read_bytes() == b"launcher"
+    shortcuts.unregister(root)
+    assert not entry.exists() and not (root / "CerberusLauncher").exists()
 
 
 def test_windows_shortcut_passes_paths_as_environment_data(tmp_path, monkeypatch):
@@ -253,21 +257,98 @@ def test_macos_launcher_is_copied_as_a_complete_app_bundle(tmp_path, monkeypatch
     monkeypatch.setattr(shortcuts.sys, "executable", str(source))
     monkeypatch.setattr(shortcuts.Path, "home", lambda: tmp_path / "home")
     shortcuts.register(tmp_path / "installation")
-    assert (tmp_path / "home/Applications/CerberusLauncher.app/Contents/MacOS/CerberusLauncher").read_bytes() == b"launcher"
+    assert (tmp_path / "home/Applications/Cerberus.app/Contents/MacOS/CerberusLauncher").read_bytes() == b"launcher"
 
 
-@pytest.mark.parametrize("installed,latest,label,enabled", [
-    (None, None, "Install Cerberus", False),
-    (None, "v0.4.0", "Install Cerberus", True),
-    ("v0.4.0", None, "Check for updates", False),
-    ("v0.4.0", "v0.5.0", "Update Cerberus", True),
-    ("v0.5.0", "v0.5.0", "Up to date", False),
-    ("v0.5.0", "v0.4.0", "Up to date", False),
-    ("v0.9.0", "v0.10.0", "Update Cerberus", True),
+@pytest.mark.parametrize("latest,installed,newer", [
+    ("v0.5.0", "v0.4.0", True), ("v0.5.0", "v0.5.0", False),
+    ("v0.4.0", "v0.5.0", False), ("v0.10.0", "v0.9.0", True),
 ])
-def test_launcher_actions_explain_install_and_update_state(installed, latest, label, enabled):
-    from launcher.presentation import install_action
-    assert install_action(installed, latest) == (label, enabled)
+def test_update_comparison_uses_numeric_versions(latest, installed, newer):
+    from launcher.presentation import is_newer
+    assert is_newer(latest, installed) is newer
+
+
+def test_chosen_folder_never_mixes_cerberus_with_other_files(tmp_path):
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    assert launcher.root_in(empty) == empty
+    busy = tmp_path / "Documents"
+    busy.mkdir()
+    (busy / "notes.txt").write_text("mine")
+    assert launcher.root_in(busy) == busy / "Cerberus"
+    existing = tmp_path / "Apps"
+    existing.mkdir()
+    (existing / "installation.json").write_text("{}")
+    assert launcher.root_in(existing) == existing
+
+
+def test_chosen_install_folder_is_remembered(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "share"))
+    monkeypatch.setattr(launcher.sys, "platform", "linux")
+    assert launcher.saved_root() == launcher.install_directory()
+    launcher.save_root(tmp_path / "Programs" / "Cerberus")
+    assert launcher.saved_root() == tmp_path / "Programs" / "Cerberus"
+    launcher.forget_root()
+    assert launcher.saved_root() == launcher.install_directory()
+
+
+@pytest.mark.parametrize("target", ["linux-x86_64", "macos-arm64"])
+def test_installed_app_finds_its_install_folder(installer, monkeypatch, target):
+    data = archive_bytes(target=target)
+    serve(monkeypatch, data)
+    installer.target = target
+    state = installer.install(build_for(data, target=target))
+    executable = launcher.executable_path(installer.installation_path(state), target)
+    assert launcher.installed_root(executable, target) == installer.root
+    assert launcher.installed_root(installer.root / "elsewhere" / "Cerberus", target) is None
+
+
+def test_running_app_updates_itself_and_keeps_only_its_own_version(installer, monkeypatch):
+    first, second, third = (archive_bytes(content=bytes([n])) for n in range(3))
+    serve(monkeypatch, first)
+    installer.install(build_for(first))
+    serve(monkeypatch, second)
+    running = installer.install(build_for(second, "v0.5.0"))
+    monkeypatch.setattr(installer, "running", lambda: True)
+    serve(monkeypatch, third)
+    new = installer.install(build_for(third, "v0.6.0"), from_app=True)
+    assert installer.state() == new
+    names = {path.name for path in (installer.root / "versions").iterdir()}
+    assert names == {installer.installation_path(running).name, installer.installation_path(new).name}
+
+
+def test_update_never_removes_the_running_version(installer, monkeypatch):
+    first, second, third = (archive_bytes(content=bytes([n])) for n in range(3))
+    serve(monkeypatch, first)
+    running = installer.install(build_for(first))
+    serve(monkeypatch, second)
+    installer.install(build_for(second, "v0.5.0"))  # downloaded, not restarted yet
+    executable = launcher.executable_path(installer.installation_path(running), installer.target)
+    monkeypatch.setattr(launcher.sys, "executable", str(executable))
+    serve(monkeypatch, third)
+    installer.install(build_for(third, "v0.6.0"), from_app=True)
+    assert executable.is_file()
+
+
+def test_frozen_children_start_as_independent_programs(monkeypatch):
+    monkeypatch.setenv("LD_LIBRARY_PATH", "/tmp/_MEI123")
+    monkeypatch.setenv("LD_LIBRARY_PATH_ORIG", "/usr/local/lib")
+    env = launcher.child_environment({"CERBERUS_DATA": "/data"})
+    assert env["PYINSTALLER_RESET_ENVIRONMENT"] == "1"
+    assert env["LD_LIBRARY_PATH"] == "/usr/local/lib"
+    assert env["CERBERUS_DATA"] == "/data"
+
+
+def test_source_checkout_does_not_offer_in_app_updates():
+    from fastapi.testclient import TestClient
+    from main import app
+    client = TestClient(app)
+    info = client.get("/updates").json()
+    assert info["managed"] is False
+    assert client.post("/updates/download").status_code == 409
+    assert client.post("/updates/restart").status_code == 409
+    assert client.post("/updates/uninstall").status_code == 409
 
 
 def test_readme_downloads_match_every_launcher_build():

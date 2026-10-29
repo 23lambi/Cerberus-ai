@@ -12,14 +12,12 @@ private work or connect a cloud model when you need one.
 
 ## Download
 
-**The release build has passed.** Download links will be ready after the draft
-release is reviewed and published.
+[Windows](https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-windows-x86_64.zip) · [macOS, Apple Silicon](https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-macos-arm64.zip) · [macOS, Intel](https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-macos-x86_64.zip) · [Linux](https://github.com/23lambi/Cerberus-ai/releases/latest/download/cerberus-launcher-linux-x86_64.zip) · [All releases](https://github.com/23lambi/Cerberus-ai/releases)
 
-[Windows](https://github.com/23lambi/Cerberus-ai/releases) · [macOS](https://github.com/23lambi/Cerberus-ai/releases) · [Linux](https://github.com/23lambi/Cerberus-ai/releases) · [Build status](https://github.com/23lambi/Cerberus-ai/actions/workflows/release.yml)
-
-When the release is published, choose the launcher ZIP for your computer, extract
-it, and open the launcher. It installs and updates Cerberus; your chats and
-settings stay in your user data folder. No Python or Git setup is needed.
+Download the launcher ZIP for your computer, extract it, and open the launcher.
+Choose where to install, then **Install Cerberus**; the launcher opens the app
+when it's done. Cerberus updates itself from **Settings → Updates**, and your
+chats and settings stay in your user data folder. No Python or Git setup is needed.
 
 <details>
 <summary>Choose the right launcher</summary>
@@ -31,12 +29,22 @@ settings stay in your user data folder. No Python or Git setup is needed.
 | macOS, Intel | `cerberus-launcher-macos-x86_64.zip` | `CerberusLauncher.app` |
 | Linux, 64-bit | `cerberus-launcher-linux-x86_64.zip` | `CerberusLauncher` |
 
-Initial builds are unsigned. See [supported platforms and requirements](docs/launcher.md#supported-builds).
+**First start of an unsigned build.** The launcher is not yet signed by a
+verified developer, so your system asks once before opening it:
+
+- **Windows:** on "Windows protected your PC", choose **More info → Run anyway**.
+- **macOS:** open `CerberusLauncher.app`; when macOS says it cannot verify it,
+  choose **Done**, then open **System Settings → Privacy & Security** and choose
+  **Open Anyway** next to CerberusLauncher.
+- **Linux:** if double-clicking does nothing, run `chmod +x CerberusLauncher`
+  in the extracted folder, then open it again.
+
+See [supported platforms and requirements](docs/launcher.md#supported-builds).
 
 </details>
 
 <p align="center">
-  <img src="docs/assets/chat.png" alt="Cerberus desktop chat with connection status, prompt suggestions, and a compact message composer" width="100%">
+  <img src="docs/assets/chat.png" alt="Cerberus desktop chat with prompt suggestions, and a compact message composer" width="100%">
 </p>
 <p align="center"><sub>Chat interface shown with sample data.</sub></p>
 

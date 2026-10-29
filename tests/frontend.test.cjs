@@ -770,7 +770,7 @@ test("an empty cloud model list gives engine-specific setup guidance and no obso
   const { context, get, select } = modelStatusHarness(async () => ({ ok: true, json: async () => ({ models: [], engine: { kind: "openai", name: "LM Studio" } }) }));
   await context.loadModels();
   assert.equal(select.value, "");
-  assert.equal(get("chat-connection").dataset.state, "idle");
+  assert.equal(get("chat-connection").dataset.state, "empty");
   assert(get("connection-detail").textContent.includes("LM Studio"));
   assert(!get("connection-detail").textContent.includes("ollama pull"));
 });

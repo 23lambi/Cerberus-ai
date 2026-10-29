@@ -2,12 +2,12 @@
 
 [← README](../README.md)
 
-The launcher installs and updates Cerberus from this repository's published
-GitHub releases. The launcher and application include their Python runtimes;
-users do not install Python, Git, or pip.
+The launcher installs Cerberus once. After that, Cerberus updates itself from
+**Settings → Updates**. The launcher and application include their Python
+runtimes; users do not install Python, Git, or pip.
 
 Downloads become available when a stable release is published. Draft releases
-and build artifacts do not appear in the launcher's download list.
+and build artifacts are never offered.
 
 ## Using the launcher
 
@@ -15,23 +15,40 @@ and build artifacts do not appear in the launcher's download list.
    [Releases](https://github.com/23lambi/Cerberus-ai/releases).
 2. Extract it. Open `CerberusLauncher.exe` on Windows, `CerberusLauncher.app`
    on macOS, or `CerberusLauncher` on Linux.
-3. Choose **Install Cerberus**, wait for verification, then choose **Open Cerberus**.
-4. After installation, **Cerberus Launcher** is also available in your app menu
-   (Start menu on Windows, `~/Applications` on macOS).
+3. Optional: choose **Change…** to install somewhere else. An empty folder is
+   used as is; any other folder gets its own `Cerberus` subfolder.
+4. Choose **Install Cerberus**. When the download is verified, the launcher
+   opens Cerberus and closes itself.
 5. In Cerberus, open **Settings → Setup check** to choose an AI engine and model.
 
-**Check updates** checks the latest stable release. **Update** installs a newer
-application. **Repair** downloads the latest release again. **Uninstall app**
-removes installed application versions while preserving chats, keys, settings,
-and separately installed AI engines/models. The extracted launcher remains available, and the installed menu shortcut uses
-its own copy of the launcher.
+A **Cerberus** entry is added to your app menu (Start menu on Windows,
+`~/Applications` on macOS). It opens the installed app directly. Opening the
+downloaded launcher again does the same, so you can delete the download.
 
-Close Cerberus before updating, repairing, or uninstalling. A cancelled or
-failed download leaves the current installation selected. Previous versions
-remain on disk until uninstall, allowing manual recovery if needed.
+## Updates and uninstall
 
-The launcher chooses the correct app package automatically. **Help** opens this
-guide. An installed app can still be opened when the update server is unavailable.
+Cerberus checks GitHub for a new version shortly after it starts. When one is
+available, a dot appears on **Settings**. Open **Settings → Updates**, choose
+**Download update**, then **Restart now**. The new version is downloaded and
+verified next to the running one, so a failed or cancelled download changes
+nothing. One previous version is kept until the next update.
+
+**Settings → Updates → Uninstall Cerberus…** closes the app and removes it and
+its menu entry. Chats, keys, settings, and separately installed AI engines or
+models are kept. If the installation is damaged, opening the launcher offers to
+install again; your data is kept.
+
+### First start of an unsigned build
+
+The launcher is not yet signed by a verified developer, so your system asks
+once before opening it:
+
+- **Windows:** on "Windows protected your PC", choose **More info → Run anyway**.
+- **macOS:** open `CerberusLauncher.app`; when macOS says it cannot verify it,
+  choose **Done**, then open **System Settings → Privacy & Security** and choose
+  **Open Anyway** next to CerberusLauncher.
+- **Linux:** if double-clicking does nothing, run `chmod +x CerberusLauncher`
+  in the extracted folder, then open it again.
 
 ## Supported builds
 
@@ -48,18 +65,23 @@ as separate files. Windows uses WebView2; macOS uses system WebKit. Initial
 releases target the OS versions above; compatibility with older systems needs
 separate testing.
 
-The initial packaging is unsigned. Windows may show a SmartScreen warning;
+The initial packaging is unsigned. Windows shows a SmartScreen warning and
+macOS a Gatekeeper warning; see [First start](#first-start-of-an-unsigned-build).
 macOS distribution still needs Developer ID signing and notarization for a
 smooth public download experience. Signing credentials are not included in
 this repository. Do not present an unsigned test build as signed or notarized.
 
 ## Where files go
 
-| Platform | Downloaded application versions | Personal application data |
+| Platform | Default install folder | Personal application data |
 | --- | --- | --- |
-| Linux | `~/.local/share/cerberus-launcher/versions` | `~/.local/share/cerberus` |
-| macOS | `~/Library/Application Support/CerberusLauncher/versions` | `~/Library/Application Support/Cerberus` |
-| Windows | `%LOCALAPPDATA%/CerberusLauncher/versions` | `%LOCALAPPDATA%/Cerberus` |
+| Linux | `~/.local/share/cerberus-launcher` | `~/.local/share/cerberus` |
+| macOS | `~/Library/Application Support/CerberusLauncher` | `~/Library/Application Support/Cerberus` |
+| Windows | `%LOCALAPPDATA%/CerberusLauncher` | `%LOCALAPPDATA%/Cerberus` |
+
+Application versions are in the install folder's `versions` subfolder. A
+custom install folder is remembered in `location.json` in the default folder.
+Personal data always stays in the data folder, wherever the app is installed.
 
 `XDG_DATA_HOME` changes the Linux base folder. `CERBERUS_DATA` still overrides
 personal application storage. Existing source-checkout databases stay in their
@@ -69,7 +91,8 @@ app, or follow the [backup/restore guide](guide.md#backup-and-export).
 The launcher stores only installation metadata and app logs in its own folder.
 It never packages your development database or uploads chats. Release checks
 and downloads contact GitHub. Models and external engines are set up separately
-inside Cerberus. The launcher does not automatically update itself in this version.
+inside Cerberus. The menu entry keeps the launcher version it was installed with;
+it only opens the app, so it does not need updates.
 
 ## Build and publish
 

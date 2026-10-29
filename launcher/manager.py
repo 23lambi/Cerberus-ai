@@ -59,6 +59,87 @@ def install_directory(system=None, environ=None, home=None):
     return data_base(system, environ, home) / ("cerberus-launcher" if system.startswith("linux") else "CerberusLauncher")
 
 
+def location_file():
+    """Remembers the install folder the user chose; always at the default place."""
+    return install_directory() / "location.json"
+
+
+def saved_root():
+    try:
+        root = Path(json.loads(location_file().read_text())["root"])
+        return root if root.is_absolute() else install_directory()
+    except (OSError, ValueError, TypeError, KeyError):
+        return install_directory()
+
+
+def save_root(root):
+    path = location_file()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"root": str(root)}))
+
+
+def forget_root():
+    location_file().unlink(missing_ok=True)
+    with contextlib.suppress(OSError):
+        install_directory().rmdir()  # only when nothing else is left there
+
+
+def root_in(folder):
+    """The install root for a folder the user picked.
+
+    A folder that is empty or already holds Cerberus is used as is; any other
+    folder gets its own Cerberus subfolder, so uninstall never touches the
+    user's files.
+    """
+    folder = Path(folder).expanduser()
+    if (folder / "installation.json").is_file():
+        return folder
+    if folder.is_dir() and not any(folder.iterdir()):
+        return folder
+    return folder / "Cerberus"
+
+
+def check_writable(root):
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+        probe = root / f".write-test-{uuid.uuid4().hex}"
+        probe.write_bytes(b"")
+        probe.unlink()
+    except OSError:
+        raise LauncherError(f"Cerberus cannot write to {root}. Choose a folder in your user account.") from None
+
+
+def installed_root(executable, target):
+    """The install root of a launcher-installed app, from its own executable path."""
+    depth = 5 if target.startswith("macos-") else 3  # .../versions/<id>/Cerberus.app/Contents/MacOS/Cerberus
+    executable = Path(executable).resolve()
+    if len(executable.parents) <= depth:
+        return None
+    root = executable.parents[depth]
+    if executable.parents[depth - 1].name != "versions" or not (root / "installation.json").is_file():
+        return None
+    return root
+
+
+def child_environment(extra):
+    """Environment for starting another frozen program from a frozen one."""
+    env = {**os.environ, **extra}
+    # Without this, a PyInstaller child may reuse its parent's unpacked files.
+    env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+    if "LD_LIBRARY_PATH_ORIG" in env:
+        env["LD_LIBRARY_PATH"] = env["LD_LIBRARY_PATH_ORIG"]
+    elif getattr(sys, "frozen", False):
+        env.pop("LD_LIBRARY_PATH", None)
+    return env
+
+
+def start_detached(args, env, log):
+    """Start a program that keeps running after this one exits."""
+    options = {"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)} if sys.platform == "win32" else {"start_new_session": True}
+    return subprocess.Popen(args, cwd=Path(args[0]).parent, env=env, stdin=subprocess.DEVNULL,
+                            stdout=log, stderr=log, **options)
+
+
 def app_data_directory():
     explicit = os.environ.get("CERBERUS_DATA")
     if explicit:
@@ -222,14 +303,25 @@ class Manager:
     def running(self):
         return (self.process is not None and self.process.poll() is None) or server_running()
 
-    def install(self, build, progress=lambda *_: None, cancelled=lambda: False):
+    def executable(self, state=None):
+        state = state or self.state()
+        return executable_path(self.installation_path(state), self.target) if state else None
+
+    def install(self, build, progress=lambda *_: None, cancelled=lambda: False, from_app=False):
+        """Install a release beside the current one, then switch to it.
+
+        from_app: the running app updates itself. Its own version folder is
+        left alone; the new one is used from its next start.
+        """
         if build["target"] != self.target or not VERSION.fullmatch(build["version"]):
             raise LauncherError("This download is not for your computer.")
         with operation_lock(self.root):
-            if self.running():
+            if not from_app and self.running():
                 raise LauncherError("Close Cerberus before installing or updating it.")
             versions = self.root / "versions"
             versions.mkdir(exist_ok=True)
+            if from_app:
+                self.prune()
             state = {"version": build["version"], "target": self.target, "build": uuid.uuid4().hex}
             installed = self.installation_path(state)
             pointer = self.root / "installation.json"
@@ -263,6 +355,20 @@ class Manager:
                     pointer_temp.unlink(missing_ok=True)
             return state
 
+    def prune(self, running=None):
+        """Remove old versions, except the selected one and the running one."""
+        versions = self.root / "versions"
+        state = self.state()
+        if versions.is_symlink() or not versions.is_dir() or not state:
+            return
+        running = Path(running or sys.executable).resolve()
+        keep = {self.installation_path(state).name}
+        if running.is_relative_to(versions.resolve()):
+            keep.add(running.relative_to(versions.resolve()).parts[0])
+        for folder in versions.iterdir():
+            if folder.name not in keep and not folder.is_symlink():
+                shutil.rmtree(folder, ignore_errors=True)
+
     def launch(self):
         with operation_lock(self.root):
             if self.running():
@@ -270,14 +376,12 @@ class Manager:
             state = self.state()
             if not state:
                 raise LauncherError("Install Cerberus first.")
-            executable = executable_path(self.installation_path(state), self.target)
+            executable = self.executable(state)
             if not executable.is_file():
-                raise LauncherError("The application is missing. Choose Repair to download it again.")
-            env = {**os.environ, "CERBERUS_DATA": str(app_data_directory())}
-            flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+                raise LauncherError("The application is missing. Install it again to repair it.")
+            env = child_environment({"CERBERUS_DATA": str(app_data_directory())})
             with (self.root / "app.log").open("ab") as log:
-                self.process = subprocess.Popen([str(executable)], cwd=executable.parent,
-                                                env=env, stdout=log, stderr=log, creationflags=flags)
+                self.process = start_detached([str(executable)], env, log)
             return self.process
 
     def uninstall(self):

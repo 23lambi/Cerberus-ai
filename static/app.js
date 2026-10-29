@@ -312,7 +312,7 @@ async function loadModels() {
     modelSelect.value = saved === "" || data.models.includes(saved) ? saved : (data.models[0] || "");
     updateModelFeatures();
     if (!data.models.length) {
-      setModelStatus("idle", "No chat models yet", currentEngine.kind === "ollama"
+      setModelStatus("empty", "No chat models yet", currentEngine.kind === "ollama"
         ? "Open Models to download your first model."
         : "Load a chat model in " + currentEngine.name + ", then press Refresh.");
     } else updateSelectedModelStatus();

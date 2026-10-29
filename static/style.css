@@ -2711,6 +2711,8 @@ dialog[open]::backdrop {
   padding: 14px 0;
   border-bottom: 1px solid var(--border);
 }
+/* Only shown when something needs fixing; a working connection stays quiet. */
+.chat-connection:not([data-state="error"]):not([data-state="empty"]) { display: none; }
 .connection-dot { width: 7px; height: 7px; flex-shrink: 0; border-radius: 50%; background: var(--faint); }
 .chat-connection[data-state="ready"] .connection-dot { background: #7fd39b; }
 .chat-connection[data-state="error"] .connection-dot { background: var(--warn); }
@@ -2788,4 +2790,17 @@ dialog[open]::backdrop {
   .chat-connection { gap: 6px; }
   .chat-connection button { padding: 5px 7px; }
   #home .tagline { margin-bottom: 18px; }
+}
+
+/* A new version is waiting: a small dot on Settings, nothing louder. */
+#open-settings.has-update { position: relative; }
+#open-settings.has-update::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
 }
