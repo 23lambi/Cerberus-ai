@@ -353,7 +353,7 @@ def test_source_checkout_does_not_offer_in_app_updates():
 
 def test_readme_downloads_match_every_launcher_build():
     from launcher.presentation import PLATFORM_LABELS
-    readme = Path('README.md').read_text()
+    readme = Path('README.md').read_text(encoding='utf-8')  # emoji: Windows defaults to cp1252
     assert set(PLATFORM_LABELS) == launcher.TARGETS
     for target in launcher.TARGETS:
         assert f"cerberus-launcher-{target}.zip" in readme
