@@ -552,13 +552,10 @@ py -3.14 -m venv venv
   </footer>
 
   <script>
-    // Match the install button and command tab to the visitor's system.
+    // The visitor's system: the Install button scrolls down to the install
+    // commands, and they open on the right tab (Windows, or Linux & macOS).
     const ua = navigator.userAgent;
     const os = /Windows/.test(ua) ? "windows" : /Mac/.test(ua) ? "mac" : /Linux|X11/.test(ua) && !/Android/.test(ua) ? "linux" : null;
-    if (os) {
-      const names = { windows: "Windows", mac: "macOS", linux: "Linux" };
-      document.getElementById("hero-download").textContent = "Install for " + names[os];
-    }
 
     // Linux & macOS / Windows tabs.
     for (const tab of document.querySelectorAll("[data-tab]")) {
