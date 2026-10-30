@@ -17,6 +17,7 @@
 
 <p align="center">
   <a href="#download">Download</a> ·
+  <a href="#whats-new">What's new</a> ·
   <a href="#see-it-in-action">Tour</a> ·
   <a href="#what-it-does">Features</a> ·
   <a href="#ai-engines">AI engines</a> ·
@@ -98,6 +99,29 @@ settings stay in your data folder.
 
 </details>
 
+## What's new
+
+**30 October 2026**
+
+- **Choose your search engine.** Web search and Research can use SearXNG,
+  DuckDuckGo (nothing to install), Brave Search or Tavily (free API key).
+  **Save & test** runs a real search, so you know it works.
+- **SearXNG without Docker.** In Setup → Web search, **Install it for me**
+  downloads SearXNG into Cerberus's own folder and runs it, only for your
+  computer. The Docker way is still there if you prefer it.
+- **An on/off switch for SearXNG.** It runs while Cerberus is open and stops
+  when you close Cerberus, or stays off to save memory.
+- **A new Docs page.** An Upload button and drag-and-drop, real titles, what
+  kind each document is (file, note or research report), sizes and dates, and
+  a filter.
+- **Ask about a document.** **Ask** starts a new chat with the whole document
+  attached, so "summarise this" works, not only questions about details.
+- **Research reports get a title.** New reports start with your question as
+  their heading.
+
+Already updated? Close Cerberus, run `git pull`, and repeat the
+`pip install -r requirements.txt` command. [All changes →](https://github.com/23lambi/Cerberus-ai/commits/main)
+
 ## See it in action
 
 <table>
@@ -147,8 +171,8 @@ settings stay in your data folder.
     </td>
     <td width="50%" valign="top">
       <h3>Documents</h3>
-      Organize projects, search files, edit Markdown, and review AI changes
-      before applying them.
+      Drop in files, write notes, and ask about any document. Edit Markdown and
+      review AI changes before applying them.
     </td>
   </tr>
   <tr>
