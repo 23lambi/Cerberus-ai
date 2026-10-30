@@ -83,7 +83,9 @@ function workspaceContext(fetch) {
       listeners: {}, children: [],
       addEventListener(name, listener) { this.listeners[name] = listener; },
       appendChild(child) { this.children.push(child); },
+      append(...children) { this.children.push(...children); },
       replaceChildren(...children) { this.children = children; },
+      closest() { return this; },
       add(child) { this.children.push(child); },
       showModal() { this.open = true; }, close() { this.open = false; },
       querySelectorAll() { return [...elements.values()]; },
@@ -99,6 +101,7 @@ function workspaceContext(fetch) {
     Option: function(text, value) { this.text = text; this.value = value; },
     responseError: async response => (await response.json()).detail,
     confirm: () => false,
+    makeBox: (className, text) => ({ ...element(), className, textContent: text }),
   });
   vm.runInContext(fs.readFileSync("static/documents.js", "utf8"), context);
   const click = id => elements.get(id).listeners.click();
@@ -802,4 +805,64 @@ test("collapsed chat options still show enabled modes and ignore unsupported mod
   context.researchCheck.checked = context.webCheck.checked = context.toolsCheck.checked = false;
   context.updateChatOptions();
   assert.equal(summary.textContent, "Standard");
+});
+
+test("Docs uploads keep going after a failed file and say what happened", async () => {
+  const documentsSource = fs.readFileSync("static/documents.js", "utf8");
+  const start = documentsSource.indexOf("let documentUploads");
+  const code = documentsSource.slice(start, documentsSource.indexOf("document.getElementById(\"upload-documents\")", start));
+  const uploaded = [];
+  const context = vm.createContext({
+    documentStatus: { textContent: "" },
+    loadDocuments: async () => {},
+    uploadFile: async (file) => {
+      uploaded.push(file.name);
+      if (file.name === "photo.heic") {
+        context.documentStatus.textContent = "photo.heic: This file type isn't supported.";
+        return false;
+      }
+      context.documentStatus.textContent = file.name + ": done, 2 parts.";
+      return true;
+    },
+  });
+  vm.runInContext(code, context);
+  await context.uploadDocuments([{ name: "a.md" }, { name: "photo.heic" }, { name: "b.pdf" }]);
+  assert.deepEqual(uploaded, ["a.md", "photo.heic", "b.pdf"]);
+  assert.equal(context.documentStatus.textContent, "2 files added. photo.heic: This file type isn't supported.");
+
+  await context.uploadDocuments([{ name: "c.md" }]);
+  assert.equal(context.documentStatus.textContent, "c.md: done, 2 parts."); // one file: its own message
+});
+
+test("document dates are said in words", () => {
+  const documentsSource = fs.readFileSync("static/documents.js", "utf8");
+  const start = documentsSource.indexOf("function friendlyDate(");
+  const context = vm.createContext({ Number });
+  vm.runInContext(documentsSource.slice(start, documentsSource.indexOf("// Ask:", start)), context);
+  const now = new Date(2026, 9, 30, 18, 0);
+  // The time is written the way this computer writes times (14:05 or 2:05 PM).
+  assert.match(context.friendlyDate("2026-10-30T14:05:00", now), /^today \S/);
+  assert.match(context.friendlyDate("2026-10-29T09:12:00", now), /^yesterday \S/);
+  assert.equal(context.friendlyDate("2026-10-26T09:12:00", now), "4 days ago");
+  assert.match(context.friendlyDate("2026-09-01T09:12:00", now), /2026/);
+  assert.equal(context.friendlyDate("not a date", now), "not a date");
+});
+
+test("the Docs filter matches titles, file names and kinds", () => {
+  const documentsSource = fs.readFileSync("static/documents.js", "utf8");
+  const pick = (start, end) => documentsSource.slice(documentsSource.indexOf(start), documentsSource.indexOf(end, documentsSource.indexOf(start)));
+  const context = vm.createContext({});
+  vm.runInContext(pick("function filteredDocuments(", "function drawDocuments(") +
+    pick("const DOCUMENT_KINDS", "// One document:"), context);
+  const documents = [
+    { title: "Weekly plan", name: "plan.md", kind: "note" },
+    { title: "Can you tell me the roadmap…", name: "research-roadmap.md", kind: "report" },
+    { title: "Handbook.pdf", name: "Handbook.pdf", kind: "upload" },
+  ];
+  const titles = (text) => context.filteredDocuments(documents, text).map((doc) => doc.title);
+  assert.deepEqual(titles(""), ["Weekly plan", "Can you tell me the roadmap…", "Handbook.pdf"]);
+  assert.deepEqual(titles("  ROADMAP "), ["Can you tell me the roadmap…"]);
+  assert.deepEqual(titles("plan.md"), ["Weekly plan"]);
+  assert.deepEqual(titles("research report"), ["Can you tell me the roadmap…"]);
+  assert.deepEqual(titles("zebra"), []);
 });

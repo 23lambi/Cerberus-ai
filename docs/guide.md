@@ -165,10 +165,24 @@ Existing answers generated before this feature do not gain source snapshots.
 **Docs** and **Memory** in the sidebar open separate screens. Memory holds
 facts used across chats; Docs holds your workspace files and editable notes.
 
-Enter a project and open **Docs** in the sidebar. Upload files or choose
-**New Markdown document**. Editable documents support a filename, Markdown
-editor, sanitized preview, and saved version history. **Read / copy** opens an
-uploaded file as a new editable Markdown copy; its original is preserved.
+Open **Docs** in the sidebar (inside a project for that project's files).
+Choose **Upload**, drop files anywhere on the page, or choose **New note**.
+The line above the buttons says whose documents these are ("All chats" or the
+project) and how many; **Filter documents** narrows the list by title, file
+name or kind (Escape clears it).
+Each document shows its title (a note's first `#` heading), whether it's an
+uploaded file, a note or a research report, its size and when it changed.
+Click a document to open it: a note opens in the editor, an uploaded file
+shows the text Cerberus read from it. Editable notes support a filename,
+Markdown editor, sanitized preview, and saved version history. In the **⋯**
+menu, **Edit a copy** turns an uploaded file into an editable Markdown copy
+(its original is preserved), and **Remove** deletes it.
+
+**How documents reach the chat.** Cerberus cuts each document into pieces and
+searches them for every message; the best-fitting pieces are given to the
+model and shown as numbered sources. That suits questions about details.
+For a whole document ("summarise it"), choose **Ask**: it starts a new chat
+with a copy attached, and the model then reads all of it.
 In a project chat, **Save as document** beneath an answer opens that answer in
 the editor. Choose a filename and save it to the current project.
 

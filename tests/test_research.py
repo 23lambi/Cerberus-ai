@@ -142,3 +142,9 @@ def test_research_does_not_also_run_the_normal_web_search(client, fake, monkeypa
                                    "messages": [{"role": "user", "content": "Why do zebras have stripes?"}]})
     # Only the plan's searches: web=True must not add a search of the question.
     assert searched == list(RESULTS)
+
+
+def test_a_saved_report_gets_the_question_as_its_title():
+    assert research.with_title("The answer.", "Why do\nzebras have stripes?") == \
+        "# Why do zebras have stripes?\n\nThe answer."
+    assert research.with_title("# Own title\n\nText", "q") == "# Own title\n\nText"

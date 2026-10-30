@@ -547,9 +547,14 @@ def add_chunks(document_id, chunks):
 
 def list_documents(project_id=None):
     with get_db() as conn:
+        # head: the start of a note, enough for its title (keeper.document_title).
+        # updated_at: a note's newest saved version, else when it was added.
         rows = conn.execute(
-            "SELECT d.id, d.name, d.created_at, d.project_id, d.revision, "
-            "(d.content IS NOT NULL) AS editable, COUNT(c.id) AS chunks "
+            "SELECT d.id, d.name, d.path, d.created_at, d.project_id, d.revision, "
+            "(d.content IS NOT NULL) AS editable, COUNT(c.id) AS chunks, "
+            "substr(d.content, 1, 500) AS head, length(CAST(d.content AS BLOB)) AS content_bytes, "
+            "COALESCE((SELECT MAX(v.created_at) FROM document_versions v WHERE v.document_id = d.id), "
+            "d.created_at) AS updated_at "
             "FROM documents d LEFT JOIN chunks c ON c.document_id = d.id "
             "WHERE d.project_id IS ? AND d.chat_id IS NULL GROUP BY d.id ORDER BY d.id DESC", (project_id,)
         ).fetchall()

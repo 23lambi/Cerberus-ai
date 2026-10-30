@@ -226,7 +226,50 @@ async def add_document(name, data, project_id=None, chat_id=None):
 
 
 def list_documents(project_id=None):
-    return database.list_documents(project_id)
+    """The Docs list: each document with a title, a kind and a size."""
+    documents = []
+    for doc in database.list_documents(project_id):
+        head, path, content_bytes = doc.pop("head"), doc.pop("path"), doc.pop("content_bytes")
+        if doc["editable"]:
+            # Research saves its reports as research-<question>.md.
+            doc["kind"] = "report" if doc["name"].startswith("research-") else "note"
+            doc["size"] = content_bytes
+        else:
+            doc["kind"] = "upload"
+            try:
+                doc["size"] = Path(path).stat().st_size
+            except OSError:
+                doc["size"] = None  # the file is missing: the list still shows it
+        doc["title"] = document_title(doc["name"], head if doc["editable"] else None)
+        documents.append(doc)
+    return documents
+
+
+def document_title(name, head=None):
+    """What a document is called in the Docs list.
+
+    A note: its first line, when that's a heading ("# Weekly plan"). Else a
+    readable form of its filename. An uploaded file (head None): its name,
+    with the extension, which says what kind of file it is.
+    """
+    if head is None:
+        return name
+    for line in head.splitlines():
+        if line.strip():
+            # A Markdown heading: one to six #, a space, then the text.
+            heading = re.match(r"#{1,6}\s+(.+)", line.strip())
+            if heading:
+                # Without Markdown's marks: "*plan*" -> "plan", "## Done ##" -> "Done".
+                return re.sub(r"[*_`]", "", heading.group(1)).strip(" #")
+            break
+    stem = name.rsplit(".", 1)[0]
+    if not stem.startswith("research-"):
+        return stem
+    # research-can-you-tell-me.md -> "Can you tell me"
+    text = stem.removeprefix("research-").replace("-", " ")
+    # research.report_name keeps at most 40 characters of the question.
+    cut = "…" if len(text) >= 39 else ""
+    return text[:1].upper() + text[1:] + cut
 
 
 def delete_document(document_id):

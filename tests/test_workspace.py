@@ -181,3 +181,46 @@ def test_missing_project_and_empty_document(client):
     assert doc["revision"] == 1
     database.init_db()
     assert database.get_document(doc["id"])["content"] == ""
+
+
+# ---------- The Docs list and Ask ----------
+
+
+def test_the_docs_list_gives_titles_kinds_and_sizes(client):
+    create(client, name="plan.md", content="\n# Weekly *plan*\n\nMonday: aardvarks")
+    create(client, name="research-can-you-tell-me-the-roadmap-for-a-softwa.md", content="The roadmap is…")
+    client.post("/documents?name=paper.txt", content=b"Twelve bytes")
+
+    listed = {d["name"]: d for d in client.get("/documents").json()["documents"]}
+
+    plan = listed["plan.md"]
+    assert plan["title"] == "Weekly plan" and plan["kind"] == "note"
+    assert plan["size"] == len("\n# Weekly *plan*\n\nMonday: aardvarks".encode())
+    assert plan["updated_at"]
+    report = listed["research-can-you-tell-me-the-roadmap-for-a-softwa.md"]
+    assert report["kind"] == "report" and report["title"] == "Can you tell me the roadmap for a softwa…"
+    upload = listed["paper.txt"]
+    assert upload["kind"] == "upload" and upload["title"] == "paper.txt" and upload["size"] == 12
+    assert "head" not in upload and "path" not in upload  # never sent to the page
+
+
+def test_ask_attaches_a_whole_copy_to_one_chat(client):
+    doc = create(client, name="plan.md", content="# Plan\n\nThe secret word is aardvark.")
+    chat = client.post("/chats", json={}).json()["id"]
+
+    attached = client.post(f"/documents/{doc['id']}/attach", json={"chat_id": chat})
+
+    assert attached.status_code == 200, attached.text
+    copy = attached.json()
+    assert copy["id"] != doc["id"] and copy["name"] == "plan.md"
+    assert [d["id"] for d in database.chat_documents(chat)] == [copy["id"]]
+    # The library keeps one document; the copy belongs to the chat only.
+    assert [d["id"] for d in client.get("/documents").json()["documents"]] == [doc["id"]]
+
+
+def test_ask_keeps_project_documents_in_their_project(client):
+    project = database.create_project("Secret")["id"]
+    doc = create(client, project_id=project)
+    chat = client.post("/chats", json={}).json()["id"]  # a chat outside the project
+    assert client.post(f"/documents/{doc['id']}/attach", json={"chat_id": chat}).status_code == 409
+    assert client.post("/documents/9999/attach", json={"chat_id": chat}).status_code == 404

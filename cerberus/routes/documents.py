@@ -167,6 +167,36 @@ async def upload_document(request: Request, name: str, project_id: int | None = 
         raise HTTPException(status_code=400, detail=str(error)) from None
 
 
+class AttachIn(BaseModel):
+    chat_id: int = Field(gt=0)
+
+
+@router.post("/{document_id}/attach")
+async def attach_document(document_id: int, body: AttachIn):
+    """Ask about a document: a copy of it, attached to one chat, like the
+    chat's + button. Attached, its whole text reaches the model, so "sum
+    it up" works too, not only questions that search finds pieces for."""
+    doc = require_document(document_id)
+    turns.require_idle(body.chat_id)
+    chat = database.get_chat_info(body.chat_id)
+    if chat is None:
+        raise HTTPException(404, "Chat not found")
+    # Project documents stay inside their project, as in search.
+    if doc["chat_id"] is not None or doc["project_id"] != chat["project_id"]:
+        raise HTTPException(409, "This document belongs to another chat or project.")
+    if doc["content"] is not None:
+        data = doc["content"].encode()  # a note or report
+    else:
+        try:
+            data = Path(doc["path"]).read_bytes()
+        except OSError:
+            raise HTTPException(409, "The original file is missing. Upload it again.") from None
+    try:
+        return await keeper.add_document(doc["name"], data, chat["project_id"], body.chat_id)
+    except keeper.DocumentError as error:
+        raise HTTPException(400, str(error)) from None
+
+
 @router.delete("/{document_id}")
 def delete_document(document_id: int):
     doc = require_document(document_id)

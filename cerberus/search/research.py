@@ -84,6 +84,15 @@ def report_name(question):
     return f"research-{slug or 'report'}.md"
 
 
+def with_title(report, question):
+    """The report with the question as its heading, so the document has a
+    title (the Docs list shows it). A report that has one already keeps it."""
+    if report.lstrip().startswith("#"):
+        return report
+    title = " ".join(question.split())[:200]  # one line, never a whole essay
+    return f"# {title}\n\n{report.lstrip()}"
+
+
 def with_references(report, sources):
     """The report with a Sources list of real links at the end, for the document."""
     lines = []
@@ -189,7 +198,8 @@ async def run(ctx, model, chat_id=None):
     chat = database.get_chat_info(chat_id) if chat_id else None
     name = report_name(ctx.question)
     try:
-        doc = await save_report(name, with_references(report, ctx.sources), chat and chat["project_id"])
+        content = with_title(with_references(report, ctx.sources), ctx.question)
+        doc = await save_report(name, content, chat and chat["project_id"])
     except ValueError:  # the project was deleted meanwhile
         yield progress("The report could not be saved as a document: its project no longer exists.")
         return
