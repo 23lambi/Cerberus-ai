@@ -20,7 +20,7 @@ def test_report_lists_engine_and_model_without_keys(client, monkeypatch):
         return {"engine": {"kind": "openai", "name": "OpenRouter", "cloud": True, "running": False,
                            "error": "Wrong API key", "key_set": True},
                 "ollama": {"running": True, "version": "0.40.6"}, "ram_gb": 16.0,
-                "chat_models": [], "searxng": {"status": "offline"}}
+                "chat_models": [], "web": {"name": "SearXNG", "status": "offline"}}
     monkeypatch.setattr(diagnostics.setup, "status", status)
     text = client.get("/diagnostics", params={"model": "llama3.2:3b\nsneaky second line"}).text
     assert "Engine: OpenRouter (cloud), not connected" in text

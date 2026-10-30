@@ -10,6 +10,8 @@ from pydantic import BaseModel, Field
 from cerberus.engines import engine, llamacpp, ollama, openai_api
 from cerberus.chat.prompts import SETUP_HELLO
 from cerberus.core import settings, setup
+from cerberus.search import searxng, websearch
+from cerberus.core.config import WEB_ENGINES
 
 router = APIRouter(prefix="/setup")
 
@@ -65,6 +67,70 @@ async def start_ollama():
     except engine.EngineError as error:
         raise HTTPException(409, str(error)) from None
     return {"running": True}
+
+
+@router.post("/web/test")
+async def test_web_search():
+    """One real search with the saved engine, so you see that it works."""
+    try:
+        found = await websearch.search("Cerberus three-headed dog", limit=3)
+    except websearch.WebError as error:
+        return {"ok": False, "error": str(error)}
+    if not found:
+        return {"ok": False, "error": WEB_ENGINES[settings.get("web_engine")] + " answered, but found nothing."}
+    return {"ok": True, "count": len(found), "first": found[0]["title"]}
+
+
+@router.post("/searxng/install")
+async def install_searxng():
+    """Install SearXNG with Python (searxng.py), choose it, and start it.
+    The steps stream as NDJSON, like the Ollama download; Cancel stops it."""
+
+    async def generate():
+        try:
+            async for step in searxng.install():
+                yield json.dumps(step) + "\n"
+            settings.update({"web_engine": "searxng", "web_url": searxng.URL})
+            yield json.dumps({"step": "starting"}) + "\n"
+            await searxng.start()
+            yield json.dumps({"step": "running"}) + "\n"
+        except searxng.SearxngError as error:
+            yield json.dumps({"step": "error", "text": str(error)}) + "\n"
+
+    return StreamingResponse(generate(), media_type="application/x-ndjson")
+
+
+@router.post("/searxng/start")
+async def start_searxng():
+    # Starting Cerberus's SearXNG chooses it too, at its own address.
+    settings.update({"web_engine": "searxng", "web_url": searxng.URL})
+    try:
+        await searxng.start()
+    except searxng.SearxngError as error:
+        raise HTTPException(409, str(error)) from None
+    return {"running": True}
+
+
+class SwitchIn(BaseModel):
+    on: bool
+
+
+@router.post("/searxng/switch")
+async def switch_searxng(body: SwitchIn):
+    """SearXNG's on/off switch. "command": what to run yourself, when
+    Cerberus can't switch a Docker SearXNG (Docker needs sudo there)."""
+    try:
+        command = await searxng.switch(body.on)
+    except searxng.SearxngError as error:
+        raise HTTPException(409, str(error)) from None
+    return {"on": body.on, "command": command}
+
+
+@router.post("/searxng/remove")
+async def remove_searxng():
+    # In a thread: deleting thousands of files takes a moment.
+    await asyncio.to_thread(searxng.remove)
+    return {"removed": True}
 
 
 @router.post("/searxng/prepare")

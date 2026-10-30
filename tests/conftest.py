@@ -23,6 +23,18 @@ def private_keys(tmp_path, monkeypatch):
     monkeypatch.setattr(keys, "KEYS_FILE", tmp_path / "keys.json")
 
 
+@pytest.fixture(autouse=True)
+def no_real_docker(monkeypatch):
+    # The SearXNG switch can start and stop a Docker container. In tests
+    # Docker is never really asked: a test that needs it fakes its answers.
+    from cerberus.search import searxng
+
+    def refuse(*args):
+        raise OSError("no real docker in tests")
+
+    monkeypatch.setattr(searxng, "run_docker", refuse)
+
+
 @pytest.fixture
 def db(tmp_path, monkeypatch):
     # tmp_path is a fixture built into pytest: a new, empty folder for

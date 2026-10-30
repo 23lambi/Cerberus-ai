@@ -20,7 +20,7 @@ def fake_internet(monkeypatch, pages, broken=()):
     """pages: {url: (title, text)}. URLs in broken can't be downloaded."""
     searched = []
 
-    async def search(base_url, query, limit=5):
+    async def search(query, limit=5):
         searched.append(query)
         return [{"title": title, "url": url, "snippet": f"snippet of {title}"}
                 for url, (title, _) in pages.items()]
@@ -53,7 +53,7 @@ def test_research_keeps_the_pieces_about_the_question(db, fake, monkeypatch):
         "https://animals.example/zebra": ("Zebra facts", FILLER + "\n\n" + ZEBRA + "\n\n" + FILLER),
         "https://other.example/": ("Other", FILLER),
     })
-    sources = asyncio.run(web.research("http://searx", "Why do zebras have stripes?"))
+    sources = asyncio.run(web.research("Why do zebras have stripes?"))
 
     first = sources[0]
     assert first["name"] == "Zebra facts (animals.example)"
@@ -67,7 +67,7 @@ def test_research_keeps_the_pieces_about_the_question(db, fake, monkeypatch):
 def test_a_page_that_cannot_be_read_falls_back_to_its_snippet(db, fake, monkeypatch):
     fake_internet(monkeypatch, {"https://blocked.example/": ("Blocked page", "never read")},
                   broken={"https://blocked.example/"})
-    sources = asyncio.run(web.research("http://searx", "anything"))
+    sources = asyncio.run(web.research("anything"))
     assert sources[0]["text"] == "snippet of Blocked page"
 
 
@@ -100,7 +100,7 @@ def test_without_the_web_box_nothing_goes_online(client, fake, monkeypatch):
 
 
 def test_searxng_down_still_gives_an_answer_and_says_why(client, fake, monkeypatch):
-    async def down(base_url, query, limit=5):
+    async def down(query, limit=5):
         raise WebError("SearXNG can't be reached.")
 
     monkeypatch.setattr(websearch, "search", down)

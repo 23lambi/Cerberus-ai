@@ -21,7 +21,7 @@ from contextlib import aclosing
 
 from cerberus.storage import database, keeper
 from cerberus.engines import ollama
-from cerberus.core import model_settings, settings
+from cerberus.core import model_settings
 from cerberus.search import web, websearch
 from cerberus.chat.budget import ContextTooLarge, fit
 from cerberus.core.config import (
@@ -120,14 +120,13 @@ async def run(ctx, model, chat_id=None):
 
     # 2. Search. One search after the other: SearXNG asks several engines
     # each time, and many at once would get us blocked (CAPTCHA).
-    base_url = settings.get("web_url")
     used = set()  # a page found by two searches is read only once
     found = []  # (query, the new results for it)
     failure = None
     for query in queries:
         yield progress(f'Searching for "{query}"…')
         try:
-            results = await websearch.search(base_url, query)
+            results = await websearch.search(query)
         except WebError as error:
             failure = str(error)
             continue

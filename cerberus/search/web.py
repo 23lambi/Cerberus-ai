@@ -215,12 +215,12 @@ async def pick(question, pages, limit=WEB_PIECES):
     return [candidates[k] for k in order[:limit]]
 
 
-async def research(base_url, question):
+async def research(question):
     """Web sources for a question: [{"name", "url", "text", "kind": "web"}, ...].
 
     Raises WebError when the search itself fails (SearXNG not running...).
     """
-    results = await websearch.search(base_url, question)
+    results = await websearch.search(question)
     # gather runs the downloads at the same time: 3 pages take as long as the slowest.
     pages = await asyncio.gather(*(read(result) for result in results[:WEB_PAGES]))
     chosen = await pick(question, pages)

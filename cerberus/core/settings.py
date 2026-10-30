@@ -4,6 +4,10 @@
 from cerberus.storage import database, keys
 from cerberus.engines.ollama import OllamaError, list_models
 from cerberus.chat.prompts import OLD_SYSTEM_PROMPTS, SKILLS, SYSTEM_PROMPT
+from cerberus.core.config import WEB_ENGINES
+
+# The API keys you can enter in Settings. They never go into the database.
+KEYS = ("openai_key", "brave_key", "tavily_key")
 
 # Only the brain's personality can be edited. Skills are part of the features.
 DEFAULTS = {
@@ -18,8 +22,12 @@ DEFAULTS = {
     # model that can't see them.
     "eyes_on": "no",
     "eyes_model": "",
-    # Web search: the address of SearXNG (see websearch.py).
+    # Web search (see websearch.py): which engine, and where SearXNG is.
+    # Brave and Tavily keys are kept with the other keys (keys.py).
+    "web_engine": "searxng",
     "web_url": "http://127.0.0.1:8888",
+    # SearXNG's switch: "yes" = it runs while Cerberus is open (searxng.py).
+    "searxng_on": "yes",
     # The AI engine: "ollama", or "openai" for any OpenAI-compatible engine
     # (openai_api.py). openai_url "" = the preset's own address.
     "engine": "ollama",
@@ -45,17 +53,21 @@ def get(key):
 def get_all():
     # A dict comprehension: builds {"system_prompt": "...", ...} in one line.
     values = {key: get(key) for key in DEFAULTS}
-    # The API key itself never goes to the browser: only whether there is one.
-    values["openai_key_set"] = "yes" if keys.get("openai_key") else "no"
+    # A key itself never goes to the browser: only whether there is one.
+    for name in KEYS:
+        values[f"{name}_set"] = "yes" if keys.get(name) else "no"
     return values
 
 
 def update(values):
     # A new API key goes to its own private file, never into the database
     # (see keys.py). An empty one means "keep the key I have".
-    if values.get("openai_key"):
-        keys.set("openai_key", values["openai_key"].strip())
+    for name in KEYS:
+        if values.get(name):
+            keys.set(name, values[name].strip())
     for key, value in values.items():
+        if key == "web_engine" and value not in WEB_ENGINES:
+            continue  # an engine Cerberus doesn't know
         # Ignore unknown keys, so nobody can fill the table with junk.
         if key in DEFAULTS:
             # The unchanged personality is not stored, so it keeps following
@@ -68,9 +80,10 @@ def update(values):
 
 def reset():
     # Deleting the saved values makes get() fall back to the defaults. The
-    # API key goes too: "reset everything" shouldn't leave a password behind.
+    # API keys go too: "reset everything" shouldn't leave a password behind.
     database.clear_settings()
-    keys.set("openai_key", "")
+    for name in KEYS:
+        keys.set(name, "")
 
 
 def brain(skill=None):

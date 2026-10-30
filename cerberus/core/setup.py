@@ -7,12 +7,12 @@ import secrets
 import sys
 from pathlib import Path
 
-import httpx
-
 from cerberus.engines import engine, ollama, openai_api
 from cerberus.core import settings
-from cerberus.search import websearch
-from cerberus.core.config import EMBED_MODEL
+from cerberus.search import searxng, websearch
+from cerberus.search.websearch import searxng_check
+from cerberus.core.config import EMBED_MODEL, WEB_ENGINES
+from cerberus.storage import keys
 
 SEARXNG_DIR = Path.home() / "searxng"
 
@@ -97,16 +97,34 @@ def prepare_searxng(folder=SEARXNG_DIR):
     return {"path": str(path), "created": created, "json_on": json_on, "commands": searxng_commands()}
 
 
-async def searxng_check(url):
-    """"ok", "json_off" (it runs, but JSON is off), or "offline"."""
-    try:
-        async with websearch.new_client(5) as client:
-            response = await client.get(url.rstrip("/") + "/search", params={"q": "cerberus", "format": "json"})
-    except httpx.HTTPError:
-        return "offline"
-    if response.status_code == 403:
-        return "json_off"
-    return "ok" if response.status_code == 200 else "offline"
+async def web_status():
+    """The chosen search engine and whether it can search, for the Setup window.
+
+    "ok" (SearXNG answers), "json_off", "offline", "no_key", or "ready":
+    DuckDuckGo, or an engine with its key. Those are not tried here: every
+    try is a real search, and the APIs count them. "Save & test" tries.
+    """
+    engine = settings.get("web_engine")
+    url = settings.get("web_url")
+    if engine == "searxng" and not searxng.is_on():
+        status = "off"
+    elif engine == "searxng":
+        status = await searxng_check(url)
+    elif engine == "duckduckgo" or keys.get(f"{engine}_key"):
+        status = "ready"
+    else:
+        status = "no_key"
+    return {
+        "web_engine": engine, "name": WEB_ENGINES[engine], "web_url": url, "status": status,
+        # As in Settings: only whether a key is saved, never the key.
+        **{f"{name}_set": "yes" if keys.get(name) else "no" for name in ("brave_key", "tavily_key")},
+        "restart_command": websearch.docker("restart searxng"),
+        # Cerberus's own SearXNG (searxng.py): installed? if not, can it be?
+        "searxng_installed": searxng.installed(),
+        "searxng_problem": searxng.can_install(),
+        "searxng_windows": sys.platform == "win32",
+        "searxng_on": "yes" if searxng.is_on() else "no",
+    }
 
 
 async def other_engine_status():
@@ -136,7 +154,7 @@ async def status():
         "embed_model": EMBED_MODEL,
         "embed_installed": False,
         "chat_models": [],
-        "searxng": {"url": settings.get("web_url"), "status": await searxng_check(settings.get("web_url"))},
+        "web": await web_status(),
     }
     if ollama_state["running"]:
         names = [m["name"] for m in await ollama.installed()]

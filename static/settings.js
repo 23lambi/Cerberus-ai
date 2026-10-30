@@ -165,25 +165,204 @@ function fillSettings(values) {
   showSettingsPage(openPage);
 }
 
-// Web search: where SearXNG listens. The Web pill in the chat turns it
-// on per message; here is only the address.
+// The search engines you can choose (WEB_ENGINES in cerberus/core/config.py).
+// key: the setting that holds its API key; link: where to get a key.
+const WEB_ENGINES = {
+  searxng: {
+    name: "SearXNG",
+    hint: "Private and free: runs on this computer and asks many engines for you. " +
+      "It must be installed; Setup → Web search helps.",
+  },
+  duckduckgo: {
+    name: "DuckDuckGo",
+    hint: "Nothing to install, no key. After many searches in a row it may ask " +
+      "for a CAPTCHA; then wait a few minutes.",
+  },
+  brave: {
+    name: "Brave Search",
+    key: "brave_key",
+    link: "https://api-dashboard.search.brave.com/",
+    hint: "An official search API, reliable and fast. Needs a free API key.",
+  },
+  tavily: {
+    name: "Tavily",
+    key: "tavily_key",
+    link: "https://app.tavily.com/",
+    hint: "A search API made for AI assistants. Needs a free API key.",
+  },
+};
+
+// The engine choice and what it needs: SearXNG's address, or a key. Used
+// in Settings and in the Setup window. values: web_engine, web_url and
+// "<engine>_key_set". Every field has a name, so a form saves it like any
+// other setting; an empty key field means "keep the saved key".
+function webSearchFields(values) {
+  const box = document.createElement("div");
+  box.className = "web-fields";
+
+  const engine = document.createElement("select");
+  engine.name = "web_engine";
+  engine.setAttribute("aria-label", "Search engine");
+  for (const [id, info] of Object.entries(WEB_ENGINES)) {
+    engine.appendChild(new Option(info.name, id));
+  }
+  engine.value = values.web_engine;
+
+  const about = makeBox("hint", "");
+
+  const address = document.createElement("input");
+  address.type = "url"; // the browser checks it looks like an address
+  address.name = "web_url";
+  address.className = "setting-input";
+  address.value = values.web_url;
+  address.placeholder = "http://127.0.0.1:8888";
+  address.setAttribute("aria-label", "SearXNG address");
+
+  // SearXNG's address and its on/off switch, shown while SearXNG is chosen.
+  const searxngBox = document.createElement("div");
+  searxngBox.append(address, searxngSwitch(values));
+
+  // One key field per engine that needs one; only the chosen one is shown.
+  const keyRows = {};
+  for (const [id, info] of Object.entries(WEB_ENGINES)) {
+    if (!info.key) continue;
+    const key = document.createElement("input");
+    key.type = "password"; // shown as dots, like any password
+    key.autocomplete = "off";
+    key.name = info.key;
+    key.className = "setting-input";
+    key.placeholder = values[info.key + "_set"] === "yes"
+      ? "A key is saved (type a new one to replace it)" : info.name + " API key";
+    key.setAttribute("aria-label", info.name + " API key");
+
+    const link = document.createElement("a");
+    link.href = info.link;
+    link.target = "_blank"; // opens in your browser, not inside Cerberus
+    link.rel = "noopener";
+    link.className = "hint";
+    link.textContent = "Get a free " + info.name + " key ↗";
+
+    const row = document.createElement("div");
+    row.append(key, link);
+    keyRows[id] = row;
+  }
+
+  function show() {
+    about.textContent = WEB_ENGINES[engine.value].hint;
+    searxngBox.hidden = engine.value !== "searxng";
+    for (const [id, row] of Object.entries(keyRows)) row.hidden = id !== engine.value;
+  }
+  engine.addEventListener("change", show);
+  show();
+
+  box.append(engine, about, searxngBox, ...Object.values(keyRows));
+  return box;
+}
+
+// SearXNG's switch (cerberus/search/searxng.py). It acts at once, so it
+// has no name: the Settings form doesn't save it again. On: SearXNG runs
+// while Cerberus is open. Off: it's stopped. When Docker needs sudo,
+// Cerberus can't switch it, and shows the command to run instead.
+function searxngSwitch(values) {
+  const on = document.createElement("input");
+  on.type = "checkbox";
+  on.className = "switch";
+  on.checked = values.searxng_on !== "no";
+  on.setAttribute("aria-label", "Run SearXNG");
+
+  const row = document.createElement("div");
+  row.className = "searxng-switch";
+  const text = document.createElement("div");
+  text.append(
+    makeBox("searxng-switch-title", "Run SearXNG"),
+    makeBox("hint", "On: it runs while Cerberus is open and stops when you close Cerberus. " +
+      "Off: it's stopped, and saves your computer's memory.")
+  );
+  row.append(text, on);
+
+  const note = document.createElement("div");
+  note.className = "hint";
+
+  on.addEventListener("change", async () => {
+    on.disabled = true;
+    note.textContent = on.checked ? "Starting SearXNG…" : "Stopping SearXNG…";
+    try {
+      const response = await fetch("/setup/searxng/switch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ on: on.checked }),
+      });
+      if (!response.ok) {
+        note.textContent = await responseError(response);
+        return;
+      }
+      const answer = await response.json();
+      note.textContent = on.checked ? "SearXNG is on." : "SearXNG is off.";
+      if (answer.command) {
+        note.textContent = "Your SearXNG runs in Docker, which needs your password here, so " +
+          "Cerberus can't switch it. Run this in a terminal:";
+        note.appendChild(commandLine(answer.command)); // setup.js
+      }
+    } catch (error) {
+      note.textContent = "Could not reach Cerberus: " + error.message;
+    } finally {
+      on.disabled = false;
+    }
+  });
+
+  const box = document.createElement("div");
+  box.append(row, note);
+  return box;
+}
+
+// Saves the fields of webSearchFields, then searches once for real, and
+// tells you what happened in result. True when the search worked.
+async function testWebSearch(fields, result) {
+  const values = {};
+  for (const field of fields.querySelectorAll("select, input")) {
+    if (field.name) values[field.name] = field.value; // not the SearXNG switch
+  }
+  result.textContent = "Searching…";
+  try {
+    await fetch("/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(values),
+    });
+    const answer = await (await fetch("/setup/web/test", { method: "POST" })).json();
+    // The typed key is saved now: show that, instead of keeping it on screen.
+    for (const key of fields.querySelectorAll("input[type=password]")) {
+      if (key.value) {
+        key.value = "";
+        key.placeholder = "A key is saved (type a new one to replace it)";
+      }
+    }
+    result.textContent = answer.ok
+      ? "✓ It works: " + answer.count + " results, the first: \"" + answer.first + "\""
+      : answer.error;
+    return answer.ok;
+  } catch (error) {
+    result.textContent = "Could not reach Cerberus: " + error.message;
+    return false;
+  }
+}
+
+// Web search: the engine. The Web pill in the chat turns it on per message.
 function addWebSetting(values) {
   const card = settingCard(
     "Web search",
-    "The address of your SearXNG. With Web on, Cerberus searches only when a " +
-      "message needs it (not for \"hello\"). With the Helper on, it decides " +
-      "better and turns follow-up questions into good search queries. " +
-      "Cerberus never opens pages on this computer or your home network. " +
-      "Offline? Run: sudo docker start searxng"
+    "With Web on, Cerberus searches only when a message needs it (not for " +
+      "\"hello\"). With the Helper on, it decides better and turns follow-up " +
+      "questions into good search queries. Your search words go to the engine " +
+      "you choose. Cerberus never opens pages on this computer or your home network."
   );
-
-  const field = document.createElement("input");
-  field.type = "url"; // the browser checks it looks like an address
-  field.name = "web_url";
-  field.className = "setting-input";
-  field.value = values.web_url;
-  field.placeholder = "http://127.0.0.1:8888";
-  card.appendChild(field);
+  const fields = webSearchFields(values);
+  const result = makeBox("hint", "");
+  const test = document.createElement("button");
+  test.type = "button";
+  test.textContent = "Save & test";
+  test.addEventListener("click", () => testWebSearch(fields, result));
+  card.append(fields, test, result);
 }
 
 // Backup and export: plain links, the server sends the files.
@@ -553,6 +732,7 @@ settingsForm.addEventListener("submit", async (event) => {
   // have .name and .value; a checkbox has .checked, saved as "yes"/"no".
   const values = {};
   for (const field of settingsFields.querySelectorAll("textarea, select, input")) {
+    if (!field.name) continue; // like SearXNG's switch: it saves itself
     values[field.name] = field.type === "checkbox" ? (field.checked ? "yes" : "no") : field.value;
   }
 

@@ -65,10 +65,12 @@ Settings → Setup check. It keeps the essentials first:
    downloadable with one click. **Better document search** is optional and
    starts collapsed.
 
-**Optional · Web search** also starts collapsed. It tests your SearXNG
-address, and **Help me set up SearXNG** writes its settings file (never over
-an existing one) and shows the Docker commands to copy. Once your AI and a
-chat model are ready, choose **Start chatting**; optional features can wait.
+**Optional · Web search** also starts collapsed. Choose a search engine and
+press **Save & test** for a real test search. With SearXNG chosen and not yet
+running, choose **Install it for me** (Cerberus installs and runs its own
+SearXNG, no Docker) or **Use Docker instead** (shows the commands to copy).
+Once your AI and a chat model are ready, choose **Start chatting**; optional
+features can wait.
 
 ## Desktop app
 
@@ -194,14 +196,32 @@ needed"). With the Helper model on, the Helper decides and rewrites follow-ups
 such as "and when was it released?" into a real query; without it, rules
 decide and add your previous question to short follow-ups. The query used is
 shown above the sources. A web answer takes longer on a CPU, mostly because the
-model reads the pages. Cerberus asks [SearXNG](https://docs.searxng.org/), a search engine
-running locally, reads the top three pages, and gives the model only the
+model reads the pages. Cerberus asks the search engine you chose, reads the top three pages, and gives the model only the
 pieces that best fit your question. They appear as 🌐 source buttons; click
 one to see the exact text used and to open the page. The answer label says
 "Web: 3 pages" whenever the web was asked.
 
-One-time setup (Docker, settings in `~/searxng/settings.yml` with `json`
-enabled under `search: formats:`):
+Choose the engine under Settings → Web search (or in Setup):
+
+| Engine | Needs | Good to know |
+| --- | --- | --- |
+| [SearXNG](https://docs.searxng.org/) | Installing once | Private, free, asks many engines at once. |
+| DuckDuckGo | Nothing | May ask for a CAPTCHA after many searches in a row. |
+| [Brave Search](https://api-dashboard.search.brave.com/) | A free API key | An official API, reliable. |
+| [Tavily](https://app.tavily.com/) | A free API key | A search API made for AI assistants. |
+
+API keys are kept with your other keys, never in the database or backups.
+Your search words go to the engine you choose.
+
+**SearXNG without Docker.** In Setup → Web search, **Install it for me**
+downloads SearXNG with Git into Cerberus's app folder, gives it its own
+Python environment (about 180 MB), and runs it on `127.0.0.1:8888`, only for
+this computer. It starts and stops with Cerberus; **Remove it** deletes it.
+It needs Git and works on Linux and macOS. SearXNG doesn't officially support
+Windows: the install may work, but Docker or DuckDuckGo are surer there.
+
+**SearXNG with Docker.** Settings go in `~/searxng/settings.yml` with `json`
+enabled under `search: formats:` (**Use Docker instead** writes it). On Linux:
 
 ```bash
 sudo systemctl enable --now docker
@@ -209,8 +229,14 @@ sudo docker run -d --name searxng --restart unless-stopped \
   -p 127.0.0.1:8888:8080 -v ~/searxng:/etc/searxng docker.io/searxng/searxng:latest
 ```
 
-Change the address under Settings → Web search. If SearXNG is down, you still
-get an answer with a note saying why; start it with `sudo docker start searxng`.
+With Docker Desktop on Windows or macOS, run the same `docker run` without
+`sudo`.
+
+**Run SearXNG switch.** Shown under Settings → Web while SearXNG is chosen.
+On, SearXNG runs while Cerberus is open and stops when you close Cerberus;
+off, it stays stopped. It switches Cerberus's own SearXNG, and a Docker one
+named `searxng` where Docker works without `sudo` (Docker Desktop, or Linux
+in the `docker` group). Otherwise it shows the `docker` command to run. If the engine fails, you still get an answer with a note saying why.
 
 Pages are read as text only; nothing on them runs. Cerberus never opens
 addresses on your computer or home network, checks this again after every
@@ -267,7 +293,7 @@ see each step while it works, and Stop works at every step. The finished
 report is saved as a Markdown document (with a Sources list of links) in the
 chat's project, or in All chats; **Open report** opens it in the editor.
 
-It needs SearXNG (see Web search). The model you selected plans and writes,
+It needs web search (see Web search). The model you selected plans and writes,
 so a larger model plans better searches and cites more reliably. On a CPU a
 report takes one to a few minutes. The model gets no tools that change
 anything: the code runs the steps, the model only writes the plan and report.

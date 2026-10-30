@@ -100,8 +100,15 @@ CHAT_SEARCH_RESULTS = 4  # memory mode: how many old chat messages to show the m
 
 PROJECT_NOTES_MAX_CHARS = 6000  # the most project notes that go into one prompt
 
-# ---------- Web search (SearXNG) ----------
+# ---------- Web search (websearch.py) ----------
 
+# The engines you can choose in Settings, and how they are shown.
+WEB_ENGINES = {
+    "searxng": "SearXNG",
+    "duckduckgo": "DuckDuckGo",
+    "brave": "Brave Search",
+    "tavily": "Tavily",
+}
 WEB_RESULTS = 5  # how many search results to keep
 WEB_SEARCH_TIMEOUT = 15  # seconds; SearXNG waits for several engines
 WEB_PAGE_TIMEOUT = 10  # seconds for one page, redirects included

@@ -36,7 +36,7 @@ from cerberus.core.config import (
 from cerberus.search.websearch import WebError
 
 # Some sites refuse the default "python-httpx" name, so we say who we are.
-USER_AGENT = "Mozilla/5.0 (compatible; Cerberus; private local assistant)"
+USER_AGENT = websearch.USER_AGENT
 READABLE = ("text/html", "application/xhtml+xml", "text/plain")
 
 

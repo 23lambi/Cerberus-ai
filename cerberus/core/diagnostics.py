@@ -48,7 +48,7 @@ async def report(model=""):
         f"Ollama: {'version ' + ollama['version'] if ollama['running'] else 'not running'}",
         f"Chat models available: {len(state['chat_models'])}",
         f"Chosen model: {model}",
-        f"Web search: {state['searxng']['status']}",
+        f"Web search: {state['web']['name']}, {state['web']['status']}",
         "",
         f"Last {LOG_LINES} lines of the log:",
         log_tail(manager),

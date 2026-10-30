@@ -184,7 +184,8 @@ settings stay in your data folder.
 
 Other OpenAI-compatible servers work too. Image and tool support depends on the
 engine and model. Cerberus can start its managed llama.cpp server or install its
-own Ollama. Optional web search and Research use SearXNG.
+own Ollama. Optional web search and Research use SearXNG (Cerberus can install
+it for you), DuckDuckGo, Brave Search or Tavily.
 
 In the app, open **Models** to download models, connect to a running local app,
 or open a model's **Settings**. Choose **Use in chat** to select a model.

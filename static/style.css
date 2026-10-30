@@ -1909,6 +1909,51 @@ dialog .dialog-close:hover {
   margin-top: 12px;
 }
 
+/* Web search (settings.js webSearchFields): the engine's hint, its key
+   link, and room before the Save & test button below. */
+.web-fields .hint {
+  margin-top: 6px;
+}
+
+.web-fields a {
+  display: inline-block;
+}
+
+.web-fields + button {
+  margin-top: 12px;
+}
+
+/* SearXNG's on/off switch (settings.js searxngSwitch): text left, switch right. */
+.searxng-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.searxng-switch-title {
+  font-weight: 600;
+}
+
+/* SearXNG in the Setup window (setup.js searxngPanel): each button with
+   its explanation under it, a little room between the choices. */
+.searxng-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.searxng-panel > .hint + button {
+  margin-top: 8px;
+}
+
+.searxng-panel .setup-disclosure {
+  margin-top: 4px;
+}
+
 /* A greyed-out dropdown while its feature is off. */
 .setting-card select:disabled {
   opacity: 0.45;

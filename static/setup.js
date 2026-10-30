@@ -59,7 +59,7 @@ function drawSetupStep() {
   if (step === 1) setupBody.appendChild(modelsStep(state));
   if (step === 2) {
     setupBody.appendChild(helloStep(state));
-    const optional = setupDisclosure("Optional · Web search", state.searxng.status === "ok" ? "Connected" : "Set up later");
+    const optional = setupDisclosure("Optional · Web search", webReady(state.web) ? state.web.name : "Set up later");
     optional.body.appendChild(searchStep(state));
     setupBody.appendChild(optional.root);
   }
@@ -590,48 +590,151 @@ async function installModel(card, name) {
   await renderSetup();
 }
 
-// ---------- 3. Web search (SearXNG) ----------
+// ---------- 3. Web search ----------
 
+// What the status from /setup/status means ({name} = the chosen engine).
 const SEARCH_STATUS = {
-  ok: "SearXNG answers. Web and Research can search.",
+  ok: "{name} answers. Web and Research can search.",
+  ready: "{name} is chosen. Press Save & test to try a search.",
+  no_key: "{name} needs an API key.",
+  off: "SearXNG is switched off. Switch it on below, or choose another engine.",
   json_off: "SearXNG runs, but refuses to answer in JSON, which Cerberus needs.",
-  offline: "Web search is not connected yet. It uses a separate app called SearXNG.",
+  offline: "SearXNG isn't reachable. Set it up below, or choose an engine that needs nothing installed.",
 };
+// The last Save & test answer, kept while the window redraws itself.
+let webTestResult = "";
+
+function webReady(search) {
+  return search.status === "ok" || search.status === "ready";
+}
 
 function searchStep(state) {
-  const search = state.searxng;
-  const card = setupStep(null, "Search the web", search.status === "ok", "Ready", "Optional");
+  const search = state.web;
+  const card = setupStep(null, "Search the web", webReady(search), "Ready", "Optional");
   card.appendChild(makeBox("hint", "Add web sources to answers and use Research. You can chat without this."));
-  card.appendChild(makeBox("hint", SEARCH_STATUS[search.status]));
+  card.appendChild(makeBox("hint", SEARCH_STATUS[search.status].replace("{name}", search.name)));
 
-  // The address: change it here, it's saved as a setting.
-  const form = document.createElement("form");
-  form.className = "model-form";
-  const address = document.createElement("input");
-  address.type = "url";
-  address.value = search.url;
-  address.setAttribute("aria-label", "SearXNG address");
-  form.append(setupField("SearXNG server address", address), setupButton("Save & test", () => form.requestSubmit()));
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    await fetch("/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ web_url: address.value.trim() }),
-    });
-    await renderSetup();
-  });
-  card.appendChild(form);
+  // The same fields as in Settings (settings.js).
+  const fields = webSearchFields(search);
+  const result = makeBox("hint", webTestResult);
+  // Another engine chosen: the old answer was about the old one.
+  fields.querySelector("select").addEventListener("change", () => (result.textContent = webTestResult = ""));
+  const test = setupButton("Save & test", async () => {
+    test.disabled = true;
+    await testWebSearch(fields, result);
+    webTestResult = result.textContent;
+    await renderSetup(); // the status and the ✓ follow the saved engine
+  }, true);
+  card.append(fields, test, result);
 
-  if (search.status !== "ok") {
-    card.appendChild(setupButton("Help me set up SearXNG", () => searxngHelp(card, search.status)));
-  }
+  // How to get SearXNG: only while SearXNG is chosen in the list.
+  const panel = searxngPanel(search);
+  const engine = fields.querySelector("select");
+  const showPanel = () => (panel.hidden = engine.value !== "searxng");
+  engine.addEventListener("change", showPanel);
+  showPanel();
+  card.appendChild(panel);
   return card;
 }
 
+// SearXNG: start or remove Cerberus's own copy, or choose how to get one:
+// Cerberus installs it with Python, or you run it with Docker.
+function searxngPanel(search) {
+  const panel = document.createElement("div");
+  panel.className = "searxng-panel";
+  const working = search.web_engine === "searxng" && search.status === "ok";
+  const off = search.web_engine === "searxng" && search.status === "off"; // the switch decides
+
+  if (search.searxng_installed) {
+    if (!working && !off) {
+      panel.append(
+        makeBox("hint", "Cerberus's SearXNG is installed, but not running."),
+        setupButton("Start SearXNG", () => startSearxng(panel), true)
+      );
+    }
+    const more = setupDisclosure("Cerberus's SearXNG", "Installed");
+    more.body.append(
+      makeBox("hint", "It starts and stops together with Cerberus, and only this computer can reach it."),
+      setupButton("Remove it", () => removeSearxng(panel))
+    );
+    panel.appendChild(more.root);
+    return panel;
+  }
+  if (working || off) return panel; // it answers, or you switched it off
+
+  panel.appendChild(makeBox("hint", "Don't have SearXNG yet? Choose how to get it:"));
+
+  const install = setupButton("Install it for me", () => installSearxng(panel), true);
+  panel.append(install, makeBox("hint",
+    "No Docker needed. Cerberus downloads SearXNG (about 180 MB) into its own folder " +
+    "and runs it in the background, only for this computer. Takes a minute or two."));
+  if (search.searxng_windows) {
+    panel.appendChild(makeBox("hint",
+      "On Windows, SearXNG isn't officially supported: installing may work, " +
+      "but Docker or DuckDuckGo are the surer choice."));
+  }
+  if (search.searxng_problem) {
+    install.disabled = true;
+    panel.appendChild(makeBox("hint", search.searxng_problem));
+  }
+
+  panel.append(
+    setupButton("Use Docker instead", () => searxngHelp(panel, search)),
+    makeBox("hint", "If you already use Docker: shows the commands to run.")
+  );
+  return panel;
+}
+
+// Installs SearXNG (cerberus/search/searxng.py) and starts it. The steps
+// stream in like the Ollama download; closing the window cancels.
+async function installSearxng(panel) {
+  setupBusy = true;
+  for (const button of panel.querySelectorAll("button")) button.disabled = true;
+  const row = progressRow(panel);
+  const STEPS = {
+    download: "Downloading SearXNG…",
+    venv: "Making its own Python environment…",
+    packages: "Installing its packages… (a minute or two)",
+    done: "Installed.",
+    starting: "Starting SearXNG…",
+    running: "SearXNG is running.",
+  };
+  try {
+    const last = await streamSteps("/setup/searxng/install", null, row,
+      (step) => (step.step === "error" ? step.text : STEPS[step.step] || ""));
+    if (last && last.step === "error") return; // the text already says why
+  } catch (error) {
+    row.text.textContent = error.message;
+    return;
+  } finally {
+    setupBusy = false;
+  }
+  webTestResult = "";
+  await renderSetup();
+}
+
+async function startSearxng(panel) {
+  const row = progressRow(panel);
+  row.text.textContent = "Starting SearXNG…";
+  const response = await fetch("/setup/searxng/start", { method: "POST" });
+  if (!response.ok) {
+    row.text.textContent = await responseError(response);
+    return;
+  }
+  webTestResult = "";
+  await renderSetup();
+}
+
+async function removeSearxng(panel) {
+  if (!confirm("Remove Cerberus's SearXNG from this computer? You can install it again later.")) return;
+  for (const button of panel.querySelectorAll("button")) button.disabled = true;
+  await fetch("/setup/searxng/remove", { method: "POST" });
+  await renderSetup();
+}
+
 // Writes SearXNG's settings file (never over yours), then shows the
-// commands to start it. Starting Docker needs your password, so you run them.
-async function searxngHelp(card, status) {
+// commands to start it. On Linux Docker needs your password, so you run them.
+async function searxngHelp(card, search) {
   const response = await fetch("/setup/searxng/prepare", { method: "POST" });
   if (!response.ok) {
     card.appendChild(makeBox("hint", await responseError(response)));
@@ -642,8 +745,8 @@ async function searxngHelp(card, status) {
     ? "Created " + prepared.path + " with JSON switched on."
     : "Using your existing " + prepared.path + (prepared.json_on ? "." :
       ": add \"- json\" under search: formats: in it, then restart SearXNG.")));
-  if (status === "json_off") {
-    card.appendChild(commandLine("sudo docker restart searxng"));
+  if (search.status === "json_off") {
+    card.appendChild(commandLine(search.restart_command));
   } else {
     card.appendChild(makeBox("hint", "Then run these in a terminal (Docker must be installed), and press Check again:"));
     for (const command of prepared.commands) card.appendChild(commandLine(command));

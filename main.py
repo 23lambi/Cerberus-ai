@@ -1,6 +1,7 @@
 # The starting point of Cerberus. Run it with:  uvicorn main:app --reload
 # "main:app" means: in the file main.py, use the object called app.
 
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -28,6 +29,7 @@ from cerberus.routes import (
     updates,
 )
 from cerberus.engines import engine, llamacpp
+from cerberus.search import searxng
 
 # Create the tables in cerberus.db if they don't exist yet.
 # This runs once, when the server starts.
@@ -47,12 +49,24 @@ async def lifespan(app):
         await llamacpp.start_saved()
     except llamacpp.EngineError as error:
         print("Cerberus:", error)
+    # ...and so does its own SearXNG (searxng.py), when web search uses it.
+    # create_task: it starts in the background, so the window needn't wait.
+    starting = asyncio.create_task(start_searxng())
     try:
         yield
     finally:
         # Stop only children started by Cerberus.
+        starting.cancel()
         engine.stop()
         llamacpp.stop()
+        searxng.stop_saved()
+
+
+async def start_searxng():
+    try:
+        await searxng.start_saved()
+    except searxng.SearxngError as error:
+        print("Cerberus:", error)
 
 
 app = FastAPI(title="Cerberus", lifespan=lifespan)

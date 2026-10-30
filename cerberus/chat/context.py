@@ -212,7 +212,7 @@ async def prepare(req):
             web_skipped = True
         else:
             try:
-                for page in await web.research(settings.get("web_url"), query):
+                for page in await web.research(query):
                     sources.append({**page, "number": len(sources) + 1})
             except WebError as error:
                 web_error = str(error)

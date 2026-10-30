@@ -25,7 +25,7 @@ RESULTS = {
 def fake_web(monkeypatch, down=False):
     searched, fetched = [], []
 
-    async def search(base_url, query, limit=5):
+    async def search(query, limit=5):
         if down:
             raise WebError("SearXNG can't be reached.")
         searched.append(query)
